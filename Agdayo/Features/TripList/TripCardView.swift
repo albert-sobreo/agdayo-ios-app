@@ -15,7 +15,9 @@ struct TripCardView: View {
                 .padding(.horizontal)
                 .padding(.bottom)
         }
-        .stickerCard(cornerRadius: AppRadius.card, borderColor: theme.borderTint, shadowColor: theme.borderTint)
+        .glassEffect(
+            in: .rect(cornerRadius: AppRadius.card)
+        )
     }
 }
 
@@ -27,13 +29,16 @@ private struct TripCardHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             StatusBadge(status: status)
+
             Text(name)
-                .font(.system(.title2, design: .rounded).weight(.bold))
+                .font(AppFont.matatasOne(26, relativeTo: .title2))
+                .foregroundStyle(
+                    theme.accentColor.mix(with: .black, by: 0.35)
+                )
                 .lineLimit(1)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(theme.headerBackground)
     }
 }
 
@@ -53,7 +58,7 @@ private struct TripCardFooter: View {
             Label(dateRangeText, systemImage: "calendar")
             Label(location, systemImage: "mappin.and.ellipse")
         }
-        .font(.caption.weight(.medium))
+        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
         .foregroundStyle(theme.accentColor)
     }
 }

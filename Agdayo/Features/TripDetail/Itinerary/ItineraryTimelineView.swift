@@ -4,6 +4,7 @@ struct ItineraryTimelineView: View {
     let trip: Trip
 
     @State private var isAddingActivity = false
+    @State private var isGeneratingWithAI = false
 
     private var dayGroups: [DayGroup] {
         let calendar = Calendar.current
@@ -43,15 +44,20 @@ struct ItineraryTimelineView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isAddingActivity = true
+                Menu {
+                    Button("Add Manually", systemImage: "plus") { isAddingActivity = true }
+                    Button("Generate with AI", systemImage: "sparkles") { isGeneratingWithAI = true }
                 } label: {
-                    Label("Add Activity", systemImage: "plus")
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel("Add Activity")
             }
         }
         .sheet(isPresented: $isAddingActivity) {
             ActivityEditSheet(trip: trip)
+        }
+        .sheet(isPresented: $isGeneratingWithAI) {
+            AIGenerateMoreActivitiesView(trip: trip)
         }
     }
 }

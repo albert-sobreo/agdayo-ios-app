@@ -3,6 +3,7 @@ import MapKit
 import SwiftData
 
 struct ActivityDetailView: View {
+    let trip: Trip
     let activity: Activity
     let accentColor: Color
 
@@ -74,10 +75,11 @@ struct ActivityDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More Options")
             }
         }
         .sheet(isPresented: $isEditing) {
-            ActivityEditSheet(trip: activity.trip ?? Trip(name: "", location: "", startDate: .now, endDate: .now), editingActivity: activity)
+            ActivityEditSheet(trip: trip, editingActivity: activity)
         }
         .confirmationDialog("Delete this activity?", isPresented: $isShowingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {

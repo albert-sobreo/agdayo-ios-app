@@ -29,7 +29,7 @@ struct TripMapView: View {
             .mapStyle(mapStyleOption.mapStyle)
             .onAppear(perform: fitAllActivities)
             .overlay(alignment: .topTrailing) {
-                MapStylePicker(selection: $mapStyleOption)
+                MapStylePickerButton(selection: $mapStyleOption)
                     .padding()
             }
 
@@ -61,44 +61,6 @@ struct TripMapView: View {
         selectedActivityID = activity.id
         withAnimation {
             cameraPosition = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 600, longitudinalMeters: 600))
-        }
-    }
-}
-
-private enum MapStyleOption: String, CaseIterable, Identifiable {
-    case standard, imagery, hybrid
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .standard: return "Street"
-        case .imagery: return "Satellite"
-        case .hybrid: return "Hybrid"
-        }
-    }
-
-    var mapStyle: MapStyle {
-        switch self {
-        case .standard: return .standard
-        case .imagery: return .imagery
-        case .hybrid: return .hybrid
-        }
-    }
-}
-
-private struct MapStylePicker: View {
-    @Binding var selection: MapStyleOption
-
-    var body: some View {
-        Menu {
-            ForEach(MapStyleOption.allCases) { option in
-                Button(option.label) { selection = option }
-            }
-        } label: {
-            Image(systemName: "map.fill")
-                .padding(8)
-                .background(.thinMaterial, in: Circle())
         }
     }
 }

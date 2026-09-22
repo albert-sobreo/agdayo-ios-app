@@ -37,5 +37,6 @@ struct MapStylePickerButton: View {
                 .padding(8)
                 .background(.thinMaterial, in: Circle())
         }
+        .accessibilityLabel("Map Style")
     }
 }

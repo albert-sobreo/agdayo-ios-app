@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct ManualTripFormView: View {
-    @Environment(\.dismiss) private var dismiss
+    var onSaved: () -> Void = {}
+
     @Environment(\.modelContext) private var modelContext
 
     @State private var name = ""
@@ -77,7 +78,7 @@ struct ManualTripFormView: View {
             tripDescription: tripDescription
         )
         modelContext.insert(trip)
-        dismiss()
+        onSaved()
     }
 }
 

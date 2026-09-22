@@ -44,12 +44,13 @@ struct PillTag: View {
             }
             Text(text)
         }
-        .font(.caption.weight(.semibold))
+        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(background)
         .foregroundStyle(foreground)
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.pill))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -60,7 +61,7 @@ struct AppButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.bold())
+            .font(AppFont.outfit(17, weight: .bold))
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)

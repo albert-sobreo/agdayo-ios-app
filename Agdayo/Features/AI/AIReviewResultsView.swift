@@ -10,6 +10,9 @@ struct AIReviewResultsView: View {
     let endDate: Date
     let overallBudget: Double
     let currency: String
+    /// When set, generated activities are appended to this trip instead of
+    /// creating a new one (the "Generate More Activities" flow).
+    var existingTrip: Trip?
     var onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -24,6 +27,7 @@ struct AIReviewResultsView: View {
         endDate: Date,
         overallBudget: Double,
         currency: String,
+        existingTrip: Trip? = nil,
         itinerary: GeneratedItinerary,
         onSaved: @escaping () -> Void
     ) {
@@ -34,6 +38,7 @@ struct AIReviewResultsView: View {
         self.endDate = endDate
         self.overallBudget = overallBudget
         self.currency = currency
+        self.existingTrip = existingTrip
         self.onSaved = onSaved
         _drafts = State(initialValue: itinerary.activities.map(ActivityDraft.init))
     }
@@ -64,16 +69,21 @@ struct AIReviewResultsView: View {
     }
 
     private func save() {
-        let trip = Trip(
-            name: tripName,
-            location: location,
-            theme: theme,
-            startDate: startDate,
-            endDate: endDate,
-            overallBudget: overallBudget,
-            currency: currency
-        )
-        modelContext.insert(trip)
+        let trip: Trip
+        if let existingTrip {
+            trip = existingTrip
+        } else {
+            trip = Trip(
+                name: tripName,
+                location: location,
+                theme: theme,
+                startDate: startDate,
+                endDate: endDate,
+                overallBudget: overallBudget,
+                currency: currency
+            )
+            modelContext.insert(trip)
+        }
 
         for draft in drafts where draft.isIncluded {
             let date = draft.date(basedOn: startDate)
@@ -137,6 +147,7 @@ private struct DraftRow: View {
             HStack(alignment: .top, spacing: 10) {
                 Toggle("", isOn: $draft.isIncluded)
                     .labelsHidden()
+                    .accessibilityLabel("Include \(draft.title)")
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: draft.iconName)

@@ -49,7 +49,7 @@ private struct TimelineRail: View {
                     .frame(maxHeight: .infinity)
             }
         }
-        .frame(width: 56)
+        .frame(minWidth: 56)
     }
 }
 

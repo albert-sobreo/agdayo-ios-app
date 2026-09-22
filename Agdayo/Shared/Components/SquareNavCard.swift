@@ -19,9 +19,10 @@ struct SquareNavCard: View {
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.system(.body, design: .rounded).weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding()
-        .frame(width: 128, height: 128, alignment: .leading)
+        .frame(minWidth: 128, minHeight: 128, alignment: .leading)
         .stickerCard(cornerRadius: AppRadius.denseCard)
     }
 }

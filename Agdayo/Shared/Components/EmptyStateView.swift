@@ -12,6 +12,7 @@ struct EmptyStateView: View {
             Image(systemName: iconName)
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(title)
                 .font(.title3.bold())
             Text(message)

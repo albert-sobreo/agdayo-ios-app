@@ -34,17 +34,19 @@ struct TripHeaderView: View {
                     Image(systemName: "gearshape.fill")
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityLabel("Trip Settings")
             }
 
             Text(name)
-                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .font(AppFont.matatasOne(36, relativeTo: .largeTitle))
+                .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
                 .lineLimit(2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Label(location, systemImage: "mappin.and.ellipse")
                 Label(dateRangeText, systemImage: "calendar")
             }
-            .font(.subheadline)
+            .font(AppFont.outfit(15, relativeTo: .subheadline))
             .foregroundStyle(.secondary)
 
             TripPlanningProgressBar(progress: planningProgress, theme: theme)
@@ -66,7 +68,7 @@ private struct TripPlanningProgressBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Planning Progress: \(progress.completed)/\(progress.total)")
-                .font(.caption.weight(.semibold))
+                .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                 .foregroundStyle(.secondary)
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {

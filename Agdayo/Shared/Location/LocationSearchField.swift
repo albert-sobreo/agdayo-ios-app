@@ -46,7 +46,7 @@ struct LocationSearchField: View {
             defer { isResolving = false }
             do {
                 let item = try await model.resolve(completion)
-                onSelect(completion.title, item.location?.coordinate)
+                onSelect(completion.title, item.placemark.coordinate)
             } catch {
                 onSelect(completion.title, nil)
             }

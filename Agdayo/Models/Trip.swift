@@ -96,4 +96,18 @@ final class Trip {
         let end = calendar.startOfDay(for: endDate)
         return max(1, (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
     }
+
+    /// How many of the core planning sections have at least one entry.
+    /// Replaces the web app's inconsistent 5-of-7 progress math with a
+    /// clean, always-in-sync computed value (companions/roles dropped).
+    var planningProgress: (completed: Int, total: Int) {
+        let sections = [
+            !activities.isEmpty,
+            !budgetCategories.isEmpty,
+            !accommodations.isEmpty,
+            !preparationTasks.isEmpty,
+            !transportSegments.isEmpty,
+        ]
+        return (sections.filter { $0 }.count, sections.count)
+    }
 }

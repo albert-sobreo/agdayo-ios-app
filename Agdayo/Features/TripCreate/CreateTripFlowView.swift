@@ -8,7 +8,7 @@ struct CreateTripFlowView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 16) {
                 Text("Plan a New Trip")
-                    .font(.title2.bold())
+                    .font(.system(.title2, design: .rounded).weight(.bold))
                 Text("Start from scratch, or let AI suggest an itinerary you can review and edit.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -18,19 +18,15 @@ struct CreateTripFlowView: View {
                     path.append(.manual)
                 } label: {
                     Label("Create Manually", systemImage: "square.and.pencil")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.appPrimary)
 
                 Button {
                     path.append(.ai)
                 } label: {
                     Label("Generate with AI", systemImage: "sparkles")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                .buttonStyle(.appSecondary)
             }
             .padding()
             .navigationTitle("New Trip")
@@ -43,9 +39,9 @@ struct CreateTripFlowView: View {
             .navigationDestination(for: CreateTripRoute.self) { route in
                 switch route {
                 case .manual:
-                    ManualTripFormView()
+                    ManualTripFormView(onSaved: dismiss.callAsFunction)
                 case .ai:
-                    AIItineraryGenerationView()
+                    AIItineraryGenerationView(onSaved: dismiss.callAsFunction)
                 }
             }
         }

@@ -33,8 +33,7 @@ struct TripDetailView: View {
                     currency: trip.currency,
                     taskCount: trip.preparationTasks.count,
                     transportCount: trip.transportSegments.count,
-                    noteCount: trip.dayNotes.count,
-                    onSelect: { route in path.append(route) }
+                    noteCount: trip.dayNotes.count
                 )
                 .padding(.horizontal)
 
@@ -56,8 +55,6 @@ struct TripDetailView: View {
             TripSettingsView(trip: trip, onDeleted: deleteTrip)
         }
     }
-
-    @State private var path: [TripSectionRoute] = []
 
     @ViewBuilder
     private func destination(for route: TripSectionRoute) -> some View {
