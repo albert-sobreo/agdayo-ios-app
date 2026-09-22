@@ -9,8 +9,26 @@ struct TripCardView: View {
     let status: TripStatus
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Group {
+            if #available(iOS 26, *) {
+                content
+                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
+                    .glassEffect(
+                        .regular.tint(theme.accentColor.opacity(0.10)),
+                        in: .rect(cornerRadius: AppRadius.card)
+                    )
+            } else {
+                content.stickerCard(
+                    cornerRadius: AppRadius.card,
+                    borderColor: theme.accentColor.opacity(0.3),
+                    shadowColor: theme.accentColor.opacity(0.2)
+                )
+            }
+        }
+    }
 
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
             TripCardHeader(
                 name: name,
                 location: location,
@@ -26,13 +44,6 @@ struct TripCardView: View {
             )
             .padding()
         }
-        .clipShape(
-            RoundedRectangle(cornerRadius: AppRadius.card)
-        )
-        .glassEffect(
-            .regular.tint(theme.accentColor.opacity(0.10)),
-            in: .rect(cornerRadius: AppRadius.card)
-        )
     }
 }
 

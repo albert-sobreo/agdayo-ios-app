@@ -8,6 +8,8 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import FirebaseCore
+import GoogleSignIn
 
 struct AppFontModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -24,6 +26,20 @@ extension View {
 
 @main
 struct AgdayoApp: App {
+    /// Lazily-evaluated static, so accessing it below is guaranteed to run
+    /// `FirebaseApp.configure()` exactly once. Needed because stored-property
+    /// default values (like `authService` below) are evaluated before a
+    /// struct's custom `init()` body runs — without this, `AuthService.init()`
+    /// would call `Auth.auth()` before Firebase was configured and crash.
+    private static let firebaseBootstrap: Void = {
+        FirebaseApp.configure()
+    }()
+
+    private let authService: AuthService = {
+        _ = AgdayoApp.firebaseBootstrap
+        return AuthService()
+    }()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Trip.self,
@@ -45,6 +61,9 @@ struct AgdayoApp: App {
     }()
 
     init() {
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        }
         Self.configureNavigationBarAppearance()
     }
 
@@ -53,6 +72,10 @@ struct AgdayoApp: App {
             RootTabView()
                 .appFont()
                 .preferredColorScheme(.light)
+                .environment(authService)
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
         }
         .modelContainer(sharedModelContainer)
     }

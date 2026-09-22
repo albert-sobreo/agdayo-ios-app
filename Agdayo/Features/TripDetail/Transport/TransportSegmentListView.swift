@@ -57,7 +57,15 @@ struct TransportSegmentListView: View {
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(sorted[index])
+            let segment = sorted[index]
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let segmentID = segment.id
+                Task {
+                    try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "transportSegments", docID: segmentID)
+                }
+            }
+            modelContext.delete(segment)
         }
     }
 }

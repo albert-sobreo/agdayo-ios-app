@@ -1,10 +1,12 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct ManualTripFormView: View {
     var onSaved: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
 
     @State private var name = ""
     @State private var location = ""
@@ -37,8 +39,13 @@ struct ManualTripFormView: View {
             }
 
             Section("Dates") {
-                DatePicker("Start", selection: $startDate, in: ...endDate, displayedComponents: .date)
-                DatePicker("End", selection: $endDate, in: startDate..., displayedComponents: .date)
+                DatePicker("Start", selection: $startDate, displayedComponents: .date)
+                    .onChange(of: startDate) { _, newValue in
+                        if newValue > endDate {
+                            endDate = Calendar.current.date(byAdding: .day, value: 5, to: newValue) ?? newValue
+                        }
+                    }
+                DatePicker("End", selection: $endDate, displayedComponents: .date)
             }
 
             Section("Budget") {
@@ -78,6 +85,16 @@ struct ManualTripFormView: View {
             tripDescription: tripDescription
         )
         modelContext.insert(trip)
+        if let uid = authService.firebaseUser?.uid {
+            trip.ownerUID = uid
+            Task {
+                try? await TripMembershipService.createTripRecord(
+                    tripID: trip.id, ownerUID: uid, name: trip.name, location: trip.location,
+                    theme: trip.theme.rawValue, startDate: trip.startDate, endDate: trip.endDate,
+                    overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription
+                )
+            }
+        }
         onSaved()
     }
 }

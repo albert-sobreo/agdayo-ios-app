@@ -8,6 +8,7 @@ struct TripDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isShowingMap = false
     @State private var isShowingSettings = false
+    @State private var syncCoordinator = TripContentSyncCoordinator()
 
     var body: some View {
         ScrollView {
@@ -20,6 +21,7 @@ struct TripDetailView: View {
                     theme: trip.theme,
                     status: trip.status,
                     planningProgress: trip.planningProgress,
+                    members: syncCoordinator.memberProfiles,
                     onViewMap: { isShowingMap = true },
                     onSettings: { isShowingSettings = true }
                 )
@@ -41,6 +43,12 @@ struct TripDetailView: View {
             }
             .padding(.bottom, 24)
         }
+        .background {
+            Image("light-bg")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+        }
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: TripSectionRoute.self) { route in
             destination(for: route)
@@ -52,6 +60,14 @@ struct TripDetailView: View {
         }
         .sheet(isPresented: $isShowingSettings) {
             TripSettingsView(trip: trip, onDeleted: deleteTrip)
+        }
+        .onAppear {
+            if trip.ownerUID != nil {
+                syncCoordinator.start(for: trip, modelContext: modelContext)
+            }
+        }
+        .onDisappear {
+            syncCoordinator.stop()
         }
     }
 
@@ -74,6 +90,12 @@ struct TripDetailView: View {
     }
 
     private func deleteTrip() {
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            Task {
+                try? await TripMembershipService.deleteTripRecord(tripID: tripID)
+            }
+        }
         modelContext.delete(trip)
         isShowingSettings = false
         dismiss()

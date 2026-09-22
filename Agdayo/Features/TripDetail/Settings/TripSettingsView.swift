@@ -68,8 +68,13 @@ struct TripSettingsView: View {
                 }
 
                 Section("Dates") {
-                    DatePicker("Start", selection: $startDate, in: ...endDate, displayedComponents: .date)
-                    DatePicker("End", selection: $endDate, in: startDate..., displayedComponents: .date)
+                    DatePicker("Start", selection: $startDate, displayedComponents: .date)
+                        .onChange(of: startDate) { _, newValue in
+                            if newValue > endDate {
+                                endDate = Calendar.current.date(byAdding: .day, value: 5, to: newValue) ?? newValue
+                            }
+                        }
+                    DatePicker("End", selection: $endDate, displayedComponents: .date)
                 }
 
                 Section("Budget Currency") {
@@ -126,6 +131,24 @@ struct TripSettingsView: View {
         trip.currency = currency
         trip.tripDescription = tripDescription
         trip.updatedAt = .now
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let updatedName = trip.name
+            let updatedLocation = trip.location
+            let updatedTheme = trip.theme.rawValue
+            let updatedStart = trip.startDate
+            let updatedEnd = trip.endDate
+            let updatedBudget = trip.overallBudget
+            let updatedCurrency = trip.currency
+            let updatedDescription = trip.tripDescription
+            Task {
+                try? await TripMembershipService.updateTripRecord(
+                    tripID: tripID, name: updatedName, location: updatedLocation,
+                    theme: updatedTheme, startDate: updatedStart, endDate: updatedEnd,
+                    overallBudget: updatedBudget, currency: updatedCurrency, tripDescription: updatedDescription
+                )
+            }
+        }
         dismiss()
     }
 }

@@ -47,13 +47,23 @@ struct DayNoteEditSheet: View {
     }
 
     private func save() {
-        if let note = editingNote {
+        let note: DayNote
+        if let editingNote {
+            note = editingNote
             note.day = day
             note.title = title.trimmingCharacters(in: .whitespaces)
             note.content = content
         } else {
-            let note = DayNote(day: day, title: title.trimmingCharacters(in: .whitespaces), content: content, trip: trip)
+            note = DayNote(day: day, title: title.trimmingCharacters(in: .whitespaces), content: content, trip: trip)
             modelContext.insert(note)
+        }
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let noteID = note.id
+            let dto = note.dto
+            Task {
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: "dayNotes", docID: noteID, data: dto)
+            }
         }
         dismiss()
     }

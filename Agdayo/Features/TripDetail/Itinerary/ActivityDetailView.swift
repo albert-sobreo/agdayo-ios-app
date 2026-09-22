@@ -83,6 +83,13 @@ struct ActivityDetailView: View {
         }
         .confirmationDialog("Delete this activity?", isPresented: $isShowingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
+                if trip.ownerUID != nil {
+                    let tripID = trip.id
+                    let activityID = activity.id
+                    Task {
+                        try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "activities", docID: activityID)
+                    }
+                }
                 modelContext.delete(activity)
                 dismiss()
             }

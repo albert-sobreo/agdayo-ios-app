@@ -8,6 +8,7 @@ struct TripHeaderView: View {
     let theme: TripTheme
     let status: TripStatus
     let planningProgress: (completed: Int, total: Int)
+    var members: [AppUserProfile] = []
     let onViewMap: () -> Void
     let onSettings: () -> Void
 
@@ -50,10 +51,64 @@ struct TripHeaderView: View {
             .foregroundStyle(.secondary)
 
             TripPlanningProgressBar(progress: planningProgress, theme: theme)
+
+            if !members.isEmpty {
+                MemberAvatarRow(members: members, theme: theme)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(theme.headerBackground)
+    }
+}
+
+private struct MemberAvatarRow: View {
+    let members: [AppUserProfile]
+    let theme: TripTheme
+
+    var body: some View {
+        HStack(spacing: -8) {
+            ForEach(members, id: \.uid) { member in
+                MemberAvatar(profile: member, theme: theme)
+            }
+        }
+    }
+}
+
+private struct MemberAvatar: View {
+    let profile: AppUserProfile
+    let theme: TripTheme
+
+    private var monogram: String {
+        String(profile.displayName.first ?? "?").uppercased()
+    }
+
+    var body: some View {
+        Group {
+            if let photoURL = profile.photoURL, let url = URL(string: photoURL) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    monogramView
+                }
+            } else {
+                monogramView
+            }
+        }
+        .frame(width: 28, height: 28)
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+        .accessibilityLabel(profile.displayName)
+    }
+
+    private var monogramView: some View {
+        Circle()
+            .fill(theme.accentColor)
+            .overlay(
+                Text(monogram)
+                    .font(AppFont.outfit(12, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(.white)
+            )
     }
 }
 

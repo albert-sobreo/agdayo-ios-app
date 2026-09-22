@@ -30,6 +30,22 @@ extension View {
     }
 }
 
+/// Liquid Glass on iOS 26+, falling back to the plain `stickerCard` treatment
+/// on iOS 18–25 (the app's minimum deployment target).
+struct GlassOrStickerCard: ViewModifier {
+    var cornerRadius: CGFloat = AppRadius.denseCard
+
+    func body(content: Content) -> some View {
+        Group {
+            if #available(iOS 26, *) {
+                content.glassEffect(in: .rect(cornerRadius: cornerRadius))
+            } else {
+                content.stickerCard(cornerRadius: cornerRadius)
+            }
+        }
+    }
+}
+
 /// Small rounded-rect pill used for statuses, categories, and metadata tags.
 struct PillTag: View {
     let text: String
@@ -61,16 +77,22 @@ struct AppButtonStyle: ButtonStyle {
     var foreground: Color = .white
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let label = configuration.label
             .font(AppFont.outfit(17, weight: .bold))
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity)
-            .background(background)
             .foregroundStyle(foreground)
-            .clipShape(Capsule())
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+
+        Group {
+            if #available(iOS 26, *) {
+                label.glassEffect(.regular.tint(background).interactive(), in: Capsule())
+            } else {
+                label.background(background).clipShape(Capsule())
+            }
+        }
+        .scaleEffect(configuration.isPressed ? 0.95 : 1)
+        .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

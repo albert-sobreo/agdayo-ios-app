@@ -107,7 +107,9 @@ struct TransportSegmentEditSheet: View {
         let arrivalTime: String? = hasArrivalDetails ? Self.timeString(from: arrivalDateTime) : nil
         let cost = Double(costText) ?? 0
 
-        if let segment = editingSegment {
+        let segment: TransportSegment
+        if let editingSegment {
+            segment = editingSegment
             segment.mode = mode
             segment.departureLocation = departureLocation
             segment.departureDate = departureDate
@@ -121,7 +123,7 @@ struct TransportSegmentEditSheet: View {
             segment.currency = currency
             segment.notes = notes.isEmpty ? nil : notes
         } else {
-            let segment = TransportSegment(
+            segment = TransportSegment(
                 mode: mode,
                 departureLocation: departureLocation,
                 departureDate: departureDate,
@@ -137,6 +139,14 @@ struct TransportSegmentEditSheet: View {
                 trip: trip
             )
             modelContext.insert(segment)
+        }
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let segmentID = segment.id
+            let dto = segment.dto
+            Task {
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: "transportSegments", docID: segmentID, data: dto)
+            }
         }
         dismiss()
     }

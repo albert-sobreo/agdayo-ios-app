@@ -69,7 +69,15 @@ struct DayNoteListView: View {
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(sorted[index])
+            let note = sorted[index]
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let noteID = note.id
+                Task {
+                    try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "dayNotes", docID: noteID)
+                }
+            }
+            modelContext.delete(note)
         }
     }
 }

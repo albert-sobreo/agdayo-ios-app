@@ -47,7 +47,7 @@ struct PreparationChecklistView: View {
                     ForEach(groupedByCategory, id: \.category) { group in
                         Section(group.category) {
                             ForEach(group.tasks) { task in
-                                PreparationTaskRow(task: task)
+                                PreparationTaskRow(task: task, trip: trip)
                             }
                             .onDelete { offsets in delete(tasks: group.tasks, at: offsets) }
                         }
@@ -71,7 +71,15 @@ struct PreparationChecklistView: View {
 
     private func delete(tasks: [PreparationTask], at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(tasks[index])
+            let task = tasks[index]
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let taskID = task.id
+                Task {
+                    try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "preparationTasks", docID: taskID)
+                }
+            }
+            modelContext.delete(task)
         }
     }
 }
@@ -82,10 +90,19 @@ private enum PreparationFilter {
 
 private struct PreparationTaskRow: View {
     @Bindable var task: PreparationTask
+    let trip: Trip
 
     var body: some View {
         Button {
             task.completed.toggle()
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let taskID = task.id
+                let dto = task.dto
+                Task {
+                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "preparationTasks", docID: taskID, data: dto)
+                }
+            }
         } label: {
             HStack {
                 Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")

@@ -89,8 +89,6 @@ private struct ActivityCardContent: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            in: .rect(cornerRadius: AppRadius.smallerCard)
-        )
+        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.smallerCard))
     }
 }

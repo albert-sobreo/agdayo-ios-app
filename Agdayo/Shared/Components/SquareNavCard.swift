@@ -23,8 +23,6 @@ struct SquareNavCard: View {
         }
         .padding()
         .frame(minWidth: 128, minHeight: 128, alignment: .leading)
-        .glassEffect(
-            in: .rect(cornerRadius: AppRadius.card)
-        )
+        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.card))
     }
 }

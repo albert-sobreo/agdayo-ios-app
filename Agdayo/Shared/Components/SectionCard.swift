@@ -12,9 +12,6 @@ struct SectionCard<Content: View>: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            in: .rect(cornerRadius: AppRadius.card)
-        )
-
+        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.card))
     }
 }

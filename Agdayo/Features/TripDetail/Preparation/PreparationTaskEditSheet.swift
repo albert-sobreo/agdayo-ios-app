@@ -56,6 +56,14 @@ struct PreparationTaskEditSheet: View {
             trip: trip
         )
         modelContext.insert(task)
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let taskID = task.id
+            let dto = task.dto
+            Task {
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: "preparationTasks", docID: taskID, data: dto)
+            }
+        }
         dismiss()
     }
 }

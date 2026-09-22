@@ -45,12 +45,22 @@ struct BudgetCategoryEditSheet: View {
 
     private func save() {
         let amount = Double(amountText) ?? 0
-        if let category = editingCategory {
+        let category: BudgetCategory
+        if let editingCategory {
+            category = editingCategory
             category.name = name.trimmingCharacters(in: .whitespaces)
             category.amount = amount
         } else {
-            let category = BudgetCategory(name: name.trimmingCharacters(in: .whitespaces), amount: amount, trip: trip)
+            category = BudgetCategory(name: name.trimmingCharacters(in: .whitespaces), amount: amount, trip: trip)
             modelContext.insert(category)
+        }
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let categoryID = category.id
+            let dto = category.dto
+            Task {
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: "budgetCategories", docID: categoryID, data: dto)
+            }
         }
         dismiss()
     }

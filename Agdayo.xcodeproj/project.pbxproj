@@ -6,6 +6,15 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		90C6BAAB30628F1100AC021B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAA30628F1100AC021B /* FirebaseAuth */; };
+		90C6BAAD30628F1100AC021B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAC30628F1100AC021B /* FirebaseCore */; };
+		90C6BAAF30628F1100AC021B /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAE30628F1100AC021B /* FirebaseDatabase */; };
+		90C6BAB130628F1100AC021B /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAB030628F1100AC021B /* FirebaseFirestore */; };
+		90C6BAB430628F3A00AC021B /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAB330628F3A00AC021B /* GoogleSignIn */; };
+		90C6BAB630628F3A00AC021B /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAB530628F3A00AC021B /* GoogleSignInSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		907161F630621FC500495C61 /* Agdayo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Agdayo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -35,6 +44,12 @@
 		907161F330621FC500495C61 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				90C6BAB430628F3A00AC021B /* GoogleSignIn in Frameworks */,
+				90C6BAAF30628F1100AC021B /* FirebaseDatabase in Frameworks */,
+				90C6BAB130628F1100AC021B /* FirebaseFirestore in Frameworks */,
+				90C6BAB630628F3A00AC021B /* GoogleSignInSwift in Frameworks */,
+				90C6BAAD30628F1100AC021B /* FirebaseCore in Frameworks */,
+				90C6BAAB30628F1100AC021B /* FirebaseAuth in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -73,6 +88,14 @@
 				907161F830621FC500495C61 /* Agdayo */,
 			);
 			name = Agdayo;
+			packageProductDependencies = (
+				90C6BAAA30628F1100AC021B /* FirebaseAuth */,
+				90C6BAAC30628F1100AC021B /* FirebaseCore */,
+				90C6BAAE30628F1100AC021B /* FirebaseDatabase */,
+				90C6BAB030628F1100AC021B /* FirebaseFirestore */,
+				90C6BAB330628F3A00AC021B /* GoogleSignIn */,
+				90C6BAB530628F3A00AC021B /* GoogleSignInSwift */,
+			);
 			productName = Agdayo;
 			productReference = 907161F630621FC500495C61 /* Agdayo.app */;
 			productType = "com.apple.product-type.application";
@@ -101,6 +124,10 @@
 			);
 			mainGroup = 907161ED30621FC500495C61;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				90C6BAB230628F3A00AC021B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 907161F730621FC500495C61 /* Products */;
 			projectDirPath = "";
@@ -250,18 +277,22 @@
 		9071620430621FC600495C61 /* Debug configuration for PBXNativeTarget "Agdayo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = agdayo;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agdayo: Your Travel Companion";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -282,18 +313,22 @@
 		9071620530621FC600495C61 /* Release configuration for PBXNativeTarget "Agdayo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = agdayo;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Agdayo: Your Travel Companion";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -331,6 +366,58 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.19.2;
+			};
+		};
+		90C6BAB230628F3A00AC021B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		90C6BAAA30628F1100AC021B /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		90C6BAAC30628F1100AC021B /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		90C6BAAE30628F1100AC021B /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		90C6BAB030628F1100AC021B /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAA930628F1100AC021B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		90C6BAB330628F3A00AC021B /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAB230628F3A00AC021B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		90C6BAB530628F3A00AC021B /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 90C6BAB230628F3A00AC021B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 907161EE30621FC500495C61 /* Project object */;
 	validationLevel = 1;

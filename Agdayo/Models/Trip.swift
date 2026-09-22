@@ -31,6 +31,12 @@ final class Trip {
     var createdAt: Date
     var updatedAt: Date
 
+    /// Firebase UID of the signed-in user who created this trip, if any.
+    /// `nil` for trips created while signed out — those stay local-only until
+    /// backfilled on a later sign-in. `Trip.id` doubles as the Firestore
+    /// document ID once a membership record exists.
+    var ownerUID: String?
+
     @Relationship(deleteRule: .cascade, inverse: \Activity.trip)
     var activities: [Activity] = []
 

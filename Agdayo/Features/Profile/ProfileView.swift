@@ -1,8 +1,11 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
-/// Local-only personalization profile — no accounts, no sync. A singleton
-/// UserProfile row is lazily created on first appear if none exists yet.
+/// The local preferences form (fullName/homeRegion/vacation types) is
+/// unrelated to the account below — it stays local-only regardless of
+/// sign-in state. A singleton UserProfile row is lazily created on first
+/// appear if none exists yet.
 struct ProfileView: View {
     @Query private var profiles: [UserProfile]
     @Environment(\.modelContext) private var modelContext
@@ -26,9 +29,16 @@ struct ProfileView: View {
 
 private struct ProfileForm: View {
     @Bindable var profile: UserProfile
+    @Environment(AuthService.self) private var authService
+    @State private var appUserProfile: AppUserProfile?
+    @State private var isPresentingSignIn = false
 
     var body: some View {
         Form {
+            Section("Account") {
+                accountSectionContent
+            }
+
             Section("About You") {
                 TextField("Full Name", text: $profile.fullName)
                 TextField("Home Region", text: $profile.homeRegion)
@@ -58,6 +68,48 @@ private struct ProfileForm: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+        .sheet(isPresented: $isPresentingSignIn) {
+            SignInView()
+        }
+        .task(id: authService.isSignedIn) {
+            guard authService.isSignedIn, let uid = authService.firebaseUser?.uid else {
+                appUserProfile = nil
+                return
+            }
+            appUserProfile = try? await UserDirectoryService.fetchProfile(uid: uid)
+        }
+    }
+
+    @ViewBuilder
+    private var accountSectionContent: some View {
+        if authService.isSignedIn {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(appUserProfile?.displayName ?? authService.firebaseUser?.displayName ?? "Signed in")
+                    .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                if let email = appUserProfile?.email ?? authService.firebaseUser?.email {
+                    Text(email)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Button("Sign Out", role: .destructive) {
+                try? authService.signOut()
+                appUserProfile = nil
+            }
+        } else {
+            Button {
+                isPresentingSignIn = true
+            } label: {
+                HStack {
+                    Text("Sign In")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
         }
     }
 

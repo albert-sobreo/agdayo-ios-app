@@ -57,7 +57,15 @@ struct AccommodationListView: View {
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(sorted[index])
+            let accommodation = sorted[index]
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let accommodationID = accommodation.id
+                Task {
+                    try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "accommodations", docID: accommodationID)
+                }
+            }
+            modelContext.delete(accommodation)
         }
     }
 }

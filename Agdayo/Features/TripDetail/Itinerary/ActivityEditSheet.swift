@@ -101,7 +101,9 @@ struct ActivityEditSheet: View {
 
     private func save() {
         let cost = Double(costText)
-        if let activity = editingActivity {
+        let activity: Activity
+        if let editingActivity {
+            activity = editingActivity
             activity.title = title.trimmingCharacters(in: .whitespaces)
             activity.location = location
             activity.latitude = latitude
@@ -113,7 +115,7 @@ struct ActivityEditSheet: View {
             activity.activityDescription = activityDescription
             activity.iconName = iconName
         } else {
-            let activity = Activity(
+            activity = Activity(
                 title: title.trimmingCharacters(in: .whitespaces),
                 activityDescription: activityDescription,
                 location: location,
@@ -128,6 +130,17 @@ struct ActivityEditSheet: View {
             )
             modelContext.insert(activity)
         }
+        pushIfShared(activity)
         dismiss()
+    }
+
+    private func pushIfShared(_ activity: Activity) {
+        guard trip.ownerUID != nil else { return }
+        let tripID = trip.id
+        let activityID = activity.id
+        let dto = activity.dto
+        Task {
+            try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: activityID, data: dto)
+        }
     }
 }

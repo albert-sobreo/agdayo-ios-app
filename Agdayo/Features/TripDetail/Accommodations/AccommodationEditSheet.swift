@@ -79,7 +79,9 @@ struct AccommodationEditSheet: View {
     private func save() {
         let checkIn = Self.timeString(from: checkInTime)
         let checkOut = Self.timeString(from: checkOutTime)
-        if let accommodation = editingAccommodation {
+        let accommodation: Accommodation
+        if let editingAccommodation {
+            accommodation = editingAccommodation
             accommodation.name = name.trimmingCharacters(in: .whitespaces)
             accommodation.type = type
             accommodation.location = location
@@ -90,7 +92,7 @@ struct AccommodationEditSheet: View {
             accommodation.startDate = startDate
             accommodation.endDate = endDate
         } else {
-            let accommodation = Accommodation(
+            accommodation = Accommodation(
                 name: name.trimmingCharacters(in: .whitespaces),
                 type: type,
                 location: location,
@@ -103,6 +105,14 @@ struct AccommodationEditSheet: View {
                 trip: trip
             )
             modelContext.insert(accommodation)
+        }
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let accommodationID = accommodation.id
+            let dto = accommodation.dto
+            Task {
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: "accommodations", docID: accommodationID, data: dto)
+            }
         }
         dismiss()
     }

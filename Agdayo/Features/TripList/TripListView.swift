@@ -1,9 +1,11 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct TripListView: View {
     @Query(sort: \Trip.startDate) private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
     @State private var isPresentingCreateFlow = false
 
     var body: some View {
@@ -44,6 +46,9 @@ struct TripListView: View {
                     .onDelete(perform: deleteTrips)
                 }
                 .listStyle(.plain)
+                .refreshable {
+                    await refresh()
+                }
             }
         }
         .navigationTitle("My Trips")
@@ -61,7 +66,14 @@ struct TripListView: View {
             }
         }
         .sheet(isPresented: $isPresentingCreateFlow) {
-            CreateTripFlowView()
+            NavigationStack {
+                ManualTripFormView(onSaved: { isPresentingCreateFlow = false })
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { isPresentingCreateFlow = false }
+                        }
+                    }
+            }
         }
     }
 
@@ -69,5 +81,10 @@ struct TripListView: View {
         for index in offsets {
             modelContext.delete(trips[index])
         }
+    }
+
+    private func refresh() async {
+        guard let uid = authService.firebaseUser?.uid else { return }
+        await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
     }
 }

@@ -63,7 +63,15 @@ struct BudgetOverviewView: View {
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(trip.budgetCategories[index])
+            let category = trip.budgetCategories[index]
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let categoryID = category.id
+                Task {
+                    try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "budgetCategories", docID: categoryID)
+                }
+            }
+            modelContext.delete(category)
         }
     }
 }
@@ -101,6 +109,24 @@ private struct OverallBudgetEditSheet: View {
                     Button("Save") {
                         trip.overallBudget = Double(overallBudgetText) ?? 0
                         trip.currency = currency
+                        if trip.ownerUID != nil {
+                            let tripID = trip.id
+                            let name = trip.name
+                            let location = trip.location
+                            let theme = trip.theme.rawValue
+                            let startDate = trip.startDate
+                            let endDate = trip.endDate
+                            let overallBudget = trip.overallBudget
+                            let currency = trip.currency
+                            let tripDescription = trip.tripDescription
+                            Task {
+                                try? await TripMembershipService.updateTripRecord(
+                                    tripID: tripID, name: name, location: location,
+                                    theme: theme, startDate: startDate, endDate: endDate,
+                                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription
+                                )
+                            }
+                        }
                         dismiss()
                     }
                 }
