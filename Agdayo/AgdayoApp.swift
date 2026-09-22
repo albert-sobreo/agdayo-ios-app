@@ -9,6 +9,19 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+struct AppFontModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(AppFont.outfit(16, relativeTo: .body))
+    }
+}
+
+extension View {
+    func appFont() -> some View {
+        modifier(AppFontModifier())
+    }
+}
+
 @main
 struct AgdayoApp: App {
     var sharedModelContainer: ModelContainer = {
@@ -38,6 +51,8 @@ struct AgdayoApp: App {
     var body: some Scene {
         WindowGroup {
             RootTabView()
+                .appFont()
+                .preferredColorScheme(.light)
         }
         .modelContainer(sharedModelContainer)
     }

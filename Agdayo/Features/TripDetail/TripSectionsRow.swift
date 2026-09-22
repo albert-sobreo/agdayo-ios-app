@@ -42,6 +42,8 @@ struct TripSectionsRow: View {
                     SquareNavCard(iconName: "note.text", subtitle: "\(noteCount) Notes", title: "Day Notes", accentColor: accentColor)
                 }
             }
+            .padding(.horizontal)
+            .padding(.vertical, 24)
         }
         .buttonStyle(.plain)
     }

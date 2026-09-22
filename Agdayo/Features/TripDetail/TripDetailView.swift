@@ -35,7 +35,6 @@ struct TripDetailView: View {
                     transportCount: trip.transportSegments.count,
                     noteCount: trip.dayNotes.count
                 )
-                .padding(.horizontal)
 
                 UpcomingActivitiesPreview(trip: trip)
                     .padding(.horizontal)

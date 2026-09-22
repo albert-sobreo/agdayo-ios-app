@@ -32,13 +32,13 @@ struct TripHeaderView: View {
                 .buttonStyle(.plain)
                 Button(action: onSettings) {
                     Image(systemName: "gearshape.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
                 }
                 .accessibilityLabel("Trip Settings")
             }
 
             Text(name)
-                .font(AppFont.matatasOne(36, relativeTo: .largeTitle))
+                .font(AppFont.outfit(36, weight: .bold, relativeTo: .largeTitle))
                 .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
                 .lineLimit(2)
 

@@ -31,19 +31,28 @@ struct TripListView: View {
                             )
                         }
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowInsets(
+                            EdgeInsets(
+                                top: 6,
+                                leading: 16,
+                                bottom: 6,
+                                trailing: 16
+                            )
+                        )
+                        .listRowBackground(Color.clear)
                     }
                     .onDelete(perform: deleteTrips)
                 }
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("Trips")
+        .navigationTitle("My Trips")
+        .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: Trip.self) { trip in
             TripDetailView(trip: trip)
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     isPresentingCreateFlow = true
                 } label: {

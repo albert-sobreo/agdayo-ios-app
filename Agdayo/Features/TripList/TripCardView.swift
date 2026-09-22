@@ -9,13 +9,28 @@ struct TripCardView: View {
     let status: TripStatus
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            TripCardHeader(name: name, theme: theme, status: status)
-            TripCardFooter(location: location, startDate: startDate, endDate: endDate, theme: theme)
-                .padding(.horizontal)
-                .padding(.bottom)
+        VStack(alignment: .leading, spacing: 0) {
+
+            TripCardHeader(
+                name: name,
+                location: location,
+                theme: theme,
+                status: status
+            )
+
+            TripCardFooter(
+                location: location,
+                startDate: startDate,
+                endDate: endDate,
+                theme: theme
+            )
+            .padding()
         }
+        .clipShape(
+            RoundedRectangle(cornerRadius: AppRadius.card)
+        )
         .glassEffect(
+            .regular.tint(theme.accentColor.opacity(0.10)),
             in: .rect(cornerRadius: AppRadius.card)
         )
     }
@@ -23,6 +38,7 @@ struct TripCardView: View {
 
 private struct TripCardHeader: View {
     let name: String
+    let location: String
     let theme: TripTheme
     let status: TripStatus
 
@@ -30,14 +46,23 @@ private struct TripCardHeader: View {
         VStack(alignment: .leading, spacing: 10) {
             StatusBadge(status: status)
 
-            Text(name)
-                .font(AppFont.matatasOne(26, relativeTo: .title2))
-                .foregroundStyle(
-                    theme.accentColor.mix(with: .black, by: 0.35)
-                )
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(name)
+                    .font(AppFont.outfit(26, weight: .bold, relativeTo: .title2))
+                    .foregroundStyle(
+                        theme.accentColor.mix(with: .black, by: 0.35)
+                    )
+                    .lineLimit(1)
+                Text(location)
+                    .font(AppFont.outfit(14, weight: .regular, relativeTo: .subheadline))
+                    .foregroundStyle(
+                        theme.accentColor.mix(with: .black, by: 0.35)
+                    )
+            }
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.top)
+        .padding(.bottom, 0)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

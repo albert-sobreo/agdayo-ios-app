@@ -8,7 +8,7 @@ struct CreateTripFlowView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 16) {
                 Text("Plan a New Trip")
-                    .font(.system(.title2, design: .rounded).weight(.bold))
+                    .font(AppFont.outfit(24, weight: .bold))
                 Text("Start from scratch, or let AI suggest an itinerary you can review and edit.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

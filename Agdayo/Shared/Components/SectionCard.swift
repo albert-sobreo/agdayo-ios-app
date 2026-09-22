@@ -10,8 +10,11 @@ struct SectionCard<Content: View>: View {
                 .font(.headline)
             content
         }
-        .padding()
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .stickerCard()
+        .glassEffect(
+            in: .rect(cornerRadius: AppRadius.card)
+        )
+
     }
 }

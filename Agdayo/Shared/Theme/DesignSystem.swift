@@ -3,6 +3,7 @@ import SwiftUI
 /// Corner-radius scale matching the web app's dominant Tailwind radii.
 enum AppRadius {
     static let card: CGFloat = 32       // rounded-4xl — big surfaces (trip cards)
+    static let smallerCard: CGFloat = 24 // smaller card radius
     static let denseCard: CGFloat = 16  // rounded-2xl — stat tiles, activity cards
     static let sheet: CGFloat = 24      // rounded-t-3xl — bottom sheets
     static let pill: CGFloat = 6        // rounded-md — tags

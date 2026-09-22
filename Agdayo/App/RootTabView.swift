@@ -21,7 +21,6 @@ struct RootTabView: View {
             }
         }
         .tint(.appPrimary)
-        .fontDesign(.rounded)
     }
 }
 
