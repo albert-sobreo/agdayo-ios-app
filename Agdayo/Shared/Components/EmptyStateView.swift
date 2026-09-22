@@ -14,9 +14,9 @@ struct EmptyStateView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.title3.bold())
+                .font(AppFont.outfit(20, weight:.bold))
             Text(message)
-                .font(.subheadline)
+                .font(AppFont.outfit(14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let actionTitle, let action {
