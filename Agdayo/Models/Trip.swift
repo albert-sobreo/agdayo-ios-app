@@ -1,8 +1,9 @@
+import CoreLocation
 import Foundation
 import SwiftData
 
 enum TripTheme: String, Codable, CaseIterable, Identifiable {
-    case peach, blue, amber, emerald
+    case peach, blue, amber, emerald, violet, teal, rose, slate
 
     var id: String { rawValue }
 
@@ -30,6 +31,8 @@ final class Trip {
     var tripDescription: String
     var createdAt: Date
     var updatedAt: Date
+    var latitude: Double?
+    var longitude: Double?
 
     /// Firebase UID of the signed-in user who created this trip, if any.
     /// `nil` for trips created while signed out — those stay local-only until
@@ -64,7 +67,9 @@ final class Trip {
         endDate: Date,
         overallBudget: Double = 0,
         currency: String = "PHP",
-        tripDescription: String = ""
+        tripDescription: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         self.id = id
         self.name = name
@@ -77,6 +82,13 @@ final class Trip {
         self.tripDescription = tripDescription
         self.createdAt = .now
         self.updatedAt = .now
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
     /// Always computed from dates, never stored, so it can't drift from reality.

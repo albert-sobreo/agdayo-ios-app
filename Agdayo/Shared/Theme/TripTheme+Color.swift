@@ -10,6 +10,10 @@ extension TripTheme {
         case .blue: return Color(hex: 0x0EA5E9)
         case .amber: return Color(hex: 0xF59E0B)
         case .emerald: return Color(hex: 0x10B981)
+        case .violet: return Color(hex: 0x8B5CF6)
+        case .teal: return Color(hex: 0x14B8A6)
+        case .rose: return Color(hex: 0xF43F5E)
+        case .slate: return Color(hex: 0x64748B)
         }
     }
 
@@ -20,6 +24,10 @@ extension TripTheme {
         case .blue: return Color(hex: 0xF0F9FF)
         case .amber: return Color(hex: 0xFFFBEB)
         case .emerald: return Color(hex: 0xECFDF5)
+        case .violet: return Color(hex: 0xF5F3FF)
+        case .teal: return Color(hex: 0xF0FDFA)
+        case .rose: return Color(hex: 0xFFF1F2)
+        case .slate: return Color(hex: 0xF8FAFC)
         }
     }
 
@@ -30,6 +38,10 @@ extension TripTheme {
         case .blue: return Color(hex: 0xBAE6FD)
         case .amber: return Color(hex: 0xFDE68A)
         case .emerald: return Color(hex: 0xA7F3D0)
+        case .violet: return Color(hex: 0xDDD6FE)
+        case .teal: return Color(hex: 0x99F6E4)
+        case .rose: return Color(hex: 0xFECDD3)
+        case .slate: return Color(hex: 0xE2E8F0)
         }
     }
 
@@ -40,6 +52,10 @@ extension TripTheme {
         case .blue: return Color(hex: 0xE0F2FE)
         case .amber: return Color(hex: 0xFEF3C7)
         case .emerald: return Color(hex: 0xD1FAE5)
+        case .violet: return Color(hex: 0xEDE9FE)
+        case .teal: return Color(hex: 0xCCFBF1)
+        case .rose: return Color(hex: 0xFFE4E6)
+        case .slate: return Color(hex: 0xF1F5F9)
         }
     }
 
@@ -50,6 +66,10 @@ extension TripTheme {
         case .blue: return Color(hex: 0xE0F2FE)
         case .amber: return Color(hex: 0xFEF3C7)
         case .emerald: return Color(hex: 0xE6FAF2)
+        case .violet: return Color(hex: 0xEDE9FE)
+        case .teal: return Color(hex: 0xCCFBF1)
+        case .rose: return Color(hex: 0xFFE4E6)
+        case .slate: return Color(hex: 0xF1F5F9)
         }
     }
 }

@@ -8,9 +8,12 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.1015175012900-7i7j6mhgis5se1th71bg9v5hidart4qv</string>
+				<string>agdayo</string>
 			</array>
 		</dict>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Agdayo uses your location to show trip members where you are on the map when you choose to share it.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Outfit-Regular.ttf</string>

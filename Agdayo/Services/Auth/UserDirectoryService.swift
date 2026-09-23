@@ -14,26 +14,28 @@ enum UserDirectoryService {
         return try snapshot.data(as: AppUserProfile.self)
     }
 
-    /// Creates the profile document on first sign-in, or just bumps
-    /// `updatedAt` on subsequent sign-ins.
+    /// Creates the profile document on first sign-in. On subsequent sign-ins,
+    /// also refreshes `photoURL` (in addition to `updatedAt`) — otherwise an
+    /// account created before a Google photo was attached (or before this
+    /// field existed) would be stuck without one forever, even though
+    /// `FirebaseAuth.User.photoURL` has it every time they sign in.
     static func ensureUserDocument(for user: FirebaseAuth.User) async throws {
         let documentRef = usersCollection.document(user.uid)
         let snapshot = try await documentRef.getDocument()
 
+        var data: [String: Any] = ["updatedAt": FieldValue.serverTimestamp()]
+        if let photoURL = user.photoURL?.absoluteString {
+            data["photoURL"] = photoURL
+        }
+
         if snapshot.exists {
-            try await documentRef.updateData(["updatedAt": FieldValue.serverTimestamp()])
+            try await documentRef.updateData(data)
         } else {
-            var profile: [String: Any] = [
-                "uid": user.uid,
-                "displayName": user.displayName ?? user.email ?? "Traveler",
-                "email": user.email ?? "",
-                "createdAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp(),
-            ]
-            if let photoURL = user.photoURL?.absoluteString {
-                profile["photoURL"] = photoURL
-            }
-            try await documentRef.setData(profile)
+            data["uid"] = user.uid
+            data["displayName"] = user.displayName ?? user.email ?? "Traveler"
+            data["email"] = user.email ?? ""
+            data["createdAt"] = FieldValue.serverTimestamp()
+            try await documentRef.setData(data)
         }
     }
 }

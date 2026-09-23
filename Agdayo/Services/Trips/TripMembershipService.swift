@@ -1,11 +1,50 @@
 import FirebaseFirestore
 
+enum TripJoinError: LocalizedError {
+    case invalidCode
+    case tripNotFound
+    case alreadyMember
+    case notSignedIn
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidCode:
+            return "The invitation code is invalid or does not exist."
+        case .tripNotFound:
+            return "The trip associated with this code could not be found."
+        case .alreadyMember:
+            return "You are already a member of this trip."
+        case .notSignedIn:
+            return "Please sign in to join a trip."
+        }
+    }
+}
+
 /// Direct client-SDK reads/writes to `trips/{tripID}` + its `members`
 /// subcollection — the local `Trip.id` doubles as the Firestore document ID.
 /// Mirrors the pattern from `UserDirectoryService`.
 enum TripMembershipService {
     private static var tripsCollection: CollectionReference {
         Firestore.firestore().collection("trips")
+    }
+
+    private static var joinCodesCollection: CollectionReference {
+        Firestore.firestore().collection("tripJoinCodes")
+    }
+
+    static func generateRandomCode(length: Int = 6) -> String {
+        let chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        return String((0..<length).compactMap { _ in chars.randomElement() })
+    }
+
+    static func extractJoinCode(from input: String) -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed),
+           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let codeItem = components.queryItems?.first(where: { $0.name.lowercased() == "code" })?.value {
+            return codeItem.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        }
+        return trimmed.uppercased()
     }
 
     static func createTripRecord(
@@ -18,10 +57,13 @@ enum TripMembershipService {
         endDate: Date,
         overallBudget: Double,
         currency: String,
-        tripDescription: String
+        tripDescription: String,
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) async throws {
+        let joinCode = generateRandomCode()
         let tripRef = tripsCollection.document(tripID.uuidString)
-        try await tripRef.setData([
+        var data: [String: Any] = [
             "ownerUID": ownerUID,
             "name": name,
             "location": location,
@@ -31,17 +73,25 @@ enum TripMembershipService {
             "overallBudget": overallBudget,
             "currency": currency,
             "tripDescription": tripDescription,
+            "joinCode": joinCode,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
+        ]
+        if let latitude { data["latitude"] = latitude }
+        if let longitude { data["longitude"] = longitude }
+        try await tripRef.setData(data)
+        try await joinCodesCollection.document(joinCode).setData([
+            "tripID": tripID.uuidString,
+            "createdAt": FieldValue.serverTimestamp(),
         ])
         try await tripRef.collection("members").document(ownerUID).setData([
             "uid": ownerUID,
             "role": "owner",
             "joinedAt": FieldValue.serverTimestamp(),
         ])
-        try await Firestore.firestore().collection("users").document(ownerUID).updateData([
+        try await Firestore.firestore().collection("users").document(ownerUID).setData([
             "memberOfTripIDs": FieldValue.arrayUnion([tripID.uuidString])
-        ])
+        ], merge: true)
     }
 
     static func updateTripRecord(
@@ -53,9 +103,11 @@ enum TripMembershipService {
         endDate: Date,
         overallBudget: Double,
         currency: String,
-        tripDescription: String
+        tripDescription: String,
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) async throws {
-        try await tripsCollection.document(tripID.uuidString).updateData([
+        var data: [String: Any] = [
             "name": name,
             "location": location,
             "theme": theme,
@@ -65,16 +117,87 @@ enum TripMembershipService {
             "currency": currency,
             "tripDescription": tripDescription,
             "updatedAt": FieldValue.serverTimestamp(),
-        ])
+        ]
+        if let latitude { data["latitude"] = latitude }
+        if let longitude { data["longitude"] = longitude }
+        try await tripsCollection.document(tripID.uuidString).updateData(data)
     }
 
     static func deleteTripRecord(tripID: UUID) async throws {
         let tripRef = tripsCollection.document(tripID.uuidString)
+        if let data = try? await tripRef.getDocument().data(),
+           let joinCode = data["joinCode"] as? String {
+            try? await joinCodesCollection.document(joinCode).delete()
+        }
         let members = try await tripRef.collection("members").getDocuments()
         for member in members.documents {
             try await member.reference.delete()
         }
         try await tripRef.delete()
+    }
+
+    /// Finds or creates a 6-character join code for a trip.
+    static func getOrCreateJoinCode(for tripID: UUID) async throws -> String {
+        let tripRef = tripsCollection.document(tripID.uuidString)
+        let snapshot = try await tripRef.getDocument()
+        if let existing = snapshot.data()?["joinCode"] as? String, !existing.isEmpty {
+            return existing
+        }
+
+        let code = generateRandomCode()
+        try await joinCodesCollection.document(code).setData([
+            "tripID": tripID.uuidString,
+            "createdAt": FieldValue.serverTimestamp(),
+        ])
+        try await tripRef.updateData([
+            "joinCode": code,
+            "updatedAt": FieldValue.serverTimestamp(),
+        ])
+        return code
+    }
+
+    /// Validates an invite code and adds the user to the trip members list.
+    static func joinTrip(code: String, uid: String) async throws -> UUID {
+        let normalizedCode = extractJoinCode(from: code)
+        guard !normalizedCode.isEmpty else {
+            throw TripJoinError.invalidCode
+        }
+
+        let codeDoc = try await joinCodesCollection.document(normalizedCode).getDocument()
+        guard codeDoc.exists, let tripIDString = codeDoc.data()?["tripID"] as? String, let tripID = UUID(uuidString: tripIDString) else {
+            throw TripJoinError.invalidCode
+        }
+
+        let tripRef = tripsCollection.document(tripIDString)
+        let tripDoc = try await tripRef.getDocument()
+        guard tripDoc.exists else {
+            throw TripJoinError.tripNotFound
+        }
+
+        let existingTripIDs = (try? await fetchMemberTripIDs(uid: uid)) ?? []
+        if existingTripIDs.contains(tripID) {
+            throw TripJoinError.alreadyMember
+        }
+
+        try await tripRef.collection("members").document(uid).setData([
+            "uid": uid,
+            "role": "member",
+            "joinedAt": FieldValue.serverTimestamp(),
+        ])
+        try await Firestore.firestore().collection("users").document(uid).setData([
+            "memberOfTripIDs": FieldValue.arrayUnion([tripIDString])
+        ], merge: true)
+
+        return tripID
+    }
+
+    /// Removes a member from a trip (either owner kicks or member leaves).
+    static func removeMember(tripID: UUID, uid: String) async throws {
+        let tripRef = tripsCollection.document(tripID.uuidString)
+        try await tripRef.collection("members").document(uid).delete()
+        try? await Firestore.firestore().collection("users").document(uid).setData([
+            "memberOfTripIDs": FieldValue.arrayRemove([tripID.uuidString])
+        ], merge: true)
     }
 
     /// Finds every trip a UID is a member of, via the denormalized

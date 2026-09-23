@@ -22,6 +22,15 @@ enum MapStyleOption: String, CaseIterable, Identifiable {
         case .hybrid: return .hybrid
         }
     }
+
+    /// For `MKMapSnapshotter.Options`, which predates the SwiftUI `MapStyle` type.
+    var mkMapType: MKMapType {
+        switch self {
+        case .standard: return .standard
+        case .imagery: return .satellite
+        case .hybrid: return .hybrid
+        }
+    }
 }
 
 struct MapStylePickerButton: View {

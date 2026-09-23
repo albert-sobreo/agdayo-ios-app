@@ -18,38 +18,21 @@ enum TripDiscoveryService {
                 trip.overallBudget = fields.overallBudget
                 trip.currency = fields.currency
                 trip.tripDescription = fields.tripDescription
+                if let latitude = fields.latitude { trip.latitude = latitude }
+                if let longitude = fields.longitude { trip.longitude = longitude }
             }
         }
 
         let existingIDs = Set(localTrips.map(\.id))
-        print("[TripDiscovery] uid=\(uid) existingLocalTripIDs=\(existingIDs)")
-        let tripIDs: [UUID]
-        do {
-            tripIDs = try await TripMembershipService.fetchMemberTripIDs(uid: uid)
-            print("[TripDiscovery] fetchMemberTripIDs returned: \(tripIDs)")
-        } catch {
-            print("[TripDiscovery] fetchMemberTripIDs FAILED: \(error)")
-            return
-        }
+        guard let tripIDs = try? await TripMembershipService.fetchMemberTripIDs(uid: uid) else { return }
         for tripID in tripIDs where !existingIDs.contains(tripID) {
-            print("[TripDiscovery] materializing tripID=\(tripID)")
             await materializeTrip(tripID: tripID, modelContext: modelContext)
         }
     }
 
-    private static func materializeTrip(tripID: UUID, modelContext: ModelContext) async {
-        let fields: TripFieldsDTO
-        do {
-            guard let fetched = try await TripMembershipService.fetchTripFields(tripID: tripID) else {
-                print("[TripDiscovery] fetchTripFields returned nil (doc doesn't exist) for \(tripID)")
-                return
-            }
-            fields = fetched
-            print("[TripDiscovery] fetchTripFields succeeded for \(tripID): name=\(fields.name)")
-        } catch {
-            print("[TripDiscovery] fetchTripFields FAILED for \(tripID): \(error)")
-            return
-        }
+    @discardableResult
+    static func materializeTrip(tripID: UUID, modelContext: ModelContext) async -> Trip? {
+        guard let fields = try? await TripMembershipService.fetchTripFields(tripID: tripID) else { return nil }
         let trip = Trip(
             id: tripID,
             name: fields.name,
@@ -59,7 +42,9 @@ enum TripDiscoveryService {
             endDate: fields.endDate,
             overallBudget: fields.overallBudget,
             currency: fields.currency,
-            tripDescription: fields.tripDescription
+            tripDescription: fields.tripDescription,
+            latitude: fields.latitude,
+            longitude: fields.longitude
         )
         trip.ownerUID = fields.ownerUID
         modelContext.insert(trip)
@@ -100,5 +85,7 @@ enum TripDiscoveryService {
                 modelContext.insert(DayNote(id: uuid, dto: dto, trip: trip))
             }
         }
+
+        return trip
     }
 }

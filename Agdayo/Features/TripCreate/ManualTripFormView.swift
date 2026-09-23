@@ -10,6 +10,8 @@ struct ManualTripFormView: View {
 
     @State private var name = ""
     @State private var location = ""
+    @State private var latitude: Double?
+    @State private var longitude: Double?
     @State private var theme: TripTheme = .peach
     @State private var startDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .day, value: 3, to: .now) ?? .now
@@ -30,7 +32,11 @@ struct ManualTripFormView: View {
                 LocationSearchField(
                     placeholder: "Destination",
                     text: $location,
-                    onSelect: { name, _ in location = name }
+                    onSelect: { name, coordinate in
+                        location = name
+                        latitude = coordinate?.latitude
+                        longitude = coordinate?.longitude
+                    }
                 )
             }
 
@@ -82,7 +88,9 @@ struct ManualTripFormView: View {
             endDate: endDate,
             overallBudget: Double(overallBudget) ?? 0,
             currency: currency,
-            tripDescription: tripDescription
+            tripDescription: tripDescription,
+            latitude: latitude,
+            longitude: longitude
         )
         modelContext.insert(trip)
         if let uid = authService.firebaseUser?.uid {
@@ -91,7 +99,8 @@ struct ManualTripFormView: View {
                 try? await TripMembershipService.createTripRecord(
                     tripID: trip.id, ownerUID: uid, name: trip.name, location: trip.location,
                     theme: trip.theme.rawValue, startDate: trip.startDate, endDate: trip.endDate,
-                    overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription
+                    overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription,
+                    latitude: trip.latitude, longitude: trip.longitude
                 )
             }
         }
@@ -103,25 +112,27 @@ private struct ThemeSwatchPicker: View {
     @Binding var selectedTheme: TripTheme
 
     var body: some View {
-        HStack(spacing: 16) {
-            ForEach(TripTheme.allCases) { theme in
-                Button {
-                    selectedTheme = theme
-                } label: {
-                    Circle()
-                        .fill(theme.accentColor)
-                        .frame(width: 32, height: 32)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(.primary, lineWidth: selectedTheme == theme ? 2 : 0)
-                                .padding(-3)
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                ForEach(TripTheme.allCases) { theme in
+                    Button {
+                        selectedTheme = theme
+                    } label: {
+                        Circle()
+                            .fill(theme.accentColor)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(.primary, lineWidth: selectedTheme == theme ? 2 : 0)
+                                    .padding(-3)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(theme.displayName)
+                    .accessibilityAddTraits(selectedTheme == theme ? [.isSelected] : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(theme.displayName)
-                .accessibilityAddTraits(selectedTheme == theme ? [.isSelected] : [])
             }
+            .padding(.vertical, 4)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

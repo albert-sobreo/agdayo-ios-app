@@ -7,17 +7,29 @@ struct TripListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
     @State private var isPresentingCreateFlow = false
+    @State private var isPresentingJoinFlow = false
 
     var body: some View {
         Group {
             if trips.isEmpty {
-                EmptyStateView(
-                    iconName: "suitcase",
-                    title: "No Trips Yet",
-                    message: "Plan your first trip to get started.",
-                    actionTitle: "Create a Trip"
-                ) {
-                    isPresentingCreateFlow = true
+                VStack(spacing: 16) {
+                    EmptyStateView(
+                        iconName: "suitcase",
+                        title: "No Trips Yet",
+                        message: "Plan your first trip or join a friend's trip with an invite code.",
+                        actionTitle: "Create a Trip"
+                    ) {
+                        isPresentingCreateFlow = true
+                    }
+
+                    Button {
+                        isPresentingJoinFlow = true
+                    } label: {
+                        Label("Join with Code", systemImage: "ticket")
+                            .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color.appPrimary)
                 }
             } else {
                 List {
@@ -58,10 +70,20 @@ struct TripListView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isPresentingCreateFlow = true
+                Menu {
+                    Button {
+                        isPresentingCreateFlow = true
+                    } label: {
+                        Label("Create Trip", systemImage: "plus")
+                    }
+                    Button {
+                        isPresentingJoinFlow = true
+                    } label: {
+                        Label("Join Trip with Code", systemImage: "ticket")
+                    }
                 } label: {
-                    Label("Add Trip", systemImage: "plus")
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
                 }
             }
         }
@@ -74,6 +96,9 @@ struct TripListView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $isPresentingJoinFlow) {
+            JoinTripSheet()
         }
     }
 

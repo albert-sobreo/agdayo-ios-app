@@ -35,7 +35,10 @@ struct SignInView: View {
                     Task { await handleGoogleSignIn() }
                 } label: {
                     HStack {
-                        Image(systemName: "g.circle.fill")
+                        Image("GoogleLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
                         Text("Continue with Google")
                     }
                 }
@@ -54,11 +57,17 @@ struct SignInView: View {
                         .keyboardType(.emailAddress)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.denseCard))
 
                     SecureField("Password", text: $password)
                         .textContentType(mode == .signIn ? .password : .newPassword)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.denseCard))
                 }
 
                 if let errorMessage {

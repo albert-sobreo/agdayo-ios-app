@@ -8,7 +8,7 @@ struct TripMemberDTO: Codable {
 }
 
 struct TripFieldsDTO: Codable {
-    var ownerUID: String
+    var ownerUID: String?
     var name: String
     var location: String
     var theme: String
@@ -17,6 +17,16 @@ struct TripFieldsDTO: Codable {
     var overallBudget: Double
     var currency: String
     var tripDescription: String
+    var joinCode: String?
+    var latitude: Double?
+    var longitude: Double?
+}
+
+struct TripMemberRecord: Identifiable {
+    var id: String { profile.uid }
+    let profile: AppUserProfile
+    let role: String
+    var isOwner: Bool { role.lowercased() == "owner" }
 }
 
 /// Attaches Firestore realtime listeners for one open, shared trip — the
@@ -28,8 +38,19 @@ struct TripFieldsDTO: Codable {
 @MainActor
 final class TripContentSyncCoordinator {
     private(set) var memberProfiles: [AppUserProfile] = []
+    private(set) var memberRoles: [String: String] = [:]
+    private(set) var currentJoinCode: String?
 
     private var listeners: [ListenerRegistration] = []
+
+    var memberRecords: [TripMemberRecord] {
+        memberProfiles.map { profile in
+            TripMemberRecord(
+                profile: profile,
+                role: memberRoles[profile.uid] ?? "member"
+            )
+        }
+    }
 
     func start(for trip: Trip, modelContext: ModelContext) {
         stop()
@@ -53,21 +74,24 @@ final class TripContentSyncCoordinator {
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "dayNotes", as: DayNoteDTO.self) { [weak self] type, docID, dto in
             Task { @MainActor in self?.applyDayNote(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
         })
+
+        // Listen for members subcollection changes
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "members", as: TripMemberDTO.self) { [weak self] type, docID, dto in
             Task { @MainActor in await self?.applyMember(type: type, docID: docID, dto: dto) }
         })
+
         listeners.append(FirestoreCollectionSync.listenTripDocument(tripID: tripID, as: TripFieldsDTO.self) { [weak self] dto in
             Task { @MainActor in self?.applyTripFields(dto, trip: trip, modelContext: modelContext) }
         })
     }
 
     func stop() {
-        for listener in listeners { listener.remove() }
+        listeners.forEach { $0.remove() }
         listeners.removeAll()
         memberProfiles.removeAll()
+        memberRoles.removeAll()
+        currentJoinCode = nil
     }
-
-    // MARK: - Per-model upsert/delete (last-write-wins; no merge logic)
 
     private func applyActivity(type: DocumentChangeType, docID: String, dto: ActivityDTO?, trip: Trip, modelContext: ModelContext) {
         guard let id = UUID(uuidString: docID) else { return }
@@ -174,11 +198,17 @@ final class TripContentSyncCoordinator {
     private func applyMember(type: DocumentChangeType, docID: String, dto: TripMemberDTO?) async {
         switch type {
         case .added, .modified:
-            guard let dto, !memberProfiles.contains(where: { $0.uid == dto.uid }) else { return }
+            guard let dto else { return }
+            memberRoles[dto.uid] = dto.role
             if let profile = try? await UserDirectoryService.fetchProfile(uid: dto.uid) {
-                memberProfiles.append(profile)
+                if let idx = memberProfiles.firstIndex(where: { $0.uid == dto.uid }) {
+                    memberProfiles[idx] = profile
+                } else {
+                    memberProfiles.append(profile)
+                }
             }
         case .removed:
+            memberRoles.removeValue(forKey: docID)
             memberProfiles.removeAll { $0.uid == docID }
         }
     }
@@ -191,6 +221,7 @@ final class TripContentSyncCoordinator {
             modelContext.delete(trip)
             return
         }
+        currentJoinCode = dto.joinCode
         trip.name = dto.name
         trip.location = dto.location
         trip.theme = TripTheme(rawValue: dto.theme) ?? trip.theme
@@ -199,5 +230,7 @@ final class TripContentSyncCoordinator {
         trip.overallBudget = dto.overallBudget
         trip.currency = dto.currency
         trip.tripDescription = dto.tripDescription
+        if let latitude = dto.latitude { trip.latitude = latitude }
+        if let longitude = dto.longitude { trip.longitude = longitude }
     }
 }

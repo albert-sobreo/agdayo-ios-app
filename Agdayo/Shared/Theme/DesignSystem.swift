@@ -46,6 +46,45 @@ struct GlassOrStickerCard: ViewModifier {
     }
 }
 
+extension View {
+    func glassOrStickerControl(
+        isSelected: Bool = false,
+        tint: Color? = nil
+    ) -> some View {
+        modifier(
+            GlassOrStickerControl(
+                isSelected: isSelected,
+                tint: tint
+            )
+        )
+    }
+}
+
+/// Liquid Glass for compact floating controls such as chips and buttons.
+/// Falls back to the app's sticker treatment on iOS 18–25.
+struct GlassOrStickerControl: ViewModifier {
+    var isSelected: Bool = false
+    var tint: Color? = nil
+
+    func body(content: Content) -> some View {
+        Group {
+            if #available(iOS 26, *) {
+                content.glassEffect(
+                    .regular.tint(
+                        isSelected
+                            ? (tint ?? .accentColor).opacity(0.15)
+                            : .clear
+                    ),
+                    in: .capsule
+                )
+            } else {
+                content
+                    .stickerCard(cornerRadius: AppRadius.pill)
+            }
+        }
+    }
+}
+
 /// Small rounded-rect pill used for statuses, categories, and metadata tags.
 struct PillTag: View {
     let text: String

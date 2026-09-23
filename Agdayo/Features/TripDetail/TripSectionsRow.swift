@@ -7,6 +7,7 @@ enum TripSectionRoute: Hashable {
     case preparation
     case transport
     case notes
+    case members
 }
 
 struct TripSectionsRow: View {
@@ -19,6 +20,7 @@ struct TripSectionsRow: View {
     let taskCount: Int
     let transportCount: Int
     let noteCount: Int
+    var memberCount: Int = 1
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -40,6 +42,9 @@ struct TripSectionsRow: View {
                 }
                 NavigationLink(value: TripSectionRoute.notes) {
                     SquareNavCard(iconName: "note.text", subtitle: "\(noteCount) Notes", title: "Day Notes", accentColor: accentColor)
+                }
+                NavigationLink(value: TripSectionRoute.members) {
+                    SquareNavCard(iconName: "person.2", subtitle: "\(memberCount) Member\(memberCount == 1 ? "" : "s")", title: "Members", accentColor: accentColor)
                 }
             }
             .padding(.horizontal)

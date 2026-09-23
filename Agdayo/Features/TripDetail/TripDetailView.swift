@@ -8,6 +8,7 @@ struct TripDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isShowingMap = false
     @State private var isShowingSettings = false
+    @State private var isShowingShareSheet = false
     @State private var syncCoordinator = TripContentSyncCoordinator()
 
     var body: some View {
@@ -35,7 +36,8 @@ struct TripDetailView: View {
                     currency: trip.currency,
                     taskCount: trip.preparationTasks.count,
                     transportCount: trip.transportSegments.count,
-                    noteCount: trip.dayNotes.count
+                    noteCount: trip.dayNotes.count,
+                    memberCount: max(1, syncCoordinator.memberProfiles.count)
                 )
 
                 UpcomingActivitiesPreview(trip: trip)
@@ -50,6 +52,16 @@ struct TripDetailView: View {
                 .ignoresSafeArea()
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingShareSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Share Trip")
+            }
+        }
         .navigationDestination(for: TripSectionRoute.self) { route in
             destination(for: route)
         }
@@ -60,6 +72,9 @@ struct TripDetailView: View {
         }
         .sheet(isPresented: $isShowingSettings) {
             TripSettingsView(trip: trip, onDeleted: deleteTrip)
+        }
+        .sheet(isPresented: $isShowingShareSheet) {
+            TripShareSheet(trip: trip)
         }
         .onAppear {
             if trip.ownerUID != nil {
@@ -86,6 +101,8 @@ struct TripDetailView: View {
             TransportSegmentListView(trip: trip)
         case .notes:
             DayNoteListView(trip: trip)
+        case .members:
+            MembersListView(trip: trip, syncCoordinator: syncCoordinator)
         }
     }
 

@@ -18,6 +18,16 @@ enum FirestoreCollectionSync {
         try await collection(tripID: tripID, name: name).document(docID.uuidString).delete()
     }
 
+    /// Same as above, for subcollections keyed by a non-UUID document ID
+    /// (e.g. `liveLocations`, keyed by Firebase uid).
+    static func push<T: Encodable>(tripID: UUID, collection name: String, docID: String, data: T) async throws {
+        try await collection(tripID: tripID, name: name).document(docID).setData(from: data)
+    }
+
+    static func pushDelete(tripID: UUID, collection name: String, docID: String) async throws {
+        try await collection(tripID: tripID, name: name).document(docID).delete()
+    }
+
     /// One-shot fetch of every document in a subcollection — used when
     /// materializing a trip locally for the first time (e.g. a newly
     /// discovered trip you were added to), as opposed to `listen` which is

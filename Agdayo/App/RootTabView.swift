@@ -7,6 +7,9 @@ struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
 
+    @State private var deepLinkCode: String = ""
+    @State private var isPresentingDeepLinkJoin = false
+
     var body: some View {
         TabView {
             Tab("Trips", systemImage: "suitcase.fill") {
@@ -29,6 +32,18 @@ struct RootTabView: View {
             }
         }
         .tint(.appPrimary)
+        .onOpenURL { url in
+            if url.scheme == "agdayo" && url.host == "join" {
+                if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                   let code = components.queryItems?.first(where: { $0.name.lowercased() == "code" })?.value {
+                    deepLinkCode = code
+                }
+                isPresentingDeepLinkJoin = true
+            }
+        }
+        .sheet(isPresented: $isPresentingDeepLinkJoin) {
+            JoinTripSheet(initialCode: deepLinkCode)
+        }
         .task(id: authService.isSignedIn) {
             backfillOwnershipIfNeeded()
             if let uid = authService.firebaseUser?.uid {
@@ -53,6 +68,8 @@ struct RootTabView: View {
             let overallBudget = trip.overallBudget
             let currency = trip.currency
             let tripDescription = trip.tripDescription
+            let latitude = trip.latitude
+            let longitude = trip.longitude
             let activityDTOs = trip.activities.map { ($0.id, $0.dto) }
             let accommodationDTOs = trip.accommodations.map { ($0.id, $0.dto) }
             let budgetCategoryDTOs = trip.budgetCategories.map { ($0.id, $0.dto) }
@@ -64,7 +81,8 @@ struct RootTabView: View {
                 try? await TripMembershipService.createTripRecord(
                     tripID: tripID, ownerUID: uid, name: name, location: location,
                     theme: theme, startDate: startDate, endDate: endDate,
-                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription
+                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
+                    latitude: latitude, longitude: longitude
                 )
                 for (id, dto) in activityDTOs {
                     try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: id, data: dto)

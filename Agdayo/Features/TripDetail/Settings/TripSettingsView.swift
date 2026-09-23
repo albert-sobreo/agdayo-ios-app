@@ -8,6 +8,8 @@ struct TripSettingsView: View {
 
     @State private var name: String
     @State private var location: String
+    @State private var latitude: Double?
+    @State private var longitude: Double?
     @State private var theme: TripTheme
     @State private var startDate: Date
     @State private var endDate: Date
@@ -20,6 +22,8 @@ struct TripSettingsView: View {
         self.onDeleted = onDeleted
         _name = State(initialValue: trip.name)
         _location = State(initialValue: trip.location)
+        _latitude = State(initialValue: trip.latitude)
+        _longitude = State(initialValue: trip.longitude)
         _theme = State(initialValue: trip.theme)
         _startDate = State(initialValue: trip.startDate)
         _endDate = State(initialValue: trip.endDate)
@@ -41,29 +45,36 @@ struct TripSettingsView: View {
                     LocationSearchField(
                         placeholder: "Destination",
                         text: $location,
-                        onSelect: { name, _ in location = name }
+                        onSelect: { name, coordinate in
+                            location = name
+                            latitude = coordinate?.latitude
+                            longitude = coordinate?.longitude
+                        }
                     )
                 }
 
                 Section("Theme") {
-                    HStack(spacing: 16) {
-                        ForEach(TripTheme.allCases) { candidate in
-                            Button {
-                                theme = candidate
-                            } label: {
-                                Circle()
-                                    .fill(candidate.accentColor)
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(.primary, lineWidth: theme == candidate ? 2 : 0)
-                                            .padding(-3)
-                                    )
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(TripTheme.allCases) { candidate in
+                                Button {
+                                    theme = candidate
+                                } label: {
+                                    Circle()
+                                        .fill(candidate.accentColor)
+                                        .frame(width: 32, height: 32)
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(.primary, lineWidth: theme == candidate ? 2 : 0)
+                                                .padding(-3)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(candidate.displayName)
+                                .accessibilityAddTraits(theme == candidate ? [.isSelected] : [])
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(candidate.displayName)
-                            .accessibilityAddTraits(theme == candidate ? [.isSelected] : [])
                         }
+                        .padding(.vertical, 4)
                     }
                 }
 
@@ -125,6 +136,8 @@ struct TripSettingsView: View {
     private func save() {
         trip.name = name.trimmingCharacters(in: .whitespaces)
         trip.location = location.trimmingCharacters(in: .whitespaces)
+        trip.latitude = latitude
+        trip.longitude = longitude
         trip.theme = theme
         trip.startDate = startDate
         trip.endDate = endDate
@@ -141,11 +154,14 @@ struct TripSettingsView: View {
             let updatedBudget = trip.overallBudget
             let updatedCurrency = trip.currency
             let updatedDescription = trip.tripDescription
+            let updatedLatitude = trip.latitude
+            let updatedLongitude = trip.longitude
             Task {
                 try? await TripMembershipService.updateTripRecord(
                     tripID: tripID, name: updatedName, location: updatedLocation,
                     theme: updatedTheme, startDate: updatedStart, endDate: updatedEnd,
-                    overallBudget: updatedBudget, currency: updatedCurrency, tripDescription: updatedDescription
+                    overallBudget: updatedBudget, currency: updatedCurrency, tripDescription: updatedDescription,
+                    latitude: updatedLatitude, longitude: updatedLongitude
                 )
             }
         }

@@ -119,11 +119,14 @@ private struct OverallBudgetEditSheet: View {
                             let overallBudget = trip.overallBudget
                             let currency = trip.currency
                             let tripDescription = trip.tripDescription
+                            let latitude = trip.latitude
+                            let longitude = trip.longitude
                             Task {
                                 try? await TripMembershipService.updateTripRecord(
                                     tripID: tripID, name: name, location: location,
                                     theme: theme, startDate: startDate, endDate: endDate,
-                                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription
+                                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
+                                    latitude: latitude, longitude: longitude
                                 )
                             }
                         }

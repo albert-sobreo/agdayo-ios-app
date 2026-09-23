@@ -1,4 +1,6 @@
 import SwiftUI
+import MapKit
+import CoreLocation
 
 struct ItineraryTimelineView: View {
     let trip: Trip
@@ -62,6 +64,13 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
 
+    /// Flattened across bucket boundaries so travel time is computed between
+    /// actual consecutive stops (e.g. last Morning stop → first Noon stop),
+    /// not reset at each time-of-day divider.
+    private var orderedActivities: [Activity] {
+        group.buckets.flatMap(\.activities)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Day \(dayIndex) · \(group.day.formatted(date: .abbreviated, time: .omitted))")
@@ -85,9 +94,100 @@ private struct DaySection: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    if let next = nextActivity(after: activity),
+                       let fromCoordinate = activity.coordinate,
+                       let toCoordinate = next.coordinate {
+                        TravelConnectorView(fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
+                    }
                 }
             }
         }
+    }
+
+    private func nextActivity(after activity: Activity) -> Activity? {
+        guard let index = orderedActivities.firstIndex(where: { $0.id == activity.id }) else { return nil }
+        let nextIndex = index + 1
+        return nextIndex < orderedActivities.count ? orderedActivities[nextIndex] : nil
+    }
+}
+
+private struct TravelConnectorView: View {
+    let fromCoordinate: CLLocationCoordinate2D
+    let toCoordinate: CLLocationCoordinate2D
+    let accentColor: Color
+
+    @State private var selectedMode: MKDirectionsTransportType = .automobile
+    // Keyed by `rawValue` rather than the mode itself — `MKDirectionsTransportType`
+    // is an OptionSet without Hashable conformance.
+    @State private var estimatesByMode: [UInt: TravelEstimate] = [:]
+    @State private var isLoading = false
+    @State private var loadFailed = false
+
+    private static let modes: [MKDirectionsTransportType] = [.automobile, .walking, .transit, .cycling]
+
+    private var currentEstimate: TravelEstimate? { estimatesByMode[selectedMode.rawValue] }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Self.modes, id: \.rawValue) { mode in
+                Button {
+                    selectedMode = mode
+                } label: {
+                    Image(systemName: mode.sfSymbolName)
+                        .font(.caption2)
+                        .padding(6)
+                        .background(selectedMode == mode ? accentColor.opacity(0.2) : Color.clear)
+                        .foregroundStyle(selectedMode == mode ? accentColor : .secondary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if let estimate = currentEstimate {
+                    Text("\(formattedDistance(estimate.distance)) · \(formattedDuration(estimate.duration))")
+                } else if loadFailed {
+                    Text("Unavailable")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.leading, 34)
+        .padding(.vertical, 2)
+        .task(id: selectedMode.rawValue) {
+            await loadEstimateIfNeeded()
+        }
+    }
+
+    private func loadEstimateIfNeeded() async {
+        guard estimatesByMode[selectedMode.rawValue] == nil else { return }
+        isLoading = true
+        loadFailed = false
+        defer { isLoading = false }
+        do {
+            estimatesByMode[selectedMode.rawValue] = try await TravelEstimateService.estimate(from: fromCoordinate, to: toCoordinate, transportType: selectedMode)
+        } catch {
+            loadFailed = true
+        }
+    }
+
+    private func formattedDistance(_ meters: CLLocationDistance) -> String {
+        let formatter = MKDistanceFormatter()
+        formatter.unitStyle = .abbreviated
+        return formatter.string(fromDistance: meters)
+    }
+
+    private func formattedDuration(_ seconds: TimeInterval) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .abbreviated
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.maximumUnitCount = 2
+        return formatter.string(from: seconds) ?? "\(Int(seconds / 60)) min"
     }
 }
 
