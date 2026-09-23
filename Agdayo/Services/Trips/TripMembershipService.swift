@@ -212,6 +212,14 @@ enum TripMembershipService {
         return ids.compactMap { UUID(uuidString: $0) }
     }
 
+    /// Session-scoped cache of `(tripID, uid)` pairs already confirmed to
+    /// have a membership doc — `TripDetailView` calls `ensureMembership` on
+    /// every single visit to a trip, and without this it would re-read the
+    /// `members/{uid}` doc every single time, forever, even though it only
+    /// ever needs fixing once (the one-time race this guards against).
+    @MainActor
+    private static var verifiedMemberships: Set<String> = []
+
     /// Idempotently ensures the given user actually has a `members` doc for
     /// this trip. Guards against a trip that looks synced locally
     /// (`ownerUID`/`memberOfTripIDs` set) but whose membership write
@@ -221,18 +229,24 @@ enum TripMembershipService {
     /// trip's content gets rejected as permission-denied. Safe to call
     /// unconditionally: the rules already allow anyone to create their own
     /// `members/{uid}` doc as long as the trip exists.
+    @MainActor
     static func ensureMembership(tripID: UUID, uid: String, role: String) async throws {
+        let key = "\(tripID.uuidString)-\(uid)"
+        guard !verifiedMemberships.contains(key) else { return }
+
         let memberRef = tripsCollection.document(tripID.uuidString).collection("members").document(uid)
         let snapshot = try await memberRef.getDocument()
-        guard !snapshot.exists else { return }
-        try await memberRef.setData([
-            "uid": uid,
-            "role": role,
-            "joinedAt": FieldValue.serverTimestamp(),
-        ])
-        try await Firestore.firestore().collection("users").document(uid).setData([
-            "memberOfTripIDs": FieldValue.arrayUnion([tripID.uuidString])
-        ], merge: true)
+        if !snapshot.exists {
+            try await memberRef.setData([
+                "uid": uid,
+                "role": role,
+                "joinedAt": FieldValue.serverTimestamp(),
+            ])
+            try await Firestore.firestore().collection("users").document(uid).setData([
+                "memberOfTripIDs": FieldValue.arrayUnion([tripID.uuidString])
+            ], merge: true)
+        }
+        verifiedMemberships.insert(key)
     }
 
     static func fetchTripFields(tripID: UUID) async throws -> TripFieldsDTO? {

@@ -389,7 +389,7 @@ private struct MemberLocationChip: View {
             HStack(spacing: 6) {
                 MemberAvatarView(profile: profile, diameter: 20, tintColor: accentColor)
                 Text((profile?.displayName ?? "Member") + (isCurrentUser ? " (You)" : ""))
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .lineLimit(1)
             }
             .padding(.horizontal, 10)
@@ -438,13 +438,13 @@ private struct ActivityScrollerChip: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Text("\(number)")
-                    .font(.caption.bold())
+                    .font(AppFont.outfit(12, weight: .bold, relativeTo: .caption))
                     .frame(width: 20, height: 20)
                     .background(isSelected ? Color.appPrimary : Color(.systemGray5))
                     .foregroundStyle(isSelected ? .white : .primary)
                     .clipShape(Circle())
                 Text(title)
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .lineLimit(1)
             }
             .padding(.horizontal)

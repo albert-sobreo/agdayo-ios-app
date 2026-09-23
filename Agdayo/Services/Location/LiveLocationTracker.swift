@@ -11,6 +11,13 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
 
     private let manager = CLLocationManager()
     private var onUpdate: ((CLLocationCoordinate2D) -> Void)?
+    private var lastPushedAt: Date?
+
+    /// Minimum time between Firestore writes, on top of the distance
+    /// filter below — GPS can still report a new location every second or
+    /// two while moving (e.g. in a car) even 25m apart, and each one would
+    /// otherwise be a separate document write.
+    private let minimumPushInterval: TimeInterval = 10
 
     override init() {
         authorizationStatus = manager.authorizationStatus
@@ -26,6 +33,7 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
 
     func start(onUpdate: @escaping (CLLocationCoordinate2D) -> Void) {
         self.onUpdate = onUpdate
+        lastPushedAt = nil
         manager.startUpdatingLocation()
     }
 
@@ -44,6 +52,10 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else { return }
         Task { @MainActor in
+            if let lastPushedAt = self.lastPushedAt, Date().timeIntervalSince(lastPushedAt) < self.minimumPushInterval {
+                return
+            }
+            self.lastPushedAt = .now
             self.onUpdate?(coordinate)
         }
     }

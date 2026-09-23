@@ -120,7 +120,7 @@ private struct PreparationTaskRow: View {
                         .strikethrough(task.completed)
                     if !task.notes.isEmpty {
                         Text(task.notes)
-                            .font(.caption)
+                            .font(AppFont.outfit(12, relativeTo: .caption))
                             .foregroundStyle(.secondary)
                     }
                 }

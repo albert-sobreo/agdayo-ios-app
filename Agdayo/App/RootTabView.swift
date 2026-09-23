@@ -10,11 +10,12 @@ struct RootTabView: View {
 
     @State private var deepLinkCode: String = ""
     @State private var isPresentingDeepLinkJoin = false
+    @State private var pendingJoinedTrip: Trip?
 
     var body: some View {
         TabView {
             Tab("Trips", systemImage: "suitcase.fill") {
-                TripListView()
+                TripListView(pendingJoinedTrip: $pendingJoinedTrip)
             }
             Tab("Map", systemImage: "map.fill") {
                 NavigationStack {
@@ -40,26 +41,28 @@ struct RootTabView: View {
             }
         }
         .sheet(isPresented: $isPresentingDeepLinkJoin) {
-            JoinTripSheet(initialCode: deepLinkCode)
+            JoinTripSheet(initialCode: deepLinkCode, onJoined: { trip in pendingJoinedTrip = trip })
         }
         .task(id: authService.isSignedIn) {
-            await syncPendingWork()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            // Retries any trip that failed to upload earlier (no network,
-            // or created while signed out and the account only just
-            // finished syncing) every time the app comes back to the
-            // foreground — not just once per sign-in-state change.
-            if newPhase == .active {
-                Task { await syncPendingWork() }
+            // The full field-by-field refresh (1 read per owned trip) only
+            // runs here, on a sign-in-state change — not on every
+            // foreground. Realtime listeners already keep an *open* trip's
+            // fields live, and `TripListView`'s pull-to-refresh covers the
+            // "did something change while I was away" case on demand, so a
+            // per-trip poll on every single foreground would just be
+            // redundant read volume that scales with trip count.
+            backfillOwnershipIfNeeded()
+            if let uid = authService.firebaseUser?.uid {
+                await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
             }
         }
-    }
-
-    private func syncPendingWork() async {
-        backfillOwnershipIfNeeded()
-        if let uid = authService.firebaseUser?.uid {
-            await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
+        .onChange(of: scenePhase) { _, newPhase in
+            // Only retries trips that failed to upload earlier (no network,
+            // or created while signed out) — a no-op loop once everything
+            // has synced, so it's cheap to run on every foreground.
+            if newPhase == .active {
+                backfillOwnershipIfNeeded()
+            }
         }
     }
 

@@ -31,13 +31,13 @@ struct DayNoteListView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(note.day.formatted(date: .abbreviated, time: .omitted))
-                                    .font(.caption)
+                                    .font(AppFont.outfit(12, relativeTo: .caption))
                                     .foregroundStyle(.secondary)
                                 Text(note.title)
-                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                    .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
                                 if !note.content.isEmpty {
                                     Text(note.content)
-                                        .font(.caption)
+                                        .font(AppFont.outfit(12, relativeTo: .caption))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
                                 }

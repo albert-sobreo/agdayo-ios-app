@@ -143,7 +143,7 @@ private struct UpcomingActivitiesPreview: View {
         SectionCard(title: "Upcoming Activities") {
             if upcoming.isEmpty {
                 Text("No activities yet. Add one from the Itinerary section.")
-                    .font(.subheadline)
+                    .font(AppFont.outfit(15, relativeTo: .subheadline))
                     .foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -169,16 +169,16 @@ private struct UpcomingActivityRow: View {
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline.weight(.medium))
+                    .font(AppFont.outfit(15, weight: .medium, relativeTo: .subheadline))
                 if !location.isEmpty {
                     Text(location)
-                        .font(.caption)
+                        .font(AppFont.outfit(12, relativeTo: .caption))
                         .foregroundStyle(.secondary)
                 }
             }
             Spacer()
             Text(date, format: .dateTime.hour().minute())
-                .font(.caption)
+                .font(AppFont.outfit(12, relativeTo: .caption))
                 .foregroundStyle(.secondary)
         }
     }

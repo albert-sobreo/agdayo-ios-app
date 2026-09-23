@@ -65,7 +65,7 @@ private struct ProfileForm: View {
 
             Section {
                 Text("Stored only on this device. Used to personalize AI trip suggestions.")
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
             }
         }
@@ -89,7 +89,7 @@ private struct ProfileForm: View {
                     .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
                 if let email = appUserProfile?.email ?? authService.firebaseUser?.email {
                     Text(email)
-                        .font(.caption)
+                        .font(AppFont.outfit(12, relativeTo: .caption))
                         .foregroundStyle(.secondary)
                 }
             }

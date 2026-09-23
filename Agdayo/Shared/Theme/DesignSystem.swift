@@ -115,6 +115,8 @@ struct AppButtonStyle: ButtonStyle {
     var background: Color
     var foreground: Color = .white
 
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         let label = configuration.label
             .font(AppFont.outfit(17, weight: .bold))
@@ -130,6 +132,7 @@ struct AppButtonStyle: ButtonStyle {
                 label.background(background).clipShape(Capsule())
             }
         }
+        .opacity(isEnabled ? 1 : 0.4)
         .scaleEffect(configuration.isPressed ? 0.95 : 1)
         .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }

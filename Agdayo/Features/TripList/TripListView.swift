@@ -3,6 +3,11 @@ import SwiftData
 import FirebaseAuth
 
 struct TripListView: View {
+    /// Set by `RootTabView` after a deep-link join finishes (that sheet is
+    /// presented from the root, outside this view's own `NavigationStack`)
+    /// so this view can push straight into the newly joined trip.
+    @Binding var pendingJoinedTrip: Trip?
+
     @Query(sort: \Trip.startDate) private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
@@ -121,7 +126,12 @@ struct TripListView: View {
                 }
             }
             .sheet(isPresented: $isPresentingJoinFlow) {
-                JoinTripSheet()
+                JoinTripSheet(onJoined: { trip in path.append(trip) })
+            }
+            .onChange(of: pendingJoinedTrip) { _, newValue in
+                guard let newValue else { return }
+                path.append(newValue)
+                pendingJoinedTrip = nil
             }
         }
     }

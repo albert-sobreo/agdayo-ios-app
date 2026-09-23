@@ -361,7 +361,7 @@ private struct TripChip: View {
                         .frame(width: 12, height: 12)
 
                     Text(trip.name)
-                        .font(.subheadline.weight(isSelected ? .bold : .medium))
+                        .font(AppFont.outfit(15, weight: isSelected ? .bold : .medium, relativeTo: .subheadline))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
                 }

@@ -24,7 +24,7 @@ struct PreparationTaskEditSheet: View {
                     HStack {
                         ForEach(PreparationTaskSuggestion.defaults, id: \.self) { suggestion in
                             Button(suggestion) { category = suggestion }
-                                .font(.caption)
+                                .font(AppFont.outfit(12, relativeTo: .caption))
                                 .buttonStyle(.bordered)
                         }
                     }

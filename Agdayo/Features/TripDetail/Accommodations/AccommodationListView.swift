@@ -80,12 +80,12 @@ private struct AccommodationRow: View {
                 .foregroundStyle(accentColor)
             VStack(alignment: .leading, spacing: 4) {
                 Text(accommodation.name)
-                    .font(.system(.body, design: .rounded).weight(.semibold))
+                    .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
                 Text("\(accommodation.location) · \(accommodation.numberOfRooms) room(s)")
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
                 Text(dateRangeText)
-                    .font(.caption2)
+                    .font(AppFont.outfit(11, relativeTo: .caption2))
                     .foregroundStyle(.secondary)
             }
             Spacer()

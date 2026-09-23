@@ -80,9 +80,9 @@ private struct TransportSegmentRow: View {
                 .foregroundStyle(accentColor)
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(segment.departureLocation) → \(segment.arrivalLocation)")
-                    .font(.system(.body, design: .rounded).weight(.semibold))
+                    .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
                 Text("\(segment.departureDate.formatted(date: .abbreviated, time: .omitted)) · \(segment.departureTime)")
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
             }
             Spacer()

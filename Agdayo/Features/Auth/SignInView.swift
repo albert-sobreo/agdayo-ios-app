@@ -47,7 +47,7 @@ struct SignInView: View {
 
                 HStack {
                     Rectangle().fill(Color(.systemGray4)).frame(height: 1)
-                    Text("or").font(.caption).foregroundStyle(.secondary)
+                    Text("or").font(AppFont.outfit(12, relativeTo: .caption)).foregroundStyle(.secondary)
                     Rectangle().fill(Color(.systemGray4)).frame(height: 1)
                 }
 
@@ -72,7 +72,7 @@ struct SignInView: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(AppFont.outfit(12, relativeTo: .caption))
                         .foregroundStyle(Color.appDanger)
                         .multilineTextAlignment(.center)
                 }

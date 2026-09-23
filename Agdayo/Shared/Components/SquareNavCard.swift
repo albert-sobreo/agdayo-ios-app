@@ -15,10 +15,10 @@ struct SquareNavCard: View {
                 .foregroundStyle(accentColor)
             Spacer(minLength: 0)
             Text(subtitle)
-                .font(.caption.weight(.semibold))
+                .font(AppFont.outfit(12))
                 .foregroundStyle(.secondary)
             Text(title)
-                .font(.system(.body, design: .rounded).weight(.semibold))
+                .font(AppFont.outfit(16, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding()
