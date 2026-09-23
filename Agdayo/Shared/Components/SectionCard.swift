@@ -7,7 +7,7 @@ struct SectionCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.headline)
+                .font(AppFont.outfit(17, weight: .semibold, relativeTo: .headline))
             content
         }
         .padding(20)

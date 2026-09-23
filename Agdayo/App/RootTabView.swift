@@ -2,6 +2,12 @@ import SwiftUI
 import SwiftData
 import FirebaseAuth
 
+private enum RootTab: Hashable {
+    case trips
+    case map
+    case profile
+}
+
 struct RootTabView: View {
     @Query private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
@@ -11,19 +17,22 @@ struct RootTabView: View {
     @State private var deepLinkCode: String = ""
     @State private var isPresentingDeepLinkJoin = false
     @State private var pendingJoinedTrip: Trip?
+    @State private var selectedTab: RootTab = .trips
 
     var body: some View {
-        TabView {
-            Tab("Trips", systemImage: "suitcase.fill") {
+        TabView(selection: $selectedTab) {
+            Tab("Trips", systemImage: "suitcase.fill", value: .trips) {
                 TripListView(pendingJoinedTrip: $pendingJoinedTrip)
             }
-            Tab("Map", systemImage: "map.fill") {
+            Tab("Map", systemImage: "map.fill", value: .map) {
                 NavigationStack {
-                    GlobalMapView()
+                    // Leaving a trip from here should land on the trips
+                    // list, not just this tab's own map root.
+                    GlobalMapView(onLeftTrip: { selectedTab = .trips })
                         .background(BackgroundImageModifier())
                 }
             }
-            Tab("Profile", systemImage: "person.crop.circle") {
+            Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
                 NavigationStack {
                     ProfileView()
                         .background(BackgroundImageModifier())
@@ -42,6 +51,9 @@ struct RootTabView: View {
         }
         .sheet(isPresented: $isPresentingDeepLinkJoin) {
             JoinTripSheet(initialCode: deepLinkCode, onJoined: { trip in pendingJoinedTrip = trip })
+        }
+        .task {
+            NotificationScheduler.requestAuthorizationIfNeeded()
         }
         .task(id: authService.isSignedIn) {
             // The full field-by-field refresh (1 read per owned trip) only

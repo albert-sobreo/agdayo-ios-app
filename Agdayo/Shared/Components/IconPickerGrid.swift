@@ -34,7 +34,7 @@ private struct IconPickerCategorySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.caption)
+                .font(AppFont.outfit(12, relativeTo: .caption))
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(icons, id: \.self) { icon in

@@ -83,10 +83,10 @@ private struct LocationSearchResultRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.body)
+                .font(AppFont.outfit(17, relativeTo: .body))
             if !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
             }
         }

@@ -28,6 +28,9 @@ final class Accommodation {
     var checkOutTime: String
     var startDate: Date
     var endDate: Date
+    var paidByUID: String?
+    var splitUIDs: [String] = []
+    var splitAmounts: [String: Double] = [:]
     var trip: Trip?
 
     init(
@@ -41,6 +44,9 @@ final class Accommodation {
         checkOutTime: String = "11:00",
         startDate: Date = .now,
         endDate: Date = .now,
+        paidByUID: String? = nil,
+        splitUIDs: [String] = [],
+        splitAmounts: [String: Double] = [:],
         trip: Trip? = nil
     ) {
         self.id = id
@@ -53,6 +59,9 @@ final class Accommodation {
         self.checkOutTime = checkOutTime
         self.startDate = startDate
         self.endDate = endDate
+        self.paidByUID = paidByUID
+        self.splitUIDs = splitUIDs
+        self.splitAmounts = splitAmounts
         self.trip = trip
     }
 }

@@ -35,7 +35,7 @@ private struct TimelineRail: View {
     var body: some View {
         VStack(spacing: 6) {
             Text(time, format: .dateTime.hour().minute())
-                .font(.caption.weight(.medium))
+                .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
                 .foregroundStyle(.secondary)
                 .fixedSize()
             Circle()
@@ -67,21 +67,21 @@ private struct ActivityCardContent: View {
                 Image(systemName: iconName)
                     .foregroundStyle(Color(hex: 0xF0A693))
                 Text(title)
-                    .font(.system(.body, design: .rounded).weight(.semibold))
+                    .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
             }
             if !location.isEmpty {
                 Label(location, systemImage: "mappin.and.ellipse")
-                    .font(.caption)
+                    .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
             }
             if let cost {
                 HStack(spacing: 4) {
                     Label(cost.formattedCurrency(code: costCurrency ?? "PHP"), systemImage: "wallet.pass")
-                        .font(.caption)
+                        .font(AppFont.outfit(12, relativeTo: .caption))
                         .foregroundStyle(.secondary)
                     if let costNote, !costNote.isEmpty {
                         Text(costNote)
-                            .font(.caption)
+                            .font(AppFont.outfit(12, relativeTo: .caption))
                             .foregroundStyle(Color(.tertiaryLabel))
                     }
                 }

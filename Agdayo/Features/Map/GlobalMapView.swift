@@ -9,6 +9,11 @@ import UIKit
 /// Doubles as a shareable "places I've traveled" overview via the Share
 /// button, which composites a themed dot per trip onto a map snapshot.
 struct GlobalMapView: View {
+    /// Lets the caller (`RootTabView`) switch back to the Trips tab once a
+    /// trip is left from here — popping this tab's own stack alone would
+    /// just land back on the map, not "the trips list" the user expects.
+    var onLeftTrip: () -> Void = {}
+
     @Query(sort: \Trip.startDate) private var trips: [Trip]
 
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -64,16 +69,6 @@ struct GlobalMapView: View {
                     .onMapCameraChange { context in
                         visibleRegion = context.region
                     }
-                    .overlay(alignment: .topTrailing) {
-                        VStack(spacing: 10) {
-                            MapStylePickerButton(selection: $mapStyleOption)
-                            ShareMapButton(
-                                isGenerating: isGeneratingSnapshot,
-                                action: shareSnapshot
-                            )
-                        }
-                        .padding()
-                    }
 
                     // Floating trip scroller
                     TripChipScroller(
@@ -88,7 +83,10 @@ struct GlobalMapView: View {
         }
         .navigationTitle("Map")
         .navigationDestination(item: $navigationTarget) { trip in
-            TripDetailView(trip: trip, onLeftTrip: { navigationTarget = nil })
+            TripDetailView(trip: trip, onLeftTrip: {
+                navigationTarget = nil
+                onLeftTrip()
+            })
         }
         .task {
             await geocodeMissingTrips()
@@ -300,11 +298,9 @@ private struct ShareMapButton: View {
             if isGenerating {
                 ProgressView()
                     .padding(8)
-                    .background(.thinMaterial, in: Circle())
             } else {
                 Image(systemName: "square.and.arrow.up")
                     .padding(8)
-                    .background(.thinMaterial, in: Circle())
             }
         }
         .disabled(isGenerating)

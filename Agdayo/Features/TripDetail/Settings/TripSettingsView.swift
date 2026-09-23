@@ -66,7 +66,6 @@ struct TripSettingsView: View {
                                         .overlay(
                                             Circle()
                                                 .strokeBorder(.primary, lineWidth: theme == candidate ? 2 : 0)
-                                                .padding(-3)
                                         )
                                 }
                                 .buttonStyle(.plain)

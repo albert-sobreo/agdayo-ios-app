@@ -1,12 +1,15 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct AccommodationEditSheet: View {
     let trip: Trip
     var editingAccommodation: Accommodation?
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
 
     @State private var name: String
     @State private var type: AccommodationType
@@ -17,10 +20,14 @@ struct AccommodationEditSheet: View {
     @State private var checkOutTime: Date
     @State private var startDate: Date
     @State private var endDate: Date
+    @State private var paidByUID: String?
+    @State private var splitUIDs: Set<String>
+    @State private var splitAmounts: [String: Double]
 
-    init(trip: Trip, editingAccommodation: Accommodation? = nil) {
+    init(trip: Trip, editingAccommodation: Accommodation? = nil, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
         self.editingAccommodation = editingAccommodation
+        self.memberProfiles = memberProfiles
         _name = State(initialValue: editingAccommodation?.name ?? "")
         _type = State(initialValue: editingAccommodation?.type ?? .hotel)
         _location = State(initialValue: editingAccommodation?.location ?? "")
@@ -30,6 +37,13 @@ struct AccommodationEditSheet: View {
         _checkOutTime = State(initialValue: Self.time(from: editingAccommodation?.checkOutTime ?? "11:00"))
         _startDate = State(initialValue: editingAccommodation?.startDate ?? trip.startDate)
         _endDate = State(initialValue: editingAccommodation?.endDate ?? trip.endDate)
+        _paidByUID = State(initialValue: editingAccommodation?.paidByUID)
+        if let editingAccommodation, !editingAccommodation.splitUIDs.isEmpty {
+            _splitUIDs = State(initialValue: Set(editingAccommodation.splitUIDs))
+        } else {
+            _splitUIDs = State(initialValue: Set(memberProfiles.map(\.uid)))
+        }
+        _splitAmounts = State(initialValue: editingAccommodation?.splitAmounts ?? [:])
     }
 
     private var isValid: Bool {
@@ -61,6 +75,15 @@ struct AccommodationEditSheet: View {
                     TextField("Total Cost", text: $totalCostText)
                         .keyboardType(.decimalPad)
                 }
+
+                ExpenseSplitSection(
+                    memberProfiles: memberProfiles,
+                    totalCost: Double(totalCostText) ?? 0,
+                    currencyCode: trip.currency,
+                    paidByUID: $paidByUID,
+                    splitUIDs: $splitUIDs,
+                    splitAmounts: $splitAmounts
+                )
             }
             .navigationTitle(editingAccommodation == nil ? "Add Accommodation" : "Edit Accommodation")
             .navigationBarTitleDisplayMode(.inline)
@@ -72,6 +95,11 @@ struct AccommodationEditSheet: View {
                     Button("Save") { save() }
                         .disabled(!isValid)
                 }
+            }
+        }
+        .onAppear {
+            if editingAccommodation == nil, paidByUID == nil {
+                paidByUID = authService.firebaseUser?.uid
             }
         }
     }
@@ -91,6 +119,9 @@ struct AccommodationEditSheet: View {
             accommodation.checkOutTime = checkOut
             accommodation.startDate = startDate
             accommodation.endDate = endDate
+            accommodation.paidByUID = paidByUID
+            accommodation.splitUIDs = Array(splitUIDs)
+            accommodation.splitAmounts = splitAmounts
         } else {
             accommodation = Accommodation(
                 name: name.trimmingCharacters(in: .whitespaces),
@@ -102,6 +133,9 @@ struct AccommodationEditSheet: View {
                 checkOutTime: checkOut,
                 startDate: startDate,
                 endDate: endDate,
+                paidByUID: paidByUID,
+                splitUIDs: Array(splitUIDs),
+                splitAmounts: splitAmounts,
                 trip: trip
             )
             modelContext.insert(accommodation)

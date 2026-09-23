@@ -30,13 +30,21 @@ struct ProfileView: View {
 private struct ProfileForm: View {
     @Bindable var profile: UserProfile
     @Environment(AuthService.self) private var authService
+    @Query private var trips: [Trip]
     @State private var appUserProfile: AppUserProfile?
     @State private var isPresentingSignIn = false
+    @AppStorage(NotificationScheduler.remindersEnabledKey) private var remindersEnabled = true
 
     var body: some View {
         Form {
             Section("Account") {
                 accountSectionContent
+            }
+
+            Section {
+                Toggle("Trip Reminders", isOn: $remindersEnabled)
+            } footer: {
+                Text("Get a local reminder shortly before an activity starts or a flight/transport departs.")
             }
 
             Section("About You") {
@@ -71,6 +79,13 @@ private struct ProfileForm: View {
         }
         .sheet(isPresented: $isPresentingSignIn) {
             SignInView()
+        }
+        .onChange(of: remindersEnabled) { _, isOn in
+            if isOn {
+                NotificationScheduler.rescheduleAllReminders(trips: trips)
+            } else {
+                NotificationScheduler.cancelAllReminders()
+            }
         }
         .task(id: authService.isSignedIn) {
             guard authService.isSignedIn, let uid = authService.firebaseUser?.uid else {

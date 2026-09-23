@@ -157,7 +157,7 @@ private struct DestinationStepView: View {
                                             .foregroundStyle(.primary)
                                         if !result.subtitle.isEmpty {
                                             Text(result.subtitle)
-                                                .font(.caption)
+                                                .font(AppFont.outfit(12, relativeTo: .caption))
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
@@ -331,5 +331,6 @@ private struct ThemeSwatchPicker: View {
             }
             .padding(.vertical, 4)
         }
+        .padding(.horizontal, 4)
     }
 }

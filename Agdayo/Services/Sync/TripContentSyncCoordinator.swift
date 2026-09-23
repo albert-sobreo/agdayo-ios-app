@@ -79,6 +79,9 @@ final class TripContentSyncCoordinator {
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "dayNotes", as: DayNoteDTO.self) { [weak self] type, docID, dto in
             Task { @MainActor in self?.applyDayNote(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
         })
+        listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "settlements", as: SettlementDTO.self) { [weak self] type, docID, dto in
+            Task { @MainActor in self?.applySettlement(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
+        })
 
         // Listen for members subcollection changes
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "members", as: TripMemberDTO.self) { [weak self] type, docID, dto in
@@ -103,12 +106,17 @@ final class TripContentSyncCoordinator {
         switch type {
         case .added, .modified:
             guard let dto else { return }
+            let activity: Activity
             if let existing = trip.activities.first(where: { $0.id == id }) {
                 existing.apply(dto)
+                activity = existing
             } else {
-                modelContext.insert(Activity(id: id, dto: dto, trip: trip))
+                activity = Activity(id: id, dto: dto, trip: trip)
+                modelContext.insert(activity)
             }
+            NotificationScheduler.scheduleReminder(for: activity)
         case .removed:
+            NotificationScheduler.cancelReminder(forActivityID: id)
             if let existing = trip.activities.first(where: { $0.id == id }) {
                 modelContext.delete(existing)
             }
@@ -171,12 +179,17 @@ final class TripContentSyncCoordinator {
         switch type {
         case .added, .modified:
             guard let dto else { return }
+            let segment: TransportSegment
             if let existing = trip.transportSegments.first(where: { $0.id == id }) {
                 existing.apply(dto)
+                segment = existing
             } else {
-                modelContext.insert(TransportSegment(id: id, dto: dto, trip: trip))
+                segment = TransportSegment(id: id, dto: dto, trip: trip)
+                modelContext.insert(segment)
             }
+            NotificationScheduler.scheduleReminder(for: segment)
         case .removed:
+            NotificationScheduler.cancelReminder(forTransportID: id)
             if let existing = trip.transportSegments.first(where: { $0.id == id }) {
                 modelContext.delete(existing)
             }
@@ -195,6 +208,23 @@ final class TripContentSyncCoordinator {
             }
         case .removed:
             if let existing = trip.dayNotes.first(where: { $0.id == id }) {
+                modelContext.delete(existing)
+            }
+        }
+    }
+
+    private func applySettlement(type: DocumentChangeType, docID: String, dto: SettlementDTO?, trip: Trip, modelContext: ModelContext) {
+        guard let id = UUID(uuidString: docID) else { return }
+        switch type {
+        case .added, .modified:
+            guard let dto else { return }
+            if let existing = trip.settlements.first(where: { $0.id == id }) {
+                existing.apply(dto)
+            } else {
+                modelContext.insert(Settlement(id: id, dto: dto, trip: trip))
+            }
+        case .removed:
+            if let existing = trip.settlements.first(where: { $0.id == id }) {
                 modelContext.delete(existing)
             }
         }

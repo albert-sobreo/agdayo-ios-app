@@ -3,6 +3,7 @@ import SwiftData
 
 struct TransportSegmentListView: View {
     let trip: Trip
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
@@ -48,10 +49,10 @@ struct TransportSegmentListView: View {
             }
         }
         .sheet(isPresented: $isAdding) {
-            TransportSegmentEditSheet(trip: trip)
+            TransportSegmentEditSheet(trip: trip, memberProfiles: memberProfiles)
         }
         .sheet(item: $editingSegment) { segment in
-            TransportSegmentEditSheet(trip: trip, editingSegment: segment)
+            TransportSegmentEditSheet(trip: trip, editingSegment: segment, memberProfiles: memberProfiles)
         }
     }
 
@@ -65,6 +66,7 @@ struct TransportSegmentListView: View {
                     try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "transportSegments", docID: segmentID)
                 }
             }
+            NotificationScheduler.cancelReminder(forTransportID: segment.id)
             modelContext.delete(segment)
         }
     }

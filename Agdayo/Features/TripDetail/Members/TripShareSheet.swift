@@ -10,6 +10,7 @@ struct TripShareSheet: View {
     @State private var errorMessage: String?
     @State private var hasCopiedCode = false
     @State private var hasCopiedLink = false
+    @State private var isShowingSignIn = false
 
     private var shareURLString: String {
         guard !joinCode.isEmpty else { return "" }
@@ -47,7 +48,31 @@ struct TripShareSheet: View {
                             .padding(.horizontal, 16)
                     }
 
-                    if isLoading {
+                    if !authService.isSignedIn {
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                .font(.title)
+                                .foregroundStyle(.orange)
+                            Text("Sign in required")
+                                .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                            Text("Sign in to invite friends and sync this trip in real-time.")
+                                .font(AppFont.outfit(13, relativeTo: .caption))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                isShowingSignIn = true
+                            } label: {
+                                Text("Sign In")
+                                    .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(trip.theme.accentColor)
+                            .padding(.horizontal, 40)
+                        }
+                        .padding()
+                    } else if isLoading {
                         VStack(spacing: 12) {
                             ProgressView()
                             Text("Generating invite code...")
@@ -211,8 +236,20 @@ struct TripShareSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(isPresented: $isShowingSignIn) {
+                SignInView()
+            }
             .task {
+                guard authService.isSignedIn else {
+                    isLoading = false
+                    return
+                }
                 await loadCode()
+            }
+            .onChange(of: authService.isSignedIn) { _, isSignedIn in
+                if isSignedIn {
+                    Task { await loadCode() }
+                }
             }
         }
     }

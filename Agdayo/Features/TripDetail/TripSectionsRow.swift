@@ -4,6 +4,7 @@ enum TripSectionRoute: Hashable {
     case itinerary
     case accommodations
     case budget
+    case balances
     case preparation
     case transport
     case notes
@@ -21,6 +22,7 @@ struct TripSectionsRow: View {
     let transportCount: Int
     let noteCount: Int
     var memberCount: Int = 1
+    var showsBalances: Bool = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -30,6 +32,11 @@ struct TripSectionsRow: View {
                 }
                 NavigationLink(value: TripSectionRoute.budget) {
                     SquareNavCard(iconName: "banknote", subtitle: budgetedTotal.formattedCurrency(code: currency), title: "Budget", accentColor: accentColor)
+                }
+                if showsBalances {
+                    NavigationLink(value: TripSectionRoute.balances) {
+                        SquareNavCard(iconName: "arrow.left.arrow.right", subtitle: "Settle Up", title: "Balances", accentColor: accentColor)
+                    }
                 }
                 NavigationLink(value: TripSectionRoute.accommodations) {
                     SquareNavCard(iconName: "bed.double", subtitle: "\(accommodationCount) Stays", title: "Accommodations", accentColor: accentColor)

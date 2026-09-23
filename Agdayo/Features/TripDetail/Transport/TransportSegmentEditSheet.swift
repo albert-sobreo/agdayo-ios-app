@@ -1,12 +1,15 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct TransportSegmentEditSheet: View {
     let trip: Trip
     var editingSegment: TransportSegment?
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
 
     @State private var mode: TransportMode
     @State private var departureLocation: String
@@ -18,11 +21,16 @@ struct TransportSegmentEditSheet: View {
     @State private var seatNumber: String
     @State private var costText: String
     @State private var currency: String
+    @State private var exchangeRate: Double?
     @State private var notes: String
+    @State private var paidByUID: String?
+    @State private var splitUIDs: Set<String>
+    @State private var splitAmounts: [String: Double]
 
-    init(trip: Trip, editingSegment: TransportSegment? = nil) {
+    init(trip: Trip, editingSegment: TransportSegment? = nil, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
         self.editingSegment = editingSegment
+        self.memberProfiles = memberProfiles
         _mode = State(initialValue: editingSegment?.mode ?? .flight)
         _departureLocation = State(initialValue: editingSegment?.departureLocation ?? "")
         _departureDateTime = State(initialValue: Self.combine(date: editingSegment?.departureDate ?? trip.startDate, time: editingSegment?.departureTime ?? "09:00"))
@@ -33,7 +41,15 @@ struct TransportSegmentEditSheet: View {
         _seatNumber = State(initialValue: editingSegment?.seatNumber ?? "")
         _costText = State(initialValue: editingSegment.map { String($0.cost) } ?? "")
         _currency = State(initialValue: editingSegment?.currency ?? trip.currency)
+        _exchangeRate = State(initialValue: editingSegment?.exchangeRateToTripCurrency)
         _notes = State(initialValue: editingSegment?.notes ?? "")
+        _paidByUID = State(initialValue: editingSegment?.paidByUID)
+        if let editingSegment, !editingSegment.splitUIDs.isEmpty {
+            _splitUIDs = State(initialValue: Set(editingSegment.splitUIDs))
+        } else {
+            _splitUIDs = State(initialValue: Set(memberProfiles.map(\.uid)))
+        }
+        _splitAmounts = State(initialValue: editingSegment?.splitAmounts ?? [:])
     }
 
     private var isValid: Bool {
@@ -78,12 +94,23 @@ struct TransportSegmentEditSheet: View {
                             Text(code).tag(code)
                         }
                     }
+                    .onChange(of: currency) { _, _ in exchangeRate = nil }
+                    ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: currency, toCurrency: trip.currency, rate: $exchangeRate)
                 }
 
                 Section("Notes") {
                     TextField("Optional notes", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
+
+                ExpenseSplitSection(
+                    memberProfiles: memberProfiles,
+                    totalCost: Double(costText) ?? 0,
+                    currencyCode: currency,
+                    paidByUID: $paidByUID,
+                    splitUIDs: $splitUIDs,
+                    splitAmounts: $splitAmounts
+                )
             }
             .navigationTitle(editingSegment == nil ? "Add Transport" : "Edit Transport")
             .navigationBarTitleDisplayMode(.inline)
@@ -97,6 +124,11 @@ struct TransportSegmentEditSheet: View {
                 }
             }
         }
+        .onAppear {
+            if editingSegment == nil, paidByUID == nil {
+                paidByUID = authService.firebaseUser?.uid
+            }
+        }
     }
 
     private func save() {
@@ -106,6 +138,7 @@ struct TransportSegmentEditSheet: View {
         let arrivalDate: Date? = hasArrivalDetails ? calendar.startOfDay(for: arrivalDateTime) : nil
         let arrivalTime: String? = hasArrivalDetails ? Self.timeString(from: arrivalDateTime) : nil
         let cost = Double(costText) ?? 0
+        let rate = currency == trip.currency ? nil : exchangeRate
 
         let segment: TransportSegment
         if let editingSegment {
@@ -121,7 +154,11 @@ struct TransportSegmentEditSheet: View {
             segment.seatNumber = seatNumber.isEmpty ? nil : seatNumber
             segment.cost = cost
             segment.currency = currency
+            segment.exchangeRateToTripCurrency = rate
             segment.notes = notes.isEmpty ? nil : notes
+            segment.paidByUID = paidByUID
+            segment.splitUIDs = Array(splitUIDs)
+            segment.splitAmounts = splitAmounts
         } else {
             segment = TransportSegment(
                 mode: mode,
@@ -135,7 +172,11 @@ struct TransportSegmentEditSheet: View {
                 seatNumber: seatNumber.isEmpty ? nil : seatNumber,
                 cost: cost,
                 currency: currency,
+                exchangeRateToTripCurrency: rate,
                 notes: notes.isEmpty ? nil : notes,
+                paidByUID: paidByUID,
+                splitUIDs: Array(splitUIDs),
+                splitAmounts: splitAmounts,
                 trip: trip
             )
             modelContext.insert(segment)
@@ -148,6 +189,7 @@ struct TransportSegmentEditSheet: View {
                 try? await FirestoreCollectionSync.push(tripID: tripID, collection: "transportSegments", docID: segmentID, data: dto)
             }
         }
+        NotificationScheduler.scheduleReminder(for: segment)
         dismiss()
     }
 

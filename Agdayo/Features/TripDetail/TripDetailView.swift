@@ -40,7 +40,8 @@ struct TripDetailView: View {
                     taskCount: trip.preparationTasks.count,
                     transportCount: trip.transportSegments.count,
                     noteCount: trip.dayNotes.count,
-                    memberCount: max(1, syncCoordinator.memberProfiles.count)
+                    memberCount: max(1, syncCoordinator.memberProfiles.count),
+                    showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
 
                 UpcomingActivitiesPreview(trip: trip)
@@ -103,15 +104,17 @@ struct TripDetailView: View {
     private func destination(for route: TripSectionRoute) -> some View {
         switch route {
         case .itinerary:
-            ItineraryTimelineView(trip: trip)
+            ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .accommodations:
-            AccommodationListView(trip: trip)
+            AccommodationListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .budget:
-            BudgetOverviewView(trip: trip)
+            BudgetOverviewView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
+        case .balances:
+            BalancesView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .preparation:
             PreparationChecklistView(trip: trip)
         case .transport:
-            TransportSegmentListView(trip: trip)
+            TransportSegmentListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .notes:
             DayNoteListView(trip: trip)
         case .members:

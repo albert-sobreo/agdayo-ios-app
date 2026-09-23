@@ -32,7 +32,7 @@ struct BudgetProgressBar: View {
                     ? "Over budget by \((spent - total).formattedCurrency(code: currency))"
                     : "\(spent.formattedCurrency(code: currency)) of \(total.formattedCurrency(code: currency))"
             )
-            .font(.caption)
+            .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(isOverBudget ? .red : .secondary)
         }
     }

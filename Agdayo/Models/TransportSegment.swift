@@ -45,7 +45,14 @@ final class TransportSegment {
     var seatNumber: String?
     var cost: Double
     var currency: String
+    /// Snapshot of the rate to the trip's currency at the moment `cost` was
+    /// entered. `nil` when `currency` matches the trip's own, or when no
+    /// rate could be captured yet.
+    var exchangeRateToTripCurrency: Double?
     var notes: String?
+    var paidByUID: String?
+    var splitUIDs: [String] = []
+    var splitAmounts: [String: Double] = [:]
     var trip: Trip?
 
     init(
@@ -61,7 +68,11 @@ final class TransportSegment {
         seatNumber: String? = nil,
         cost: Double = 0,
         currency: String = "PHP",
+        exchangeRateToTripCurrency: Double? = nil,
         notes: String? = nil,
+        paidByUID: String? = nil,
+        splitUIDs: [String] = [],
+        splitAmounts: [String: Double] = [:],
         trip: Trip? = nil
     ) {
         self.id = id
@@ -76,7 +87,27 @@ final class TransportSegment {
         self.seatNumber = seatNumber
         self.cost = cost
         self.currency = currency
+        self.exchangeRateToTripCurrency = exchangeRateToTripCurrency
         self.notes = notes
+        self.paidByUID = paidByUID
+        self.splitUIDs = splitUIDs
+        self.splitAmounts = splitAmounts
         self.trip = trip
+    }
+
+    /// `departureDate` only carries the calendar day — combined with
+    /// `departureTime` ("HH:mm") here for anything that needs the actual
+    /// departure instant, e.g. scheduling a reminder.
+    var departureDateTime: Date {
+        let parts = departureTime.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return departureDate }
+        return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: departureDate) ?? departureDate
+    }
+
+    /// Same idea as `Activity.costAndRate(inTripCurrency:)`.
+    func costAndRate(inTripCurrency tripCurrency: String) -> (cost: Double, rate: Double)? {
+        if currency == tripCurrency { return (cost, 1) }
+        guard let exchangeRateToTripCurrency else { return nil }
+        return (cost * exchangeRateToTripCurrency, exchangeRateToTripCurrency)
     }
 }

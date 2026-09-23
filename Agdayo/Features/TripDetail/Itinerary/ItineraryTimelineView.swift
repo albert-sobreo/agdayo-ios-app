@@ -4,6 +4,7 @@ import CoreLocation
 
 struct ItineraryTimelineView: View {
     let trip: Trip
+    var memberProfiles: [AppUserProfile] = []
 
     @State private var isAddingActivity = false
     @State private var forecastsByDay: [Date: DailyForecastSummary] = [:]
@@ -36,7 +37,7 @@ struct ItineraryTimelineView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
-                        DaySection(dayIndex: index + 1, group: group, trip: trip, forecast: forecastsByDay[group.day])
+                        DaySection(dayIndex: index + 1, group: group, trip: trip, forecast: forecastsByDay[group.day], memberProfiles: memberProfiles)
                     }
                 }
                 .padding()
@@ -55,7 +56,7 @@ struct ItineraryTimelineView: View {
             }
         }
         .sheet(isPresented: $isAddingActivity) {
-            ActivityEditSheet(trip: trip)
+            ActivityEditSheet(trip: trip, memberProfiles: memberProfiles)
         }
         .task {
             await loadForecasts()
@@ -78,6 +79,7 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
     var forecast: DailyForecastSummary?
+    var memberProfiles: [AppUserProfile] = []
 
     /// Flattened across bucket boundaries so travel time is computed between
     /// actual consecutive stops (e.g. last Morning stop → first Noon stop),
@@ -90,7 +92,7 @@ private struct DaySection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Day \(dayIndex) · \(group.day.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .font(AppFont.outfit(20, weight: .semibold, relativeTo: .title3))
                 if let forecast {
                     Spacer()
                     WeatherChip(forecast: forecast)
@@ -101,7 +103,7 @@ private struct DaySection: View {
                 TimeOfDayDivider(label: bucket.bucket.label)
                 ForEach(Array(bucket.activities.enumerated()), id: \.element.id) { index, activity in
                     NavigationLink {
-                        ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor)
+                        ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
                     } label: {
                         ActivityRowView(
                             title: activity.title,
@@ -175,7 +177,7 @@ private struct TravelConnectorView: View {
                     Text("Unavailable")
                 }
             }
-            .font(.caption)
+            .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(.secondary)
         }
         .padding(.leading, 34)
@@ -225,7 +227,7 @@ private struct WeatherChip: View {
             Text(forecast.lowTemperature.formatted(.measurement(width: .narrow, usage: .weather, hidesScaleName: true, numberFormatStyle: .number.precision(.fractionLength(0)))))
                 .foregroundStyle(.secondary)
         }
-        .font(.caption.weight(.medium))
+        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
     }
 }
 
@@ -236,7 +238,7 @@ private struct TimeOfDayDivider: View {
         ZStack {
             Divider()
             Text(label)
-                .font(.caption.weight(.semibold))
+                .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, 8)

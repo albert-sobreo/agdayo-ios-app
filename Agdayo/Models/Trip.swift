@@ -58,6 +58,9 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \DayNote.trip)
     var dayNotes: [DayNote] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Settlement.trip)
+    var settlements: [Settlement] = []
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -100,8 +103,31 @@ final class Trip {
         return .active
     }
 
+    /// Activities' own `cost` fields, on top of the planned category
+    /// amounts — converted into the trip's currency via each activity's
+    /// snapshotted exchange rate. An activity costed in a different
+    /// currency with no rate ever captured (e.g. entered fully offline) is
+    /// excluded rather than mixed in wrong.
+    var activityCostsTotal: Double {
+        activities.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: currency)?.cost ?? 0) }
+    }
+
+    /// Accommodations have no currency field of their own — `totalCost` is
+    /// always assumed to be in the trip's currency.
+    var accommodationCostsTotal: Double {
+        accommodations.reduce(0) { $0 + $1.totalCost }
+    }
+
+    /// Same conversion as `activityCostsTotal`.
+    var transportCostsTotal: Double {
+        transportSegments.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: currency)?.cost ?? 0) }
+    }
+
     var budgetedTotal: Double {
         budgetCategories.reduce(0) { $0 + $1.amount }
+            + activityCostsTotal
+            + accommodationCostsTotal
+            + transportCostsTotal
     }
 
     var isOverBudget: Bool {

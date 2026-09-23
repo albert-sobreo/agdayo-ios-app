@@ -6,6 +6,7 @@ struct ActivityDetailView: View {
     let trip: Trip
     let activity: Activity
     let accentColor: Color
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -26,7 +27,7 @@ struct ActivityDetailView: View {
                         .font(.title2)
                         .foregroundStyle(accentColor)
                     Text(activity.title)
-                        .font(.system(.title2, design: .rounded).weight(.bold))
+                        .font(AppFont.outfit(22, weight: .bold, relativeTo: .title2))
                 }
 
                 Label(activity.date.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
@@ -49,7 +50,7 @@ struct ActivityDetailView: View {
 
                 if !activity.activityDescription.isEmpty {
                     Text(activity.activityDescription)
-                        .font(.body)
+                        .font(AppFont.outfit(17, relativeTo: .body))
                 }
 
                 if let coordinate = activity.coordinate {
@@ -79,7 +80,7 @@ struct ActivityDetailView: View {
             }
         }
         .sheet(isPresented: $isEditing) {
-            ActivityEditSheet(trip: trip, editingActivity: activity)
+            ActivityEditSheet(trip: trip, editingActivity: activity, memberProfiles: memberProfiles)
         }
         .confirmationDialog("Delete this activity?", isPresented: $isShowingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
@@ -90,6 +91,7 @@ struct ActivityDetailView: View {
                         try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "activities", docID: activityID)
                     }
                 }
+                NotificationScheduler.cancelReminder(forActivityID: activity.id)
                 modelContext.delete(activity)
                 dismiss()
             }

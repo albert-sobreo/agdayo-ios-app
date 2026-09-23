@@ -50,6 +50,7 @@ struct AgdayoApp: App {
             TransportSegment.self,
             DayNote.self,
             UserProfile.self,
+            Settlement.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -69,7 +70,7 @@ struct AgdayoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootTabView()
+            RootContainerView()
                 .appFont()
                 .preferredColorScheme(.light)
                 .environment(authService)
@@ -94,5 +95,20 @@ struct AgdayoApp: App {
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance = appearance
+    }
+}
+
+/// Shows `OnboardingView` once, on first launch, before `RootTabView` —
+/// independent of sign-in state, since the app itself doesn't require an
+/// account to start planning a trip.
+private struct RootContainerView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
+    var body: some View {
+        if hasCompletedOnboarding {
+            RootTabView()
+        } else {
+            OnboardingView(onFinish: { hasCompletedOnboarding = true })
+        }
     }
 }

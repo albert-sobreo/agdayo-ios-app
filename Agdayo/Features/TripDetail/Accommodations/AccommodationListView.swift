@@ -3,6 +3,7 @@ import SwiftData
 
 struct AccommodationListView: View {
     let trip: Trip
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
@@ -48,10 +49,10 @@ struct AccommodationListView: View {
             }
         }
         .sheet(isPresented: $isAdding) {
-            AccommodationEditSheet(trip: trip)
+            AccommodationEditSheet(trip: trip, memberProfiles: memberProfiles)
         }
         .sheet(item: $editingAccommodation) { accommodation in
-            AccommodationEditSheet(trip: trip, editingAccommodation: accommodation)
+            AccommodationEditSheet(trip: trip, editingAccommodation: accommodation, memberProfiles: memberProfiles)
         }
     }
 

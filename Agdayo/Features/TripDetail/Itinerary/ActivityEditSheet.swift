@@ -1,12 +1,15 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct ActivityEditSheet: View {
     let trip: Trip
     var editingActivity: Activity?
+    var memberProfiles: [AppUserProfile] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
 
     @State private var title: String
     @State private var location: String
@@ -16,12 +19,17 @@ struct ActivityEditSheet: View {
     @State private var costText: String
     @State private var costCurrency: String
     @State private var costNote: String
+    @State private var exchangeRate: Double?
     @State private var activityDescription: String
     @State private var iconName: String
+    @State private var paidByUID: String?
+    @State private var splitUIDs: Set<String>
+    @State private var splitAmounts: [String: Double]
 
-    init(trip: Trip, editingActivity: Activity? = nil) {
+    init(trip: Trip, editingActivity: Activity? = nil, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
         self.editingActivity = editingActivity
+        self.memberProfiles = memberProfiles
         _title = State(initialValue: editingActivity?.title ?? "")
         _location = State(initialValue: editingActivity?.location ?? "")
         _latitude = State(initialValue: editingActivity?.latitude)
@@ -30,8 +38,16 @@ struct ActivityEditSheet: View {
         _costText = State(initialValue: editingActivity?.cost.map { String($0) } ?? "")
         _costCurrency = State(initialValue: editingActivity?.costCurrency ?? trip.currency)
         _costNote = State(initialValue: editingActivity?.costNote ?? "")
+        _exchangeRate = State(initialValue: editingActivity?.exchangeRateToTripCurrency)
         _activityDescription = State(initialValue: editingActivity?.activityDescription ?? "")
         _iconName = State(initialValue: editingActivity?.iconName ?? "mappin.and.ellipse")
+        _paidByUID = State(initialValue: editingActivity?.paidByUID)
+        if let editingActivity, !editingActivity.splitUIDs.isEmpty {
+            _splitUIDs = State(initialValue: Set(editingActivity.splitUIDs))
+        } else {
+            _splitUIDs = State(initialValue: Set(memberProfiles.map(\.uid)))
+        }
+        _splitAmounts = State(initialValue: editingActivity?.splitAmounts ?? [:])
     }
 
     private var dateRange: ClosedRange<Date> {
@@ -72,6 +88,8 @@ struct ActivityEditSheet: View {
                             Text(code).tag(code)
                         }
                     }
+                    .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
+                    ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
                     TextField("Note, e.g. \"Included\"", text: $costNote)
                 }
 
@@ -84,6 +102,15 @@ struct ActivityEditSheet: View {
                     TextField("Optional details", text: $activityDescription, axis: .vertical)
                         .lineLimit(3...6)
                 }
+
+                ExpenseSplitSection(
+                    memberProfiles: memberProfiles,
+                    totalCost: Double(costText) ?? 0,
+                    currencyCode: costCurrency,
+                    paidByUID: $paidByUID,
+                    splitUIDs: $splitUIDs,
+                    splitAmounts: $splitAmounts
+                )
             }
             .navigationTitle(editingActivity == nil ? "Add Activity" : "Edit Activity")
             .navigationBarTitleDisplayMode(.inline)
@@ -97,10 +124,16 @@ struct ActivityEditSheet: View {
                 }
             }
         }
+        .onAppear {
+            if editingActivity == nil, paidByUID == nil {
+                paidByUID = authService.firebaseUser?.uid
+            }
+        }
     }
 
     private func save() {
         let cost = Double(costText)
+        let rate = costCurrency == trip.currency ? nil : exchangeRate
         let activity: Activity
         if let editingActivity {
             activity = editingActivity
@@ -112,8 +145,12 @@ struct ActivityEditSheet: View {
             activity.cost = cost
             activity.costCurrency = cost == nil ? nil : costCurrency
             activity.costNote = costNote
+            activity.exchangeRateToTripCurrency = rate
             activity.activityDescription = activityDescription
             activity.iconName = iconName
+            activity.paidByUID = paidByUID
+            activity.splitUIDs = Array(splitUIDs)
+            activity.splitAmounts = splitAmounts
         } else {
             activity = Activity(
                 title: title.trimmingCharacters(in: .whitespaces),
@@ -125,12 +162,17 @@ struct ActivityEditSheet: View {
                 cost: cost,
                 costCurrency: cost == nil ? nil : costCurrency,
                 costNote: costNote,
+                exchangeRateToTripCurrency: rate,
                 iconName: iconName,
+                paidByUID: paidByUID,
+                splitUIDs: Array(splitUIDs),
+                splitAmounts: splitAmounts,
                 trip: trip
             )
             modelContext.insert(activity)
         }
         pushIfShared(activity)
+        NotificationScheduler.scheduleReminder(for: activity)
         dismiss()
     }
 

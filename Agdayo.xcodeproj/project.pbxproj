@@ -287,7 +287,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Agdayo: Your Travel Companion";
+				INFOPLIST_KEY_CFBundleDisplayName = Agdayo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -327,7 +327,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Agdayo: Your Travel Companion";
+				INFOPLIST_KEY_CFBundleDisplayName = Agdayo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

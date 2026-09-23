@@ -78,12 +78,12 @@ private struct MonthGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(month.formatted(.dateTime.month(.wide).year()))
-                .font(.system(.headline, design: .rounded).weight(.semibold))
+                .font(AppFont.outfit(17, weight: .semibold, relativeTo: .headline))
 
             HStack(spacing: 0) {
                 ForEach(weekdaySymbols.indices, id: \.self) { index in
                     Text(weekdaySymbols[index])
-                        .font(.caption2.weight(.medium))
+                        .font(AppFont.outfit(11, weight: .medium, relativeTo: .caption2))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
@@ -171,7 +171,7 @@ private struct DayCell: View {
                         Circle().fill(Color.appPrimary)
                     }
                     Text("\(calendar.component(.day, from: day))")
-                        .font(.callout.weight(isStart || isEnd ? .bold : .regular))
+                        .font(AppFont.outfit(16, weight: isStart || isEnd ? .bold : .regular, relativeTo: .callout))
                         .foregroundStyle(isStart || isEnd ? .white : (isPast ? .secondary : .primary))
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
