@@ -36,13 +36,13 @@ struct PreparationChecklistView: View {
                 List {
                     Section {
                         Picker("Filter", selection: $filter) {
-                            Text("All").tag(PreparationFilter.all)
-                            Text("Completed").tag(PreparationFilter.completed)
-                            Text("Not Completed").tag(PreparationFilter.notCompleted)
+                            ForEach(PreparationFilter.allCases, id: \.self) { option in
+                                Text(option.label).tag(option)
+                            }
                         }
                         .pickerStyle(.segmented)
                         .listRowInsets(EdgeInsets())
-                        .padding(.vertical, 4)
+                        .listRowBackground(Color.clear)
                     }
                     ForEach(groupedByCategory, id: \.category) { group in
                         Section(group.category) {
@@ -84,8 +84,16 @@ struct PreparationChecklistView: View {
     }
 }
 
-private enum PreparationFilter {
+private enum PreparationFilter: CaseIterable {
     case all, completed, notCompleted
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .completed: return "Completed"
+        case .notCompleted: return "Not Completed"
+        }
+    }
 }
 
 private struct PreparationTaskRow: View {

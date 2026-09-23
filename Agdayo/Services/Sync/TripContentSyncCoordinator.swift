@@ -52,8 +52,13 @@ final class TripContentSyncCoordinator {
         }
     }
 
+    /// No-op if already running for this trip — `TripDetailView.onAppear`
+    /// can fire more than once while the screen is still visible (e.g. a
+    /// sheet dismissing), and restarting would call `stop()` first, which
+    /// wipes `memberProfiles`/`memberRoles` back to empty until the
+    /// listeners redeliver — visible as members briefly disappearing.
     func start(for trip: Trip, modelContext: ModelContext) {
-        stop()
+        guard listeners.isEmpty else { return }
         let tripID = trip.id
 
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "activities", as: ActivityDTO.self) { [weak self] type, docID, dto in

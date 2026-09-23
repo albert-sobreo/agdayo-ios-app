@@ -94,14 +94,23 @@ struct ManualTripFormView: View {
         )
         modelContext.insert(trip)
         if let uid = authService.firebaseUser?.uid {
-            trip.ownerUID = uid
-            Task {
-                try? await TripMembershipService.createTripRecord(
-                    tripID: trip.id, ownerUID: uid, name: trip.name, location: trip.location,
-                    theme: trip.theme.rawValue, startDate: trip.startDate, endDate: trip.endDate,
-                    overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription,
-                    latitude: trip.latitude, longitude: trip.longitude
-                )
+            // `ownerUID` is only set once the Firestore write actually
+            // succeeds — setting it optimistically beforehand would make a
+            // failed (e.g. offline) upload look "already synced," so
+            // `RootTabView`'s backfill would never retry it.
+            Task { @MainActor in
+                do {
+                    try await TripMembershipService.createTripRecord(
+                        tripID: trip.id, ownerUID: uid, name: trip.name, location: trip.location,
+                        theme: trip.theme.rawValue, startDate: trip.startDate, endDate: trip.endDate,
+                        overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription,
+                        latitude: trip.latitude, longitude: trip.longitude
+                    )
+                    trip.ownerUID = uid
+                } catch {
+                    // Left local-only; RootTabView's backfill retries next
+                    // sign-in-state change or app foreground.
+                }
             }
         }
         onSaved()

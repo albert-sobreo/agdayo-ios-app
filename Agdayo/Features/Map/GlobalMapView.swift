@@ -18,6 +18,7 @@ struct GlobalMapView: View {
     @State private var geocodedCoordinates: [UUID: CLLocationCoordinate2D] = [:]
     @State private var isGeneratingSnapshot = false
     @State private var shareItem: ShareItem?
+    @State private var navigationTarget: Trip?
 
     private var tripsWithCoordinates: [(trip: Trip, coordinate: CLLocationCoordinate2D)] {
         trips.compactMap { trip in
@@ -44,10 +45,16 @@ struct GlobalMapView: View {
                                 coordinate: entry.coordinate,
                                 anchor: .bottom
                             ) {
-                                TripPinView(
-                                    trip: entry.trip,
-                                    isSelected: entry.trip.id == selectedTripID
-                                )
+                                Button {
+                                    selectedTripID = entry.trip.id
+                                    navigationTarget = entry.trip
+                                } label: {
+                                    TripPinView(
+                                        trip: entry.trip,
+                                        isSelected: entry.trip.id == selectedTripID
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                             .tag(entry.trip.id)
                         }
@@ -72,15 +79,16 @@ struct GlobalMapView: View {
                     TripChipScroller(
                         trips: tripsWithCoordinates,
                         selectedTripID: selectedTripID,
-                        onFocus: focus
+                        onFocus: focus,
+                        onOpen: { navigationTarget = $0 }
                     )
                     .padding(.bottom, 16)
                 }
             }
         }
         .navigationTitle("Map")
-        .navigationDestination(for: Trip.self) { trip in
-            TripDetailView(trip: trip)
+        .navigationDestination(item: $navigationTarget) { trip in
+            TripDetailView(trip: trip, onLeftTrip: { navigationTarget = nil })
         }
         .task {
             await geocodeMissingTrips()
@@ -318,14 +326,18 @@ private struct TripChipScroller: View {
     let trips: [(trip: Trip, coordinate: CLLocationCoordinate2D)]
     let selectedTripID: UUID?
     let onFocus: (Trip, CLLocationCoordinate2D) -> Void
+    let onOpen: (Trip) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(trips, id: \.trip.id) { entry in
-                    TripChip(trip: entry.trip, isSelected: entry.trip.id == selectedTripID) {
-                        onFocus(entry.trip, entry.coordinate)
-                    }
+                    TripChip(
+                        trip: entry.trip,
+                        isSelected: entry.trip.id == selectedTripID,
+                        onFocus: { onFocus(entry.trip, entry.coordinate) },
+                        onOpen: { onOpen(entry.trip) }
+                    )
                 }
             }
             .padding()
@@ -338,6 +350,7 @@ private struct TripChip: View {
     let trip: Trip
     let isSelected: Bool
     let onFocus: () -> Void
+    let onOpen: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -356,7 +369,7 @@ private struct TripChip: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink(value: trip) {
+            Button(action: onOpen) {
                 Image(systemName: "chevron.right.circle.fill")
                     .font(.title3)
                     .foregroundStyle(.secondary)

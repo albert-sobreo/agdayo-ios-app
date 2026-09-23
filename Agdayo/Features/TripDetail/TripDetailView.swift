@@ -1,11 +1,14 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 struct TripDetailView: View {
     let trip: Trip
+    var onLeftTrip: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthService.self) private var authService
     @State private var isShowingMap = false
     @State private var isShowingSettings = false
     @State private var isShowingShareSheet = false
@@ -76,14 +79,24 @@ struct TripDetailView: View {
         .sheet(isPresented: $isShowingShareSheet) {
             TripShareSheet(trip: trip)
         }
-        .onAppear {
-            if trip.ownerUID != nil {
-                syncCoordinator.start(for: trip, modelContext: modelContext)
+        .task {
+            // Must finish (or fail) before starting the listeners below —
+            // racing them meant the listeners could attach (and permanently
+            // fail, since `start()` no-ops on a second attempt) before this
+            // self-heal had actually created the membership doc.
+            guard let ownerUID = trip.ownerUID, authService.isSignedIn else { return }
+            if let uid = authService.firebaseUser?.uid {
+                let role = uid == ownerUID ? "owner" : "member"
+                try? await TripMembershipService.ensureMembership(tripID: trip.id, uid: uid, role: role)
             }
+            syncCoordinator.start(for: trip, modelContext: modelContext)
         }
-        .onDisappear {
-            syncCoordinator.stop()
-        }
+        // Deliberately no `.onDisappear { syncCoordinator.stop() }` — this
+        // view stays the root of `Members`/`Itinerary`/etc. while those are
+        // pushed on top of it, so stopping here tore down the listeners
+        // (and wiped member data) while a child screen was still showing it.
+        // The coordinator is torn down naturally when this screen is
+        // actually popped and its `@State` is released.
     }
 
     @ViewBuilder
@@ -102,7 +115,7 @@ struct TripDetailView: View {
         case .notes:
             DayNoteListView(trip: trip)
         case .members:
-            MembersListView(trip: trip, syncCoordinator: syncCoordinator)
+            MembersListView(trip: trip, syncCoordinator: syncCoordinator, onLeftTrip: onLeftTrip)
         }
     }
 
@@ -164,7 +177,7 @@ private struct UpcomingActivityRow: View {
                 }
             }
             Spacer()
-            Text(date, format: .dateTime.month(.abbreviated).day())
+            Text(date, format: .dateTime.hour().minute())
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

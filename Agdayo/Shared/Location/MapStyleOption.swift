@@ -44,7 +44,6 @@ struct MapStylePickerButton: View {
         } label: {
             Image(systemName: "map.fill")
                 .padding(8)
-                .background(.thinMaterial, in: Circle())
         }
         .accessibilityLabel("Map Style")
     }

@@ -6,6 +6,7 @@ struct RootTabView: View {
     @Query private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var deepLinkCode: String = ""
     @State private var isPresentingDeepLinkJoin = false
@@ -13,10 +14,7 @@ struct RootTabView: View {
     var body: some View {
         TabView {
             Tab("Trips", systemImage: "suitcase.fill") {
-                NavigationStack {
-                    TripListView()
-                        .background(BackgroundImageModifier())
-                }
+                TripListView()
             }
             Tab("Map", systemImage: "map.fill") {
                 NavigationStack {
@@ -45,20 +43,35 @@ struct RootTabView: View {
             JoinTripSheet(initialCode: deepLinkCode)
         }
         .task(id: authService.isSignedIn) {
-            backfillOwnershipIfNeeded()
-            if let uid = authService.firebaseUser?.uid {
-                await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
+            await syncPendingWork()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Retries any trip that failed to upload earlier (no network,
+            // or created while signed out and the account only just
+            // finished syncing) every time the app comes back to the
+            // foreground — not just once per sign-in-state change.
+            if newPhase == .active {
+                Task { await syncPendingWork() }
             }
         }
     }
 
-    /// The moment a user signs in, every local trip they created while signed
-    /// out gets a Firestore membership record, so nothing is permanently
-    /// stuck local-only.
+    private func syncPendingWork() async {
+        backfillOwnershipIfNeeded()
+        if let uid = authService.firebaseUser?.uid {
+            await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
+        }
+    }
+
+    /// Every local-only trip (`ownerUID == nil`) — whether created while
+    /// signed out, or created while signed in but never actually confirmed
+    /// uploaded (e.g. no network at the time) — gets a Firestore membership
+    /// record here. `ownerUID` is only set once the upload actually
+    /// succeeds, so a failed attempt stays retryable instead of silently
+    /// looking "already synced."
     private func backfillOwnershipIfNeeded() {
         guard authService.isSignedIn, let uid = authService.firebaseUser?.uid else { return }
         for trip in trips where trip.ownerUID == nil {
-            trip.ownerUID = uid
             let tripID = trip.id
             let name = trip.name
             let location = trip.location
@@ -77,13 +90,18 @@ struct RootTabView: View {
             let transportSegmentDTOs = trip.transportSegments.map { ($0.id, $0.dto) }
             let dayNoteDTOs = trip.dayNotes.map { ($0.id, $0.dto) }
 
-            Task {
-                try? await TripMembershipService.createTripRecord(
-                    tripID: tripID, ownerUID: uid, name: name, location: location,
-                    theme: theme, startDate: startDate, endDate: endDate,
-                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
-                    latitude: latitude, longitude: longitude
-                )
+            Task { @MainActor in
+                do {
+                    try await TripMembershipService.createTripRecord(
+                        tripID: tripID, ownerUID: uid, name: name, location: location,
+                        theme: theme, startDate: startDate, endDate: endDate,
+                        overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
+                        latitude: latitude, longitude: longitude
+                    )
+                } catch {
+                    return // stays ownerUID == nil; retried next foreground/sign-in
+                }
+                trip.ownerUID = uid
                 for (id, dto) in activityDTOs {
                     try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: id, data: dto)
                 }

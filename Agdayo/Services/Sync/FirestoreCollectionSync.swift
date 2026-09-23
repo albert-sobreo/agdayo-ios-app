@@ -41,15 +41,19 @@ enum FirestoreCollectionSync {
     }
 
     /// Listens to the `trips/{tripID}` document itself (not a subcollection).
-    /// Calls back with `nil` if the document no longer exists (e.g. the owner
-    /// deleted the trip from another device).
+    /// Calls back with `nil` only when the document itself is confirmed gone
+    /// (e.g. the owner deleted the trip from another device) — a `nil`
+    /// snapshot (network drop, or permission-denied after signing out) is
+    /// just ignored rather than treated as deletion, otherwise the local
+    /// trip would get wiped every time the listener hits a transient error.
     static func listenTripDocument<T: Decodable>(
         tripID: UUID,
         as type: T.Type,
         onChange: @escaping (T?) -> Void
     ) -> ListenerRegistration {
         Firestore.firestore().collection("trips").document(tripID.uuidString).addSnapshotListener { snapshot, _ in
-            guard let snapshot, snapshot.exists else {
+            guard let snapshot else { return }
+            guard snapshot.exists else {
                 onChange(nil)
                 return
             }

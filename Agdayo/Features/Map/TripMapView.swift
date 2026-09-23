@@ -273,7 +273,6 @@ private struct RouteModePickerButton: View {
         } label: {
             Image(systemName: selection.sfSymbolName)
                 .padding(8)
-                .background(.thinMaterial, in: Circle())
         }
         .accessibilityLabel("Route Mode")
     }
@@ -288,7 +287,6 @@ private struct ShareLocationButton: View {
             Image(systemName: isSharing ? "location.fill" : "location.slash")
                 .foregroundStyle(isSharing ? .green : .primary)
                 .padding(8)
-                .background(.thinMaterial, in: Circle())
         }
         .accessibilityLabel(isSharing ? "Stop Sharing Location" : "Share My Location")
     }

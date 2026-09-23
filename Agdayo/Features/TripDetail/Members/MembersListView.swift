@@ -5,9 +5,9 @@ import FirebaseAuth
 struct MembersListView: View {
     let trip: Trip
     let syncCoordinator: TripContentSyncCoordinator
+    var onLeftTrip: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Environment(AuthService.self) private var authService
 
     @State private var isShowingShareSheet = false
@@ -255,6 +255,9 @@ struct MembersListView: View {
             try? await TripMembershipService.removeMember(tripID: tripID, uid: currentUID)
         }
         modelContext.delete(trip)
-        dismiss()
+        // Pops all the way back to the trip list instead of `dismiss()`,
+        // which would only pop one level back to the (now-deleted) trip's
+        // own detail screen.
+        onLeftTrip()
     }
 }

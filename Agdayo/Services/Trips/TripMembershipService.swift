@@ -212,6 +212,29 @@ enum TripMembershipService {
         return ids.compactMap { UUID(uuidString: $0) }
     }
 
+    /// Idempotently ensures the given user actually has a `members` doc for
+    /// this trip. Guards against a trip that looks synced locally
+    /// (`ownerUID`/`memberOfTripIDs` set) but whose membership write
+    /// silently failed partway through `createTripRecord`/`joinTrip` (e.g.
+    /// no network at that exact moment) — without it, `isMember()` fails
+    /// the security-rule check forever and every future write to that
+    /// trip's content gets rejected as permission-denied. Safe to call
+    /// unconditionally: the rules already allow anyone to create their own
+    /// `members/{uid}` doc as long as the trip exists.
+    static func ensureMembership(tripID: UUID, uid: String, role: String) async throws {
+        let memberRef = tripsCollection.document(tripID.uuidString).collection("members").document(uid)
+        let snapshot = try await memberRef.getDocument()
+        guard !snapshot.exists else { return }
+        try await memberRef.setData([
+            "uid": uid,
+            "role": role,
+            "joinedAt": FieldValue.serverTimestamp(),
+        ])
+        try await Firestore.firestore().collection("users").document(uid).setData([
+            "memberOfTripIDs": FieldValue.arrayUnion([tripID.uuidString])
+        ], merge: true)
+    }
+
     static func fetchTripFields(tripID: UUID) async throws -> TripFieldsDTO? {
         let snapshot = try await tripsCollection.document(tripID.uuidString).getDocument()
         guard snapshot.exists else { return nil }

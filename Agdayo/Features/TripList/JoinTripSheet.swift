@@ -29,6 +29,21 @@ struct JoinTripSheet: View {
         !cleanedCode.isEmpty && cleanedCode.count >= 4
     }
 
+    /// Prefers the pasteboard's `URL` representation over its `.string` one.
+    /// When our invite link is copied elsewhere (e.g. an iMessage link
+    /// bubble's "Copy" action) it's stored as a `URL` item, not plain text —
+    /// reading `.string` off that can hand back the raw archived-bplist
+    /// bytes instead of the clean link text.
+    private var clipboardContent: String? {
+        if let url = UIPasteboard.general.url {
+            return url.absoluteString
+        }
+        if let string = UIPasteboard.general.string, !string.isEmpty {
+            return string
+        }
+        return nil
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -99,7 +114,7 @@ struct JoinTripSheet: View {
                             }
 
                         // Paste from clipboard button
-                        if let pasteboardString = UIPasteboard.general.string,
+                        if let pasteboardString = clipboardContent,
                            !pasteboardString.isEmpty,
                            inputCode.isEmpty {
                             Button {
