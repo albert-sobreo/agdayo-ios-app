@@ -28,10 +28,9 @@ struct PreparationChecklistView: View {
                     iconName: "checklist",
                     title: "No Prep Tasks Yet",
                     message: "Add packing, documents, or other things to prepare.",
-                    actionTitle: "Add Task"
-                ) {
-                    isAdding = true
-                }
+                    actionTitle: "Add Task",
+                    action: { isAdding = true }
+                )
             } else {
                 List {
                     Section {

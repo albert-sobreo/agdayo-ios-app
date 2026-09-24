@@ -37,10 +37,9 @@ struct TripListView: View {
                             iconName: "suitcase",
                             title: "No Trips Yet",
                             message: "Plan your first trip or join a friend's trip with an invite code.",
-                            actionTitle: "Create a Trip"
-                        ) {
-                            isPresentingCreateFlow = true
-                        }
+                            actionTitle: "Create a Trip",
+                            action: { isPresentingCreateFlow = true }
+                        )
 
                         Button {
                             isPresentingJoinFlow = true

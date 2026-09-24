@@ -20,10 +20,9 @@ struct AccommodationListView: View {
                     iconName: "bed.double",
                     title: "No Accommodations Yet",
                     message: "Add where you're staying during this trip.",
-                    actionTitle: "Add Accommodation"
-                ) {
-                    isAdding = true
-                }
+                    actionTitle: "Add Accommodation",
+                    action: { isAdding = true }
+                )
             } else {
                 List {
                     ForEach(sorted) { accommodation in

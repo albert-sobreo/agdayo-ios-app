@@ -3,6 +3,7 @@ import SwiftData
 import FirebaseAuth
 
 private enum RootTab: Hashable {
+    case home
     case trips
     case map
     case profile
@@ -17,10 +18,13 @@ struct RootTabView: View {
     @State private var deepLinkCode: String = ""
     @State private var isPresentingDeepLinkJoin = false
     @State private var pendingJoinedTrip: Trip?
-    @State private var selectedTab: RootTab = .trips
+    @State private var selectedTab: RootTab = .home
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            Tab("Home", systemImage: "house.fill", value: .home) {
+                HomeView()
+            }
             Tab("Trips", systemImage: "suitcase.fill", value: .trips) {
                 TripListView(pendingJoinedTrip: $pendingJoinedTrip)
             }
@@ -50,7 +54,13 @@ struct RootTabView: View {
             }
         }
         .sheet(isPresented: $isPresentingDeepLinkJoin) {
-            JoinTripSheet(initialCode: deepLinkCode, onJoined: { trip in pendingJoinedTrip = trip })
+            JoinTripSheet(initialCode: deepLinkCode, onJoined: { trip in
+                // Redirect logic lives on the Trips tab's own NavigationPath
+                // (see TripListView) — switch there so the join is visible
+                // regardless of which tab (now possibly Home) was active.
+                selectedTab = .trips
+                pendingJoinedTrip = trip
+            })
         }
         .task {
             NotificationScheduler.requestAuthorizationIfNeeded()
@@ -98,6 +108,11 @@ struct RootTabView: View {
             let tripDescription = trip.tripDescription
             let latitude = trip.latitude
             let longitude = trip.longitude
+            let sharedAlbumTitle = trip.sharedAlbumTitle
+            let sharedAlbumInviteURL = trip.sharedAlbumInviteURL
+            let visitedCountry = trip.visitedCountry
+            let visitedProvince = trip.visitedProvince
+            let visitedCity = trip.visitedCity
             let activityDTOs = trip.activities.map { ($0.id, $0.dto) }
             let accommodationDTOs = trip.accommodations.map { ($0.id, $0.dto) }
             let budgetCategoryDTOs = trip.budgetCategories.map { ($0.id, $0.dto) }
@@ -111,7 +126,9 @@ struct RootTabView: View {
                         tripID: tripID, ownerUID: uid, name: name, location: location,
                         theme: theme, startDate: startDate, endDate: endDate,
                         overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
-                        latitude: latitude, longitude: longitude
+                        latitude: latitude, longitude: longitude, sharedAlbumTitle: sharedAlbumTitle,
+                        sharedAlbumInviteURL: sharedAlbumInviteURL,
+                        visitedCountry: visitedCountry, visitedProvince: visitedProvince, visitedCity: visitedCity
                     )
                 } catch {
                     return // stays ownerUID == nil; retried next foreground/sign-in

@@ -119,6 +119,8 @@ struct TripDetailView: View {
             DayNoteListView(trip: trip)
         case .members:
             MembersListView(trip: trip, syncCoordinator: syncCoordinator, onLeftTrip: onLeftTrip)
+        case .attachments:
+            TripAttachmentsView(trip: trip)
         }
     }
 

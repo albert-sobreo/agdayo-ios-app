@@ -308,16 +308,6 @@ private struct ShareMapButton: View {
     }
 }
 
-private struct ActivityShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
 private struct TripChipScroller: View {
     let trips: [(trip: Trip, coordinate: CLLocationCoordinate2D)]
     let selectedTripID: UUID?

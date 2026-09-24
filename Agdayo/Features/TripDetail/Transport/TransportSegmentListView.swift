@@ -20,10 +20,9 @@ struct TransportSegmentListView: View {
                     iconName: "airplane",
                     title: "No Transport Yet",
                     message: "Add flights, buses, or other ways you'll get around.",
-                    actionTitle: "Add Transport"
-                ) {
-                    isAdding = true
-                }
+                    actionTitle: "Add Transport",
+                    action: { isAdding = true }
+                )
             } else {
                 List {
                     ForEach(sorted) { segment in
@@ -33,6 +32,17 @@ struct TransportSegmentListView: View {
                             TransportSegmentRow(segment: segment, accentColor: trip.theme.accentColor)
                         }
                         .buttonStyle(.plain)
+                        .swipeActions(edge: .leading) {
+                            Button {
+                                Task { await toggleCalendar(for: segment) }
+                            } label: {
+                                Label(
+                                    segment.calendarEventID == nil ? "Add to Calendar" : "Remove from Calendar",
+                                    systemImage: segment.calendarEventID == nil ? "calendar.badge.plus" : "calendar.badge.minus"
+                                )
+                            }
+                            .tint(trip.theme.accentColor)
+                        }
                     }
                     .onDelete(perform: delete)
                 }
@@ -68,6 +78,15 @@ struct TransportSegmentListView: View {
             }
             NotificationScheduler.cancelReminder(forTransportID: segment.id)
             modelContext.delete(segment)
+        }
+    }
+
+    private func toggleCalendar(for segment: TransportSegment) async {
+        if let eventID = segment.calendarEventID {
+            await CalendarExportService.removeEvent(identifier: eventID)
+            segment.calendarEventID = nil
+        } else {
+            segment.calendarEventID = await CalendarExportService.addEvent(for: segment)
         }
     }
 }

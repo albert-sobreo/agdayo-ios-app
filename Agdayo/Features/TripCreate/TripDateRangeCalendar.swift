@@ -8,29 +8,42 @@ struct TripDateRangeCalendar: View {
     @Binding var endDate: Date?
 
     private let calendar = Calendar.current
-    private let monthsToShow = 36
+    /// Months shown before the current one, so past trips can be created —
+    /// generous enough (10 years) to cover essentially any real trip.
+    private let monthsBefore = 120
+    private let monthsAfter = 36
+
+    private var currentMonth: Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: .now)) ?? .now
+    }
 
     private var months: [Date] {
-        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: .now)) ?? .now
-        return (0..<monthsToShow).compactMap { calendar.date(byAdding: .month, value: $0, to: start) }
+        let start = calendar.date(byAdding: .month, value: -monthsBefore, to: currentMonth) ?? currentMonth
+        return (0..<(monthsBefore + monthsAfter)).compactMap { calendar.date(byAdding: .month, value: $0, to: start) }
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 28) {
-                ForEach(months, id: \.self) { month in
-                    MonthGrid(month: month, startDate: startDate, endDate: endDate, onTap: handleTap)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 28) {
+                    ForEach(months, id: \.self) { month in
+                        MonthGrid(month: month, startDate: startDate, endDate: endDate, onTap: handleTap)
+                            .id(month)
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.bottom, 12)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 12)
+            // Past months are only reachable by scrolling up manually — the
+            // calendar still opens on today's month, same as before allowing
+            // past-date selection.
+            .onAppear {
+                proxy.scrollTo(currentMonth, anchor: .top)
+            }
         }
     }
 
     private func handleTap(_ day: Date) {
-        let today = calendar.startOfDay(for: .now)
-        guard day >= today else { return }
-
         if startDate == nil {
             startDate = day
         } else if endDate == nil {
@@ -109,10 +122,6 @@ private struct DayCell: View {
 
     private let calendar = Calendar.current
 
-    private var isPast: Bool {
-        day < calendar.startOfDay(for: .now)
-    }
-
     private var isStart: Bool {
         guard let startDate else { return false }
         return calendar.isDate(day, inSameDayAs: startDate)
@@ -172,7 +181,7 @@ private struct DayCell: View {
                     }
                     Text("\(calendar.component(.day, from: day))")
                         .font(AppFont.outfit(16, weight: isStart || isEnd ? .bold : .regular, relativeTo: .callout))
-                        .foregroundStyle(isStart || isEnd ? .white : (isPast ? .secondary : .primary))
+                        .foregroundStyle(isStart || isEnd ? .white : .primary)
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
             }
@@ -180,6 +189,5 @@ private struct DayCell: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
-        .disabled(isPast)
     }
 }

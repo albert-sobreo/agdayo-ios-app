@@ -27,6 +27,11 @@ final class Activity {
     /// `splitUIDs` evenly" — only populated when someone paid unequal
     /// amounts (e.g. ordered different things at a shared meal).
     var splitAmounts: [String: Double] = [:]
+    /// This device's EventKit event identifier, if the activity has been
+    /// added to Calendar — deliberately NOT part of `ActivityDTO`/synced.
+    /// Each member's calendar is their own; adding it on one device
+    /// shouldn't add it (or an unrelated identifier) on another's.
+    var calendarEventID: String?
     var trip: Trip?
 
     init(
@@ -45,6 +50,7 @@ final class Activity {
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
+        calendarEventID: String? = nil,
         trip: Trip? = nil
     ) {
         self.id = id
@@ -62,6 +68,7 @@ final class Activity {
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts
+        self.calendarEventID = calendarEventID
         self.trip = trip
     }
 

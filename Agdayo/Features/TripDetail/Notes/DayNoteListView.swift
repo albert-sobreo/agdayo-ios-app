@@ -19,10 +19,9 @@ struct DayNoteListView: View {
                     iconName: "note.text",
                     title: "No Notes Yet",
                     message: "Jot down reminders or plans for specific days.",
-                    actionTitle: "Add Note"
-                ) {
-                    isAdding = true
-                }
+                    actionTitle: "Add Note",
+                    action: { isAdding = true }
+                )
             } else {
                 List {
                     ForEach(sorted) { note in

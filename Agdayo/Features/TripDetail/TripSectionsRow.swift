@@ -9,6 +9,7 @@ enum TripSectionRoute: Hashable {
     case transport
     case notes
     case members
+    case attachments
 }
 
 struct TripSectionsRow: View {
@@ -52,6 +53,9 @@ struct TripSectionsRow: View {
                 }
                 NavigationLink(value: TripSectionRoute.members) {
                     SquareNavCard(iconName: "person.2", subtitle: "\(memberCount) Member\(memberCount == 1 ? "" : "s")", title: "Members", accentColor: accentColor)
+                }
+                NavigationLink(value: TripSectionRoute.attachments) {
+                    SquareNavCard(iconName: "paperclip", subtitle: "Shared Album", title: "Photos", accentColor: accentColor)
                 }
             }
             .padding(.horizontal)

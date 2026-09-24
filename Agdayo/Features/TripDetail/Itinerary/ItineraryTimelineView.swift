@@ -7,6 +7,7 @@ struct ItineraryTimelineView: View {
     var memberProfiles: [AppUserProfile] = []
 
     @State private var isAddingActivity = false
+    @State private var isGeneratingWithAI = false
     @State private var forecastsByDay: [Date: DailyForecastSummary] = [:]
 
     private var dayGroups: [DayGroup] {
@@ -29,10 +30,11 @@ struct ItineraryTimelineView: View {
                     iconName: "note.text",
                     title: "No Activities Yet",
                     message: "Add your first stop to start building the itinerary.",
-                    actionTitle: "Add Activity"
-                ) {
-                    isAddingActivity = true
-                }
+                    actionTitle: "Add Activity",
+                    action: { isAddingActivity = true },
+                    secondaryActionTitle: AIAvailability.isItineraryGenerationAvailable ? "Generate with AI" : nil,
+                    secondaryAction: AIAvailability.isItineraryGenerationAvailable ? { isGeneratingWithAI = true } : nil
+                )
                 .padding(.top, 60)
             } else {
                 LazyVStack(alignment: .leading, spacing: 20) {
@@ -47,16 +49,31 @@ struct ItineraryTimelineView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isAddingActivity = true
-                } label: {
-                    Image(systemName: "plus")
+                if AIAvailability.isItineraryGenerationAvailable {
+                    Menu {
+                        Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
+                        Button("Generate with AI", systemImage: "sparkles") { isGeneratingWithAI = true }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add Activity")
+                } else {
+                    Button {
+                        isAddingActivity = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add Activity")
                 }
-                .accessibilityLabel("Add Activity")
             }
         }
         .sheet(isPresented: $isAddingActivity) {
             ActivityEditSheet(trip: trip, memberProfiles: memberProfiles)
+        }
+        .sheet(isPresented: $isGeneratingWithAI) {
+            if #available(iOS 26.0, *) {
+                AIItineraryReviewSheet(trip: trip, memberProfiles: memberProfiles)
+            }
         }
         .task {
             await loadForecasts()

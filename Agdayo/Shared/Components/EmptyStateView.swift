@@ -6,6 +6,8 @@ struct EmptyStateView: View {
     let message: String
     var actionTitle: String?
     var action: (() -> Void)?
+    var secondaryActionTitle: String?
+    var secondaryAction: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 12) {
@@ -24,6 +26,11 @@ struct EmptyStateView: View {
                     .buttonStyle(.appPrimary)
                     .padding(.horizontal, 40)
                     .padding(.top, 8)
+            }
+            if let secondaryActionTitle, let secondaryAction {
+                Button(secondaryActionTitle, action: secondaryAction)
+                    .buttonStyle(.appSecondary)
+                    .padding(.horizontal, 40)
             }
         }
         .padding()

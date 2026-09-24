@@ -22,7 +22,7 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" fixedFrame="YES" image="agdayo.png" translatesAutoresizingMaskIntoConstraints="NO" id="TTN-j6-37e">
-                                <rect key="frame" x="77" y="310" width="239" height="115"/>
+                                <rect key="frame" x="77" y="314" width="239" height="115"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                             </imageView>
                         </subviews>

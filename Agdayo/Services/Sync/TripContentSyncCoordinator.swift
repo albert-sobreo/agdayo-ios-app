@@ -20,6 +20,11 @@ struct TripFieldsDTO: Codable {
     var joinCode: String?
     var latitude: Double?
     var longitude: Double?
+    var sharedAlbumTitle: String?
+    var sharedAlbumInviteURL: String?
+    var visitedCountry: String?
+    var visitedProvince: String?
+    var visitedCity: String?
 }
 
 struct TripMemberRecord: Identifiable {
@@ -267,5 +272,10 @@ final class TripContentSyncCoordinator {
         trip.tripDescription = dto.tripDescription
         if let latitude = dto.latitude { trip.latitude = latitude }
         if let longitude = dto.longitude { trip.longitude = longitude }
+        if let sharedAlbumTitle = dto.sharedAlbumTitle { trip.sharedAlbumTitle = sharedAlbumTitle }
+        if let sharedAlbumInviteURL = dto.sharedAlbumInviteURL { trip.sharedAlbumInviteURL = sharedAlbumInviteURL }
+        if let visitedCountry = dto.visitedCountry { trip.visitedCountry = visitedCountry }
+        if let visitedProvince = dto.visitedProvince { trip.visitedProvince = visitedProvince }
+        if let visitedCity = dto.visitedCity { trip.visitedCity = visitedCity }
     }
 }

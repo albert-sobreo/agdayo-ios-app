@@ -12,6 +12,7 @@ struct ActivityDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var isEditing = false
     @State private var isShowingDeleteConfirmation = false
+    @State private var isTogglingCalendar = false
 
     var body: some View {
         ScrollView {
@@ -61,6 +62,22 @@ struct ActivityDetailView: View {
                     }
                     .buttonStyle(.appSecondary)
                 }
+
+                Button {
+                    Task { await toggleCalendar() }
+                } label: {
+                    if isTogglingCalendar {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label(
+                            activity.calendarEventID == nil ? "Add to Calendar" : "Remove from Calendar",
+                            systemImage: activity.calendarEventID == nil ? "calendar.badge.plus" : "calendar.badge.minus"
+                        )
+                    }
+                }
+                .buttonStyle(.appSecondary)
+                .disabled(isTogglingCalendar)
             }
             .padding()
         }
@@ -102,6 +119,17 @@ struct ActivityDetailView: View {
         let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
         mapItem.name = name
         mapItem.openInMaps()
+    }
+
+    private func toggleCalendar() async {
+        isTogglingCalendar = true
+        if let eventID = activity.calendarEventID {
+            await CalendarExportService.removeEvent(identifier: eventID)
+            activity.calendarEventID = nil
+        } else {
+            activity.calendarEventID = await CalendarExportService.addEvent(for: activity)
+        }
+        isTogglingCalendar = false
     }
 }
 

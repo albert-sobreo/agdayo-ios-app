@@ -16,7 +16,8 @@ enum AppFont {
 
     private static func postscriptName(for weight: Font.Weight) -> String {
         switch weight {
-        case .black, .heavy: return "Outfit-Black"
+        case .black: return "Outfit-Black"
+        case .heavy: return "Outfit-ExtraBold"
         case .bold: return "Outfit-Bold"
         case .semibold: return "Outfit-SemiBold"
         case .medium: return "Outfit-Medium"

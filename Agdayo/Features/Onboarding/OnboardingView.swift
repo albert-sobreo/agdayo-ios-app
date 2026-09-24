@@ -47,32 +47,29 @@ struct OnboardingView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                HStack(spacing: 8) {
-                    ForEach(onboardingPages.indices, id: \.self) { index in
-                        Capsule()
-                            .fill(.white.opacity(index == pageIndex ? 1 : 0.4))
-                            .frame(width: index == pageIndex ? 20 : 8, height: 8)
+            GeometryReader { geo in
+                HStack(spacing: 16) {
+                    Button {
+                        advance()
+                    } label: {
+                        Text(isLastPage ? "Get Started" : "Next")
                     }
-                }
-                .animation(.easeOut(duration: 0.2), value: pageIndex)
+                    .buttonStyle(.appPrimary)
+                    .frame(width: geo.size.width * 0.75)
 
-                Button {
-                    advance()
-                } label: {
-                    Text(isLastPage ? "Get Started" : "Next")
-                }
-                .buttonStyle(.appPrimary)
-                .padding(.horizontal, 24)
-
-                if !isLastPage {
-                    Button("Skip") { onFinish() }
-                        .font(AppFont.outfit(15, weight: .medium, relativeTo: .subheadline))
-                        .foregroundStyle(.white.opacity(0.8))
-                } else {
-                    Color.clear.frame(height: 20)
+                    HStack(spacing: 8) {
+                        ForEach(onboardingPages.indices, id: \.self) { index in
+                            Capsule()
+                                .fill(.white.opacity(index == pageIndex ? 1 : 0.4))
+                                .frame(width: index == pageIndex ? 20 : 8, height: 8)
+                        }
+                    }
+                    .animation(.easeOut(duration: 0.2), value: pageIndex)
                 }
             }
+            .frame(height: 54)
+            .padding(.horizontal, 24)
+            .padding(.bottom) // safe-area default — clears the home indicator
             .padding(.bottom, 24)
         }
         .background(Color.black)
@@ -135,7 +132,7 @@ private struct OnboardingPageView: View {
             }
             .padding(.horizontal, 28)
             .padding(.bottom) // safe-area default — clears the home indicator
-            .padding(.bottom, 150) // clearance for the dots/button/skip overlay
+            .padding(.bottom, 110) // clearance for the button/dots overlay
         }
     }
 }

@@ -59,7 +59,12 @@ enum TripMembershipService {
         currency: String,
         tripDescription: String,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        sharedAlbumTitle: String? = nil,
+        sharedAlbumInviteURL: String? = nil,
+        visitedCountry: String? = nil,
+        visitedProvince: String? = nil,
+        visitedCity: String? = nil
     ) async throws {
         let joinCode = generateRandomCode()
         let tripRef = tripsCollection.document(tripID.uuidString)
@@ -79,6 +84,11 @@ enum TripMembershipService {
         ]
         if let latitude { data["latitude"] = latitude }
         if let longitude { data["longitude"] = longitude }
+        if let sharedAlbumTitle { data["sharedAlbumTitle"] = sharedAlbumTitle }
+        if let sharedAlbumInviteURL { data["sharedAlbumInviteURL"] = sharedAlbumInviteURL }
+        if let visitedCountry { data["visitedCountry"] = visitedCountry }
+        if let visitedProvince { data["visitedProvince"] = visitedProvince }
+        if let visitedCity { data["visitedCity"] = visitedCity }
         try await tripRef.setData(data)
         try await joinCodesCollection.document(joinCode).setData([
             "tripID": tripID.uuidString,
@@ -105,7 +115,12 @@ enum TripMembershipService {
         currency: String,
         tripDescription: String,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        sharedAlbumTitle: String? = nil,
+        sharedAlbumInviteURL: String? = nil,
+        visitedCountry: String? = nil,
+        visitedProvince: String? = nil,
+        visitedCity: String? = nil
     ) async throws {
         var data: [String: Any] = [
             "name": name,
@@ -120,6 +135,11 @@ enum TripMembershipService {
         ]
         if let latitude { data["latitude"] = latitude }
         if let longitude { data["longitude"] = longitude }
+        if let sharedAlbumTitle { data["sharedAlbumTitle"] = sharedAlbumTitle }
+        if let sharedAlbumInviteURL { data["sharedAlbumInviteURL"] = sharedAlbumInviteURL }
+        if let visitedCountry { data["visitedCountry"] = visitedCountry }
+        if let visitedProvince { data["visitedProvince"] = visitedProvince }
+        if let visitedCity { data["visitedCity"] = visitedCity }
         try await tripsCollection.document(tripID.uuidString).updateData(data)
     }
 

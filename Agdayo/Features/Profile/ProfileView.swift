@@ -47,6 +47,14 @@ private struct ProfileForm: View {
                 Text("Get a local reminder shortly before an activity starts or a flight/transport departs.")
             }
 
+            Section {
+                NavigationLink {
+                    VisitedPlacesMapView()
+                } label: {
+                    Label("My Travel Map", systemImage: "globe")
+                }
+            }
+
             Section("About You") {
                 TextField("Full Name", text: $profile.fullName)
                 TextField("Home Region", text: $profile.homeRegion)

@@ -53,6 +53,10 @@ final class TransportSegment {
     var paidByUID: String?
     var splitUIDs: [String] = []
     var splitAmounts: [String: Double] = [:]
+    /// This device's EventKit event identifier, if this segment has been
+    /// added to Calendar — deliberately NOT part of `TransportSegmentDTO`/
+    /// synced, same reasoning as `Activity.calendarEventID`.
+    var calendarEventID: String?
     var trip: Trip?
 
     init(
@@ -73,6 +77,7 @@ final class TransportSegment {
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
+        calendarEventID: String? = nil,
         trip: Trip? = nil
     ) {
         self.id = id
@@ -92,6 +97,7 @@ final class TransportSegment {
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts
+        self.calendarEventID = calendarEventID
         self.trip = trip
     }
 
@@ -102,6 +108,15 @@ final class TransportSegment {
         let parts = departureTime.split(separator: ":").compactMap { Int($0) }
         guard parts.count == 2 else { return departureDate }
         return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: departureDate) ?? departureDate
+    }
+
+    /// Same idea as `departureDateTime`, using `arrivalDate`/`arrivalTime`
+    /// when present. `nil` when no arrival details were entered.
+    var arrivalDateTime: Date? {
+        guard let arrivalDate, let arrivalTime else { return nil }
+        let parts = arrivalTime.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return arrivalDate }
+        return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: arrivalDate) ?? arrivalDate
     }
 
     /// Same idea as `Activity.costAndRate(inTripCurrency:)`.
