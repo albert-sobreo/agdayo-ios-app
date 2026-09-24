@@ -28,6 +28,17 @@ struct TripListView: View {
         }
     }
 
+    /// Upcoming/active trips first, completed ones pushed to their own
+    /// section at the bottom — most-recently-finished first, same
+    /// ordering `HomeView`'s past-trips section already uses.
+    private var activeTrips: [Trip] {
+        filteredTrips.filter { $0.status != .completed }
+    }
+
+    private var completedTrips: [Trip] {
+        filteredTrips.filter { $0.status == .completed }.sorted { $0.endDate > $1.endDate }
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             Group {
@@ -58,29 +69,26 @@ struct TripListView: View {
                     )
                 } else {
                     List {
-                        ForEach(filteredTrips) { trip in
-                            NavigationLink(value: trip) {
-                                TripCardView(
-                                    name: trip.name,
-                                    location: trip.location,
-                                    theme: trip.theme,
-                                    startDate: trip.startDate,
-                                    endDate: trip.endDate,
-                                    status: trip.status
-                                )
+                        if !activeTrips.isEmpty {
+                            Section {
+                                ForEach(activeTrips) { trip in
+                                    tripRow(trip)
+                                }
+                                .onDelete(perform: deleteActiveTrips)
+                            } header: {
+                                Text("Upcoming & Active")
                             }
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(
-                                EdgeInsets(
-                                    top: 6,
-                                    leading: 16,
-                                    bottom: 6,
-                                    trailing: 16
-                                )
-                            )
-                            .listRowBackground(Color.clear)
                         }
-                        .onDelete(perform: deleteTrips)
+                        if !completedTrips.isEmpty {
+                            Section {
+                                ForEach(completedTrips) { trip in
+                                    tripRow(trip)
+                                }
+                                .onDelete(perform: deleteCompletedTrips)
+                            } header: {
+                                Text("Completed")
+                            }
+                        }
                     }
                     .listStyle(.plain)
                     .refreshable {
@@ -135,9 +143,39 @@ struct TripListView: View {
         }
     }
 
-    private func deleteTrips(at offsets: IndexSet) {
+    @ViewBuilder
+    private func tripRow(_ trip: Trip) -> some View {
+        NavigationLink(value: trip) {
+            TripCardView(
+                name: trip.name,
+                location: trip.location,
+                theme: trip.theme,
+                startDate: trip.startDate,
+                endDate: trip.endDate,
+                status: trip.status
+            )
+        }
+        .listRowSeparator(.hidden)
+        .listRowInsets(
+            EdgeInsets(
+                top: 6,
+                leading: 16,
+                bottom: 6,
+                trailing: 16
+            )
+        )
+        .listRowBackground(Color.clear)
+    }
+
+    private func deleteActiveTrips(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(filteredTrips[index])
+            modelContext.delete(activeTrips[index])
+        }
+    }
+
+    private func deleteCompletedTrips(at offsets: IndexSet) {
+        for index in offsets {
+            modelContext.delete(completedTrips[index])
         }
     }
 

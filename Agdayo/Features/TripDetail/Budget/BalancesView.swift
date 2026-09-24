@@ -10,6 +10,7 @@ struct BalancesView: View {
     let memberProfiles: [AppUserProfile]
 
     @Environment(\.modelContext) private var modelContext
+    @State private var syncErrorMessage: String?
 
     private var balances: [(profile: AppUserProfile, amount: Double)] {
         let net = ExpenseBalanceService.balances(for: trip)
@@ -96,6 +97,15 @@ struct BalancesView: View {
         }
         .navigationTitle("Balances")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Couldn't Sync", isPresented: syncErrorMessageBinding) {
+            Button("OK") {}
+        } message: {
+            Text(syncErrorMessage ?? "")
+        }
+    }
+
+    private var syncErrorMessageBinding: Binding<Bool> {
+        Binding(get: { syncErrorMessage != nil }, set: { if !$0 { syncErrorMessage = nil } })
     }
 
     private func markAsPaid(_ settlement: ExpenseSettlement) {
@@ -118,7 +128,11 @@ struct BalancesView: View {
         let recordID = record.id
         let dto = record.dto
         Task {
-            try? await FirestoreCollectionSync.push(tripID: tripID, collection: "settlements", docID: recordID, data: dto)
+            do {
+                try await FirestoreCollectionSync.push(tripID: tripID, collection: "settlements", docID: recordID, data: dto)
+            } catch {
+                syncErrorMessage = "This payment was saved on this device only — it failed to sync: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -127,7 +141,11 @@ struct BalancesView: View {
         let tripID = trip.id
         let recordID = record.id
         Task {
-            try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "settlements", docID: recordID)
+            do {
+                try await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "settlements", docID: recordID)
+            } catch {
+                syncErrorMessage = "Couldn't remove this payment from the shared trip: \(error.localizedDescription)"
+            }
         }
     }
 }

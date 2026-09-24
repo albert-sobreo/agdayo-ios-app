@@ -42,20 +42,6 @@ final class Trip {
     var visitedProvince: String?
     var visitedCity: String?
 
-    /// The `localizedTitle` of an iCloud Shared Album (set up manually in
-    /// Photos.app, since PhotoKit can't create one or send invites from app
-    /// code) that this trip's attachments are linked to. Matched by title
-    /// on each member's own device — see `Services/Photos/SharedAlbumService.swift`.
-    /// Just a name string, safe to sync like any other trip field.
-    var sharedAlbumTitle: String?
-
-    /// The Shared Album's "Public Website" link (copied manually from
-    /// Photos.app's Share Album sheet), so a member who isn't invited yet
-    /// can tap through and join. PhotoKit has no API to generate or fetch
-    /// this link itself, so it's captured once and synced like any other
-    /// plain-string trip field.
-    var sharedAlbumInviteURL: String?
-
     /// Firebase UID of the signed-in user who created this trip, if any.
     /// `nil` for trips created while signed out — those stay local-only until
     /// backfilled on a later sign-in. `Trip.id` doubles as the Firestore

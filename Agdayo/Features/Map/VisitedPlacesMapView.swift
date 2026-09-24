@@ -154,7 +154,6 @@ struct VisitedPlacesMapView: View {
             let tripDescription = trip.tripDescription
             let latitude = trip.latitude
             let longitude = trip.longitude
-            let sharedAlbumTitle = trip.sharedAlbumTitle
             let visitedCountry = trip.visitedCountry
             let visitedProvince = trip.visitedProvince
             let visitedCity = trip.visitedCity
@@ -163,7 +162,7 @@ struct VisitedPlacesMapView: View {
                     tripID: tripID, name: name, location: location2, theme: theme,
                     startDate: startDate, endDate: endDate, overallBudget: overallBudget,
                     currency: currency, tripDescription: tripDescription,
-                    latitude: latitude, longitude: longitude, sharedAlbumTitle: sharedAlbumTitle,
+                    latitude: latitude, longitude: longitude,
                     visitedCountry: visitedCountry, visitedProvince: visitedProvince, visitedCity: visitedCity
                 )
             }

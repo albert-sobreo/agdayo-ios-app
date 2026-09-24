@@ -78,7 +78,7 @@ private struct MapBackgroundDecoration: View {
     let theme: TripTheme
 
     /// The visible, faded column's width; height comes from the card itself.
-    private let visibleWidth: CGFloat = 150
+    private let visibleWidth: CGFloat = 220
     /// Apple's attribution logo is required and can't be turned off via
     /// API, so instead the map is rendered this much larger than the
     /// visible column and centered — the excess (which always includes
@@ -87,21 +87,37 @@ private struct MapBackgroundDecoration: View {
     /// same factor so the cropped, visible portion still shows the same
     /// real-world area as an un-cropped map would, instead of looking
     /// more zoomed in.
-    private let oversizeFactor: CGFloat = 1.6
-    private let baseSpanMeters: CLLocationDistance = 8000
+    private static let oversizeFactor: CGFloat = 1.6
+    private static let baseSpanMeters: CLLocationDistance = 8000
+    private var oversizeFactor: CGFloat { Self.oversizeFactor }
+
+    /// `Map(initialPosition:)` only seeds the camera once, on first
+    /// creation — since `HomeView`'s showcase card keeps the same view
+    /// identity across re-renders (same position in the tree), switching
+    /// to a different trip after leaving the current one changed
+    /// `coordinate` but left the already-created map's camera pointed at
+    /// the old trip. Driving the camera through this `@State` + the
+    /// `onChange` below re-centers it explicitly whenever `coordinate`
+    /// actually changes.
+    @State private var cameraPosition: MapCameraPosition
+
+    init(coordinate: CLLocationCoordinate2D, theme: TripTheme) {
+        self.coordinate = coordinate
+        self.theme = theme
+        _cameraPosition = State(initialValue: .region(Self.region(for: coordinate)))
+    }
+
+    private static func region(for coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
+        MKCoordinateRegion(
+            center: coordinate,
+            latitudinalMeters: baseSpanMeters * oversizeFactor,
+            longitudinalMeters: baseSpanMeters * oversizeFactor
+        )
+    }
 
     var body: some View {
         GeometryReader { geometry in
-            Map(
-                initialPosition: .region(
-                    MKCoordinateRegion(
-                        center: coordinate,
-                        latitudinalMeters: baseSpanMeters * oversizeFactor,
-                        longitudinalMeters: baseSpanMeters * oversizeFactor
-                    )
-                ),
-                interactionModes: []
-            ) {
+            Map(position: $cameraPosition, interactionModes: []) {
                 Marker("", coordinate: coordinate)
                     .tint(theme.accentColor)
             }
@@ -115,6 +131,11 @@ private struct MapBackgroundDecoration: View {
             LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
         )
         .opacity(0.75)
+        // `CLLocationCoordinate2D` isn't `Equatable`, so `onChange` keys off
+        // a plain comparable pair of its components instead.
+        .onChange(of: [coordinate.latitude, coordinate.longitude]) { _, _ in
+            cameraPosition = .region(Self.region(for: coordinate))
+        }
     }
 }
 

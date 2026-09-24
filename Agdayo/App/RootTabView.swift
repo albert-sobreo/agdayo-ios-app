@@ -108,8 +108,6 @@ struct RootTabView: View {
             let tripDescription = trip.tripDescription
             let latitude = trip.latitude
             let longitude = trip.longitude
-            let sharedAlbumTitle = trip.sharedAlbumTitle
-            let sharedAlbumInviteURL = trip.sharedAlbumInviteURL
             let visitedCountry = trip.visitedCountry
             let visitedProvince = trip.visitedProvince
             let visitedCity = trip.visitedCity
@@ -126,8 +124,7 @@ struct RootTabView: View {
                         tripID: tripID, ownerUID: uid, name: name, location: location,
                         theme: theme, startDate: startDate, endDate: endDate,
                         overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
-                        latitude: latitude, longitude: longitude, sharedAlbumTitle: sharedAlbumTitle,
-                        sharedAlbumInviteURL: sharedAlbumInviteURL,
+                        latitude: latitude, longitude: longitude,
                         visitedCountry: visitedCountry, visitedProvince: visitedProvince, visitedCity: visitedCity
                     )
                 } catch {
