@@ -38,4 +38,9 @@ enum UserDirectoryService {
             try await documentRef.setData(data)
         }
     }
+
+    /// Part of account deletion (see `AuthService.deleteAccount()`).
+    static func deleteProfile(uid: String) async throws {
+        try await usersCollection.document(uid).delete()
+    }
 }

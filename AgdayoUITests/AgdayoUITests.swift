@@ -40,16 +40,7 @@ final class AgdayoUITests: XCTestCase {
         app.launch()
         completeOnboarding(app)
 
-        app.tabBars.buttons["Profile"].tap()
-
-        // Firebase Auth persists a signed-in session in the Keychain, which
-        // survives `-UITestReset` (that only clears UserDefaults/SwiftData).
-        // If a prior session is still signed in, sign out first so the
-        // entry point is reachable regardless of the device's starting state.
-        let signOutButton = app.buttons["Sign Out"]
-        if signOutButton.waitForExistence(timeout: 15) {
-            signOutButton.tap()
-        }
+        ensureSignedOut(app)
 
         // The button's label combines "Sign In" with a trailing chevron
         // image, so it isn't an exact accessibility label match.
