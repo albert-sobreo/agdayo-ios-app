@@ -7,6 +7,12 @@ struct PrivacyPolicyView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 48)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
                 Text("Last updated \(Self.lastUpdated)")
                     .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
