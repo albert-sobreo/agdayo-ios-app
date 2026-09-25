@@ -168,6 +168,7 @@ private struct DestinationStepView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("destinationSearchResult")
                             Divider().padding(.leading, 44)
                         }
                     }

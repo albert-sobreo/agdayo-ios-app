@@ -43,9 +43,10 @@ struct TripDetailView: View {
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
-
-                UpcomingActivitiesPreview(trip: trip)
+                Text("Activities")
                     .padding(.horizontal)
+                    .font(AppFont.outfit(24, weight: .semibold))
+                ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
             }
             .padding(.bottom, 24)
         }

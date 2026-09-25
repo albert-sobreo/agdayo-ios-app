@@ -52,7 +52,10 @@ struct AgdayoApp: App {
             UserProfile.self,
             Settlement.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // UI tests pass `-UITestReset` so each run starts from an empty
+        // store instead of accumulating trips left by earlier runs.
+        let isUITestRun = ProcessInfo.processInfo.arguments.contains("-UITestReset")
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: isUITestRun)
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -66,6 +69,15 @@ struct AgdayoApp: App {
             GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
         Self.configureNavigationBarAppearance()
+        Self.resetOnboardingStateForUITestsIfNeeded()
+    }
+
+    /// Companion to `sharedModelContainer`'s own reset above — `hasCompletedOnboarding`
+    /// lives in `UserDefaults`, not the SwiftData store, so a UI test run needs both
+    /// cleared for every run to actually start at `OnboardingView`.
+    private static func resetOnboardingStateForUITestsIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("-UITestReset") else { return }
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
     }
 
     var body: some Scene {
