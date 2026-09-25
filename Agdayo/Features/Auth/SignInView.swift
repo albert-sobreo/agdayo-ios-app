@@ -92,6 +92,12 @@ struct SignInView: View {
                 }
 
                 Spacer()
+
+                NavigationLink("Privacy Policy") {
+                    PrivacyPolicyView()
+                }
+                .font(AppFont.outfit(12, relativeTo: .caption))
+                .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 24)
             .navigationBarTitleDisplayMode(.inline)

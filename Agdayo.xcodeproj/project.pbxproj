@@ -416,6 +416,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Agdayo;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
@@ -459,6 +460,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Agdayo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Agdayo;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";

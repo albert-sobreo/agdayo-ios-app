@@ -90,6 +90,12 @@ private struct ProfileForm: View {
                     .font(AppFont.outfit(12, relativeTo: .caption))
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                NavigationLink("Privacy Policy") {
+                    PrivacyPolicyView()
+                }
+            }
         }
         .sheet(isPresented: $isPresentingSignIn) {
             SignInView()
