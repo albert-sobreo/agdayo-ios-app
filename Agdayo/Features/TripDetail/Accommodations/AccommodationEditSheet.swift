@@ -16,6 +16,7 @@ struct AccommodationEditSheet: View {
     @State private var location: String
     @State private var numberOfRooms: Int
     @State private var totalCostText: String
+    @State private var budgetCategoryID: UUID?
     @State private var checkInTime: Date
     @State private var checkOutTime: Date
     @State private var startDate: Date
@@ -33,6 +34,7 @@ struct AccommodationEditSheet: View {
         _location = State(initialValue: editingAccommodation?.location ?? "")
         _numberOfRooms = State(initialValue: editingAccommodation?.numberOfRooms ?? 1)
         _totalCostText = State(initialValue: editingAccommodation.map { String($0.totalCost) } ?? "")
+        _budgetCategoryID = State(initialValue: editingAccommodation?.budgetCategoryID)
         _checkInTime = State(initialValue: Self.time(from: editingAccommodation?.checkInTime ?? "15:00"))
         _checkOutTime = State(initialValue: Self.time(from: editingAccommodation?.checkOutTime ?? "11:00"))
         _startDate = State(initialValue: editingAccommodation?.startDate ?? trip.startDate)
@@ -74,6 +76,7 @@ struct AccommodationEditSheet: View {
                 Section("Cost") {
                     TextField("Total Cost", text: $totalCostText)
                         .keyboardType(.decimalPad)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
                 }
 
                 ExpenseSplitSection(
@@ -115,6 +118,7 @@ struct AccommodationEditSheet: View {
             accommodation.location = location
             accommodation.numberOfRooms = numberOfRooms
             accommodation.totalCost = Double(totalCostText) ?? 0
+            accommodation.budgetCategoryID = budgetCategoryID
             accommodation.checkInTime = checkIn
             accommodation.checkOutTime = checkOut
             accommodation.startDate = startDate
@@ -133,6 +137,7 @@ struct AccommodationEditSheet: View {
                 checkOutTime: checkOut,
                 startDate: startDate,
                 endDate: endDate,
+                budgetCategoryID: budgetCategoryID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,

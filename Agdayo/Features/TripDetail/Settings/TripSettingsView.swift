@@ -155,12 +155,13 @@ struct TripSettingsView: View {
             let updatedDescription = trip.tripDescription
             let updatedLatitude = trip.latitude
             let updatedLongitude = trip.longitude
+            let updatedMemberBudgets = trip.memberBudgets
             Task {
                 try? await TripMembershipService.updateTripRecord(
                     tripID: tripID, name: updatedName, location: updatedLocation,
                     theme: updatedTheme, startDate: updatedStart, endDate: updatedEnd,
                     overallBudget: updatedBudget, currency: updatedCurrency, tripDescription: updatedDescription,
-                    latitude: updatedLatitude, longitude: updatedLongitude
+                    latitude: updatedLatitude, longitude: updatedLongitude, memberBudgets: updatedMemberBudgets
                 )
             }
         }

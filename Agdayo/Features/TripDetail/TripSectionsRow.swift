@@ -15,7 +15,7 @@ struct TripSectionsRow: View {
     let accentColor: Color
     let activityCount: Int
     let accommodationCount: Int
-    let budgetedTotal: Double
+    let actualSpentTotal: Double
     let overallBudget: Double
     let currency: String
     let taskCount: Int
@@ -31,7 +31,7 @@ struct TripSectionsRow: View {
                     SquareNavCard(iconName: "map", subtitle: "\(activityCount) Activities", title: "Itinerary", accentColor: accentColor)
                 }
                 NavigationLink(value: TripSectionRoute.budget) {
-                    SquareNavCard(iconName: "banknote", subtitle: budgetedTotal.formattedCurrency(code: currency), title: "Budget", accentColor: accentColor)
+                    SquareNavCard(iconName: "banknote", subtitle: actualSpentTotal.formattedCurrency(code: currency), title: "Budget", accentColor: accentColor)
                 }
                 if showsBalances {
                     NavigationLink(value: TripSectionRoute.balances) {

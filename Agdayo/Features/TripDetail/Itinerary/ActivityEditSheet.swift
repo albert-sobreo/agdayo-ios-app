@@ -22,6 +22,7 @@ struct ActivityEditSheet: View {
     @State private var exchangeRate: Double?
     @State private var activityDescription: String
     @State private var iconName: String
+    @State private var budgetCategoryID: UUID?
     @State private var paidByUID: String?
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
@@ -41,6 +42,7 @@ struct ActivityEditSheet: View {
         _exchangeRate = State(initialValue: editingActivity?.exchangeRateToTripCurrency)
         _activityDescription = State(initialValue: editingActivity?.activityDescription ?? "")
         _iconName = State(initialValue: editingActivity?.iconName ?? "mappin.and.ellipse")
+        _budgetCategoryID = State(initialValue: editingActivity?.budgetCategoryID)
         _paidByUID = State(initialValue: editingActivity?.paidByUID)
         if let editingActivity, !editingActivity.splitUIDs.isEmpty {
             _splitUIDs = State(initialValue: Set(editingActivity.splitUIDs))
@@ -91,6 +93,7 @@ struct ActivityEditSheet: View {
                     .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
                     ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
                     TextField("Note, e.g. \"Included\"", text: $costNote)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
                 }
 
                 Section("Icon") {
@@ -148,6 +151,7 @@ struct ActivityEditSheet: View {
             activity.exchangeRateToTripCurrency = rate
             activity.activityDescription = activityDescription
             activity.iconName = iconName
+            activity.budgetCategoryID = budgetCategoryID
             activity.paidByUID = paidByUID
             activity.splitUIDs = Array(splitUIDs)
             activity.splitAmounts = splitAmounts
@@ -164,6 +168,7 @@ struct ActivityEditSheet: View {
                 costNote: costNote,
                 exchangeRateToTripCurrency: rate,
                 iconName: iconName,
+                budgetCategoryID: budgetCategoryID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,

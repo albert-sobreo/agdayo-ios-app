@@ -62,7 +62,8 @@ struct TripTests {
         #expect(trip.activityCostsTotal == 200)
         #expect(trip.accommodationCostsTotal == 1000)
         #expect(trip.transportCostsTotal == 300)
-        #expect(trip.budgetedTotal == 2000)
+        // Categories are planned budget, not an expense — excluded here.
+        #expect(trip.actualSpentTotal == 1500)
     }
 
     @Test func activityCostsExcludeUnconvertedForeignCurrency() {

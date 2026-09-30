@@ -22,7 +22,6 @@ struct ManualTripFormView: View {
     @State private var theme: TripTheme = .peach
     @State private var startDate: Date?
     @State private var endDate: Date?
-    @State private var overallBudget = ""
     @State private var currency = "PHP"
     @State private var tripDescription = ""
 
@@ -50,7 +49,6 @@ struct ManualTripFormView: View {
                 DetailsStepView(
                     name: $name,
                     theme: $theme,
-                    overallBudget: $overallBudget,
                     currency: $currency,
                     tripDescription: $tripDescription,
                     canSave: isValid,
@@ -70,7 +68,6 @@ struct ManualTripFormView: View {
             theme: theme,
             startDate: startDate,
             endDate: endDate,
-            overallBudget: Double(overallBudget) ?? 0,
             currency: currency,
             tripDescription: tripDescription,
             latitude: latitude,
@@ -238,7 +235,6 @@ private struct DateStepView: View {
 private struct DetailsStepView: View {
     @Binding var name: String
     @Binding var theme: TripTheme
-    @Binding var overallBudget: String
     @Binding var currency: String
     @Binding var tripDescription: String
     let canSave: Bool
@@ -256,9 +252,7 @@ private struct DetailsStepView: View {
                     ThemeSwatchPicker(selectedTheme: $theme)
                 }
 
-                Section("Budget") {
-                    TextField("Overall Budget", text: $overallBudget)
-                        .keyboardType(.decimalPad)
+                Section("Currency") {
                     Picker("Currency", selection: $currency) {
                         ForEach(CurrencyCode.common, id: \.self) { code in
                             Text(code).tag(code)

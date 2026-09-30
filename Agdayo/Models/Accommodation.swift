@@ -28,6 +28,9 @@ final class Accommodation {
     var checkOutTime: String
     var startDate: Date
     var endDate: Date
+    /// Which planned budget category this expense counts against, if any —
+    /// see `Activity.budgetCategoryID`.
+    var budgetCategoryID: UUID?
     var paidByUID: String?
     var splitUIDs: [String] = []
     var splitAmounts: [String: Double] = [:]
@@ -44,6 +47,7 @@ final class Accommodation {
         checkOutTime: String = "11:00",
         startDate: Date = .now,
         endDate: Date = .now,
+        budgetCategoryID: UUID? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -59,6 +63,7 @@ final class Accommodation {
         self.checkOutTime = checkOutTime
         self.startDate = startDate
         self.endDate = endDate
+        self.budgetCategoryID = budgetCategoryID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts

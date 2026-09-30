@@ -1,18 +1,36 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import SwiftData
 
 struct ItineraryTimelineView: View {
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
 
+    /// A live query scoped to this trip, not a `trip.activities` traversal —
+    /// SwiftData's Observation tracking for to-many relationships doesn't
+    /// reliably fire when the inverse side is set by a newly-inserted child
+    /// (exactly what `ActivityEditSheet.save()` does), so this view would
+    /// otherwise only refresh the next time something unrelated forced a
+    /// re-render (e.g. popping and re-pushing this screen). `@Query`'s
+    /// invalidation is driven by the persistent store itself, so it doesn't
+    /// have that gap.
+    @Query private var activities: [Activity]
+
     @State private var isAddingActivity = false
     @State private var isGeneratingWithAI = false
     @State private var forecastsByDay: [Date: DailyForecastSummary] = [:]
 
+    init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
+        self.trip = trip
+        self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID }, sort: \Activity.date)
+    }
+
     private var dayGroups: [DayGroup] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: trip.activities) { calendar.startOfDay(for: $0.date) }
+        let grouped = Dictionary(grouping: activities) { calendar.startOfDay(for: $0.date) }
         return grouped.keys.sorted().map { day in
             let dayActivities = (grouped[day] ?? []).sorted { $0.date < $1.date }
             let buckets = TimeOfDayBucket.allCases.compactMap { bucket -> BucketGroup? in
@@ -25,7 +43,7 @@ struct ItineraryTimelineView: View {
 
     var body: some View {
         ScrollView {
-            if trip.activities.isEmpty {
+            if activities.isEmpty {
                 EmptyStateView(
                     iconName: "note.text",
                     title: "No Activities Yet",

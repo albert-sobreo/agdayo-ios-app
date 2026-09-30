@@ -21,6 +21,10 @@ final class Activity {
     /// case totals fall back to excluding this cost rather than guessing.
     var exchangeRateToTripCurrency: Double?
     var iconName: String
+    /// Which planned budget category this expense counts against, if any —
+    /// purely for the Budget page's planned-vs-actual breakdown, not used
+    /// in `costAndRate`/split logic.
+    var budgetCategoryID: UUID?
     var paidByUID: String?
     var splitUIDs: [String] = []
     /// Custom per-member share amounts, keyed by uid. Empty means "split
@@ -47,6 +51,7 @@ final class Activity {
         costNote: String? = nil,
         exchangeRateToTripCurrency: Double? = nil,
         iconName: String = "mappin.and.ellipse",
+        budgetCategoryID: UUID? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -65,6 +70,7 @@ final class Activity {
         self.costNote = costNote
         self.exchangeRateToTripCurrency = exchangeRateToTripCurrency
         self.iconName = iconName
+        self.budgetCategoryID = budgetCategoryID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts

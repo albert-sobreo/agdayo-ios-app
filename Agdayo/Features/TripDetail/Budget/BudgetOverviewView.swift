@@ -5,53 +5,119 @@ struct BudgetOverviewView: View {
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
 
+    /// Live queries scoped to this trip rather than relationship traversals
+    /// (`trip.budgetCategories`, `trip.activities`, etc., and by extension
+    /// `trip.actualSpentTotal`/`trip.activityCostsTotal`/etc. which read
+    /// those same relationships internally) — see `ItineraryTimelineView`'s
+    /// equivalent property for why those don't reliably refresh live.
+    @Query private var budgetCategories: [BudgetCategory]
+    @Query private var activities: [Activity]
+    @Query private var accommodations: [Accommodation]
+    @Query private var transportSegments: [TransportSegment]
+
     @Environment(\.modelContext) private var modelContext
     @State private var isAddingCategory = false
     @State private var editingCategory: BudgetCategory?
-    @State private var isEditingOverallBudget = false
     @State private var editingAccommodation: Accommodation?
     @State private var editingSegment: TransportSegment?
+    @State private var memberBudgetTarget: MemberBudgetTarget?
 
+    init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
+        self.trip = trip
+        self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _budgetCategories = Query(filter: #Predicate<BudgetCategory> { $0.trip?.id == tripID })
+        _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID })
+        _accommodations = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
+        _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
+    }
+
+    /// The trip's overall budget — always this, kept in sync by
+    /// `TripMembershipService.syncOverallBudget(for:)` whenever a category
+    /// changes, rather than entered separately.
     private var categoriesTotal: Double {
-        trip.budgetCategories.reduce(0) { $0 + $1.amount }
+        budgetCategories.reduce(0) { $0 + $1.amount }
+    }
+
+    /// Same conversion `Trip.activityCostsTotal` does, just against the
+    /// locally-queried `activities` instead of the relationship traversal.
+    private var activityCostsTotal: Double {
+        activities.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+    }
+
+    private var accommodationCostsTotal: Double {
+        accommodations.reduce(0) { $0 + $1.totalCost }
+    }
+
+    private var transportCostsTotal: Double {
+        transportSegments.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+    }
+
+    /// Money actually committed — categories are planned budget, not an
+    /// expense, so they're deliberately excluded (see `Trip.actualSpentTotal`).
+    private var actualSpentTotal: Double {
+        activityCostsTotal + accommodationCostsTotal + transportCostsTotal
+    }
+
+    /// Sum of every costed item tagged with this category, across all three
+    /// expense types — the planned-vs-actual figure shown per category.
+    private func spent(for category: BudgetCategory) -> Double {
+        let activitySpent = activities
+            .filter { $0.budgetCategoryID == category.id }
+            .reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+        let accommodationSpent = accommodations
+            .filter { $0.budgetCategoryID == category.id }
+            .reduce(0) { $0 + $1.totalCost }
+        let transportSpent = transportSegments
+            .filter { $0.budgetCategoryID == category.id }
+            .reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+        return activitySpent + accommodationSpent + transportSpent
+    }
+
+    private func categoryName(for id: UUID?) -> String? {
+        guard let id else { return nil }
+        return budgetCategories.first { $0.id == id }?.name
     }
 
     private var costedActivities: [Activity] {
-        trip.activities.filter { $0.cost != nil }.sorted { $0.date < $1.date }
+        activities.filter { $0.cost != nil }.sorted { $0.date < $1.date }
     }
 
     private var costedAccommodations: [Accommodation] {
-        trip.accommodations.filter { $0.totalCost > 0 }.sorted { $0.startDate < $1.startDate }
+        accommodations.filter { $0.totalCost > 0 }.sorted { $0.startDate < $1.startDate }
     }
 
     private var costedSegments: [TransportSegment] {
-        trip.transportSegments.filter { $0.cost > 0 }.sorted { $0.departureDate < $1.departureDate }
+        transportSegments.filter { $0.cost > 0 }.sorted { $0.departureDate < $1.departureDate }
     }
 
     var body: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                    BudgetProgressBar(spent: trip.budgetedTotal, total: trip.overallBudget, currency: trip.currency)
-                    Text("Categories: \(categoriesTotal.formattedCurrency(code: trip.currency)) · Activities: \(trip.activityCostsTotal.formattedCurrency(code: trip.currency)) · Stays: \(trip.accommodationCostsTotal.formattedCurrency(code: trip.currency)) · Transport: \(trip.transportCostsTotal.formattedCurrency(code: trip.currency))")
+                    BudgetProgressBar(spent: actualSpentTotal, total: trip.overallBudget, currency: trip.currency)
+                    Text("Planned: \(categoriesTotal.formattedCurrency(code: trip.currency)) · Spent — Activities: \(activityCostsTotal.formattedCurrency(code: trip.currency)) · Stays: \(accommodationCostsTotal.formattedCurrency(code: trip.currency)) · Transport: \(transportCostsTotal.formattedCurrency(code: trip.currency))")
                         .font(AppFont.outfit(11, relativeTo: .caption2))
                         .foregroundStyle(.secondary)
-                    Button("Edit Overall Budget") { isEditingOverallBudget = true }
-                        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                 }
             }
 
             Section("Categories") {
-                if trip.budgetCategories.isEmpty {
+                if budgetCategories.isEmpty {
                     Text("No budget categories yet.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(trip.budgetCategories) { category in
+                    ForEach(budgetCategories) { category in
                         Button {
                             editingCategory = category
                         } label: {
                             HStack {
-                                Text(category.name)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(category.name)
+                                    Text("\(spent(for: category).formattedCurrency(code: trip.currency)) spent")
+                                        .font(AppFont.outfit(11, relativeTo: .caption2))
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Text(category.amount.formattedCurrency(code: trip.currency))
                                     .foregroundStyle(.secondary)
@@ -63,6 +129,24 @@ struct BudgetOverviewView: View {
                 }
             }
 
+            if !memberProfiles.isEmpty {
+                Section("Individual Budgets") {
+                    ForEach(memberProfiles, id: \.uid) { profile in
+                        Button {
+                            memberBudgetTarget = MemberBudgetTarget(profile: profile)
+                        } label: {
+                            HStack {
+                                Text(profile.displayName)
+                                Spacer()
+                                Text((trip.memberBudgets[profile.uid] ?? 0).formattedCurrency(code: trip.currency))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
             if !costedActivities.isEmpty {
                 Section("Activities") {
                     ForEach(costedActivities) { activity in
@@ -70,7 +154,14 @@ struct BudgetOverviewView: View {
                             ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
                         } label: {
                             HStack {
-                                Text(activity.title)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(activity.title)
+                                    if let categoryName = categoryName(for: activity.budgetCategoryID) {
+                                        Text(categoryName)
+                                            .font(AppFont.outfit(11, relativeTo: .caption2))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 1) {
                                     Text((activity.cost ?? 0).formattedCurrency(code: activity.costCurrency ?? trip.currency))
@@ -95,7 +186,14 @@ struct BudgetOverviewView: View {
                             editingAccommodation = accommodation
                         } label: {
                             HStack {
-                                Text(accommodation.name)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(accommodation.name)
+                                    if let categoryName = categoryName(for: accommodation.budgetCategoryID) {
+                                        Text(categoryName)
+                                            .font(AppFont.outfit(11, relativeTo: .caption2))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                                 Spacer()
                                 Text(accommodation.totalCost.formattedCurrency(code: trip.currency))
                                     .foregroundStyle(.secondary)
@@ -113,7 +211,14 @@ struct BudgetOverviewView: View {
                             editingSegment = segment
                         } label: {
                             HStack {
-                                Text("\(segment.departureLocation) → \(segment.arrivalLocation)")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(segment.departureLocation) → \(segment.arrivalLocation)")
+                                    if let categoryName = categoryName(for: segment.budgetCategoryID) {
+                                        Text(categoryName)
+                                            .font(AppFont.outfit(11, relativeTo: .caption2))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 1) {
                                     Text(segment.cost.formattedCurrency(code: segment.currency))
@@ -147,8 +252,8 @@ struct BudgetOverviewView: View {
         .sheet(item: $editingCategory) { category in
             BudgetCategoryEditSheet(trip: trip, editingCategory: category)
         }
-        .sheet(isPresented: $isEditingOverallBudget) {
-            OverallBudgetEditSheet(trip: trip)
+        .sheet(item: $memberBudgetTarget) { target in
+            MemberBudgetEditSheet(trip: trip, profile: target.profile)
         }
         .sheet(item: $editingAccommodation) { accommodation in
             AccommodationEditSheet(trip: trip, editingAccommodation: accommodation, memberProfiles: memberProfiles)
@@ -160,7 +265,7 @@ struct BudgetOverviewView: View {
 
     private func delete(at offsets: IndexSet) {
         for index in offsets {
-            let category = trip.budgetCategories[index]
+            let category = budgetCategories[index]
             if trip.ownerUID != nil {
                 let tripID = trip.id
                 let categoryID = category.id
@@ -170,33 +275,36 @@ struct BudgetOverviewView: View {
             }
             modelContext.delete(category)
         }
+        TripMembershipService.syncOverallBudget(for: trip)
     }
 }
 
-private struct OverallBudgetEditSheet: View {
-    let trip: Trip
-    @Environment(\.dismiss) private var dismiss
-    @State private var overallBudgetText: String
-    @State private var currency: String
+private struct MemberBudgetTarget: Identifiable {
+    var id: String { profile.uid }
+    let profile: AppUserProfile
+}
 
-    init(trip: Trip) {
+private struct MemberBudgetEditSheet: View {
+    let trip: Trip
+    let profile: AppUserProfile
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var amountText: String
+
+    init(trip: Trip, profile: AppUserProfile) {
         self.trip = trip
-        _overallBudgetText = State(initialValue: String(trip.overallBudget))
-        _currency = State(initialValue: trip.currency)
+        self.profile = profile
+        let amount = trip.memberBudgets[profile.uid] ?? 0
+        _amountText = State(initialValue: amount == 0 ? "" : String(amount))
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Overall Budget", text: $overallBudgetText)
+                TextField("Budget", text: $amountText)
                     .keyboardType(.decimalPad)
-                Picker("Currency", selection: $currency) {
-                    ForEach(CurrencyCode.common, id: \.self) { code in
-                        Text(code).tag(code)
-                    }
-                }
             }
-            .navigationTitle("Overall Budget")
+            .navigationTitle(profile.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -204,29 +312,8 @@ private struct OverallBudgetEditSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        trip.overallBudget = Double(overallBudgetText) ?? 0
-                        trip.currency = currency
-                        if trip.ownerUID != nil {
-                            let tripID = trip.id
-                            let name = trip.name
-                            let location = trip.location
-                            let theme = trip.theme.rawValue
-                            let startDate = trip.startDate
-                            let endDate = trip.endDate
-                            let overallBudget = trip.overallBudget
-                            let currency = trip.currency
-                            let tripDescription = trip.tripDescription
-                            let latitude = trip.latitude
-                            let longitude = trip.longitude
-                            Task {
-                                try? await TripMembershipService.updateTripRecord(
-                                    tripID: tripID, name: name, location: location,
-                                    theme: theme, startDate: startDate, endDate: endDate,
-                                    overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
-                                    latitude: latitude, longitude: longitude
-                                )
-                            }
-                        }
+                        trip.memberBudgets[profile.uid] = Double(amountText) ?? 0
+                        TripMembershipService.pushTripFieldsUpdate(trip: trip)
                         dismiss()
                     }
                 }

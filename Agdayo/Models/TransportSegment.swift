@@ -50,6 +50,9 @@ final class TransportSegment {
     /// rate could be captured yet.
     var exchangeRateToTripCurrency: Double?
     var notes: String?
+    /// Which planned budget category this expense counts against, if any —
+    /// see `Activity.budgetCategoryID`.
+    var budgetCategoryID: UUID?
     var paidByUID: String?
     var splitUIDs: [String] = []
     var splitAmounts: [String: Double] = [:]
@@ -74,6 +77,7 @@ final class TransportSegment {
         currency: String = "PHP",
         exchangeRateToTripCurrency: Double? = nil,
         notes: String? = nil,
+        budgetCategoryID: UUID? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -94,6 +98,7 @@ final class TransportSegment {
         self.currency = currency
         self.exchangeRateToTripCurrency = exchangeRateToTripCurrency
         self.notes = notes
+        self.budgetCategoryID = budgetCategoryID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts

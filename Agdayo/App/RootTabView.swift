@@ -13,6 +13,7 @@ struct RootTabView: View {
     @Query private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(LiveLocationSharingCoordinator.self) private var locationSharing
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var deepLinkCode: String = ""
@@ -44,6 +45,18 @@ struct RootTabView: View {
             }
         }
         .tint(.appPrimary)
+        // Sits above the TabView (and whatever's pushed inside any tab's own
+        // NavigationStack) so the indicator stays visible while browsing a
+        // trip's Itinerary/Budget/etc, not just its Map screen.
+        .overlay(alignment: .bottom) {
+            if locationSharing.isSharing {
+                LiveSharingBanner(
+                    tripName: locationSharing.sharingTrip?.name ?? "Trip",
+                    onStop: { locationSharing.stop() }
+                )
+                .padding(.bottom, 60)
+            }
+        }
         .onOpenURL { url in
             if url.scheme == "agdayo" && url.host == "join" {
                 if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -84,6 +97,13 @@ struct RootTabView: View {
             // has synced, so it's cheap to run on every foreground.
             if newPhase == .active {
                 backfillOwnershipIfNeeded()
+            }
+            // Live sharing is deliberately foreground-only (see
+            // `LiveLocationSharingCoordinator`) — stop broadcasting the
+            // moment the app actually backgrounds, rather than leaving a
+            // stale "sharing" doc in Firestore no one is updating anymore.
+            if newPhase == .background {
+                locationSharing.stop()
             }
         }
     }
@@ -151,6 +171,34 @@ struct RootTabView: View {
                 }
             }
         }
+    }
+}
+
+/// App-wide indicator that a trip's live location sharing is on, so it's
+/// visible from any tab or trip subpage, not just the map screen where it
+/// was started. Doubles as a one-tap way to stop broadcasting.
+private struct LiveSharingBanner: View {
+    let tripName: String
+    let onStop: () -> Void
+
+    var body: some View {
+        Button(action: onStop) {
+            HStack(spacing: 8) {
+                Image(systemName: "location.fill")
+                    .foregroundStyle(.green)
+                Text("Sharing location · \(tripName)")
+                    .font(AppFont.outfit(13, weight: .medium, relativeTo: .footnote))
+                    .lineLimit(1)
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.thinMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sharing location for \(tripName). Double tap to stop.")
     }
 }
 

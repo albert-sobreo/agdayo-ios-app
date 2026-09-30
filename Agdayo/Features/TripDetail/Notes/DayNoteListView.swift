@@ -4,12 +4,22 @@ import SwiftData
 struct DayNoteListView: View {
     let trip: Trip
 
+    /// Live query scoped to this trip rather than a `trip.dayNotes`
+    /// traversal — see `ItineraryTimelineView`'s equivalent property for why.
+    @Query private var dayNotes: [DayNote]
+
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
     @State private var editingNote: DayNote?
 
+    init(trip: Trip) {
+        self.trip = trip
+        let tripID = trip.id
+        _dayNotes = Query(filter: #Predicate<DayNote> { $0.trip?.id == tripID })
+    }
+
     private var sorted: [DayNote] {
-        trip.dayNotes.sorted { $0.day < $1.day }
+        dayNotes.sorted { $0.day < $1.day }
     }
 
     var body: some View {

@@ -11,7 +11,12 @@ struct ExpenseSettlement: Identifiable {
 /// Accommodations, and TransportSegments (never BudgetCategories — those
 /// are planning estimates, not a payment anyone actually made) into net
 /// per-member balances and a minimal settle-up list. Pure functions, no
-/// persistence — this is always recomputed from the trip's current data.
+/// persistence — always recomputed from the caller's current data.
+///
+/// Takes explicit arrays rather than a `Trip` so callers can supply
+/// `@Query`-sourced, live-updating arrays (see `BalancesView`) instead of
+/// `trip.activities`-style relationship traversals, which don't reliably
+/// refresh when a child screen inserts a new item on the inverse side.
 enum ExpenseBalanceService {
     private struct SplittableCost {
         let amount: Double
@@ -28,15 +33,21 @@ enum ExpenseBalanceService {
     /// have already made to each other) net against the raw expense
     /// imbalance, so a paid-back debt disappears from here and from the
     /// settle-up suggestions below.
-    static func balances(for trip: Trip) -> [String: Double] {
+    static func balances(
+        activities: [Activity],
+        accommodations: [Accommodation],
+        transportSegments: [TransportSegment],
+        recordedSettlements: [Settlement],
+        currency: String
+    ) -> [String: Double] {
         var net: [String: Double] = [:]
-        for item in splittableCosts(for: trip) {
+        for item in splittableCosts(activities: activities, accommodations: accommodations, transportSegments: transportSegments, currency: currency) {
             net[item.paidByUID, default: 0] += item.amount
             for (uid, share) in item.shares {
                 net[uid, default: 0] -= share
             }
         }
-        for settlement in trip.settlements {
+        for settlement in recordedSettlements {
             net[settlement.fromUID, default: 0] += settlement.amount
             net[settlement.toUID, default: 0] -= settlement.amount
         }
@@ -46,12 +57,19 @@ enum ExpenseBalanceService {
     /// Classic greedy debt-simplification: repeatedly match the largest
     /// creditor with the largest debtor so members see the minimum number
     /// of payments needed, rather than one line per underlying expense.
-    static func settlements(for trip: Trip) -> [ExpenseSettlement] {
-        var creditors = balances(for: trip)
+    static func settlements(
+        activities: [Activity],
+        accommodations: [Accommodation],
+        transportSegments: [TransportSegment],
+        recordedSettlements: [Settlement],
+        currency: String
+    ) -> [ExpenseSettlement] {
+        let net = balances(activities: activities, accommodations: accommodations, transportSegments: transportSegments, recordedSettlements: recordedSettlements, currency: currency)
+        var creditors = net
             .filter { $0.value > 0.01 }
             .map { $0 }
             .sorted { $0.value > $1.value }
-        var debtors = balances(for: trip)
+        var debtors = net
             .filter { $0.value < -0.01 }
             .map { (key: $0.key, value: -$0.value) }
             .sorted { $0.value > $1.value }
@@ -77,25 +95,30 @@ enum ExpenseBalanceService {
     /// `TransportSegment.costAndRate(inTripCurrency:)`) — only excluded if
     /// no rate was ever captured. Accommodations have no currency field of
     /// their own, so they always count as-is.
-    private static func splittableCosts(for trip: Trip) -> [SplittableCost] {
+    private static func splittableCosts(
+        activities: [Activity],
+        accommodations: [Accommodation],
+        transportSegments: [TransportSegment],
+        currency: String
+    ) -> [SplittableCost] {
         var items: [SplittableCost] = []
 
-        for activity in trip.activities {
-            guard let (cost, rate) = activity.costAndRate(inTripCurrency: trip.currency), cost > 0,
+        for activity in activities {
+            guard let (cost, rate) = activity.costAndRate(inTripCurrency: currency), cost > 0,
                   let paidByUID = activity.paidByUID,
                   !activity.splitUIDs.isEmpty else { continue }
             items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: activity.splitUIDs, splitAmounts: activity.splitAmounts, rate: rate)))
         }
 
-        for accommodation in trip.accommodations {
+        for accommodation in accommodations {
             guard accommodation.totalCost > 0,
                   let paidByUID = accommodation.paidByUID,
                   !accommodation.splitUIDs.isEmpty else { continue }
             items.append(SplittableCost(amount: accommodation.totalCost, paidByUID: paidByUID, shares: shares(amount: accommodation.totalCost, splitUIDs: accommodation.splitUIDs, splitAmounts: accommodation.splitAmounts, rate: 1)))
         }
 
-        for segment in trip.transportSegments {
-            guard let (cost, rate) = segment.costAndRate(inTripCurrency: trip.currency), cost > 0,
+        for segment in transportSegments {
+            guard let (cost, rate) = segment.costAndRate(inTripCurrency: currency), cost > 0,
                   let paidByUID = segment.paidByUID,
                   !segment.splitUIDs.isEmpty else { continue }
             items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: segment.splitUIDs, splitAmounts: segment.splitAmounts, rate: rate)))

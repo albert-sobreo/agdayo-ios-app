@@ -5,12 +5,23 @@ struct TransportSegmentListView: View {
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
 
+    /// Live query scoped to this trip rather than a `trip.transportSegments`
+    /// traversal — see `ItineraryTimelineView`'s equivalent property for why.
+    @Query private var segments: [TransportSegment]
+
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
     @State private var editingSegment: TransportSegment?
 
+    init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
+        self.trip = trip
+        self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _segments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
+    }
+
     private var sorted: [TransportSegment] {
-        trip.transportSegments.sorted { $0.departureDate < $1.departureDate }
+        segments.sorted { $0.departureDate < $1.departureDate }
     }
 
     var body: some View {

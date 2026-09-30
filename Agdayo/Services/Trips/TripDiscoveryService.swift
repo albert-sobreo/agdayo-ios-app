@@ -18,6 +18,7 @@ enum TripDiscoveryService {
                 trip.overallBudget = fields.overallBudget
                 trip.currency = fields.currency
                 trip.tripDescription = fields.tripDescription
+                if let memberBudgets = fields.memberBudgets { trip.memberBudgets = memberBudgets }
                 if let latitude = fields.latitude { trip.latitude = latitude }
                 if let longitude = fields.longitude { trip.longitude = longitude }
             }
@@ -44,7 +45,8 @@ enum TripDiscoveryService {
             currency: fields.currency,
             tripDescription: fields.tripDescription,
             latitude: fields.latitude,
-            longitude: fields.longitude
+            longitude: fields.longitude,
+            memberBudgets: fields.memberBudgets ?? [:]
         )
         trip.ownerUID = fields.ownerUID
         modelContext.insert(trip)

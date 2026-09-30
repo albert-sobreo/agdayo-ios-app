@@ -15,7 +15,10 @@ struct BudgetCategoryEditSheet: View {
         self.trip = trip
         self.editingCategory = editingCategory
         _name = State(initialValue: editingCategory?.name ?? "")
-        _amountText = State(initialValue: editingCategory.map { String($0.amount) } ?? "")
+        // An empty field is friendlier to edit than a literal "0.0" the
+        // user has to delete first.
+        let amount = editingCategory?.amount ?? 0
+        _amountText = State(initialValue: amount == 0 ? "" : String(amount))
     }
 
     private var isValid: Bool {
@@ -62,6 +65,9 @@ struct BudgetCategoryEditSheet: View {
                 try? await FirestoreCollectionSync.push(tripID: tripID, collection: "budgetCategories", docID: categoryID, data: dto)
             }
         }
+        // Categories are the trip's planned budget, not an expense — the
+        // overall budget is always their sum, recomputed here.
+        TripMembershipService.syncOverallBudget(for: trip)
         dismiss()
     }
 }

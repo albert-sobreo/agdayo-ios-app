@@ -1,10 +1,6 @@
 import Foundation
 import SwiftData
 
-enum PreparationTaskSuggestion {
-    static let defaults = ["Documents", "Packing", "Essentials"]
-}
-
 @Model
 final class PreparationTask {
     @Attribute(.unique) var id: UUID

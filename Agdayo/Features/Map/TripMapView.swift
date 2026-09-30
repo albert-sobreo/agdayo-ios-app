@@ -7,20 +7,21 @@ import FirebaseAuth
 /// Plots every activity with a coordinate on a map, with style switching
 /// (standard/imagery/hybrid, replacing Leaflet's 3 tile layers) and a
 /// bottom scroller to focus on a specific activity, mirroring SheetMap.vue.
-/// For shared trips, also offers opt-in live location sharing: while this
-/// screen is open, a member can broadcast their current position so other
-/// members see them move in real time (foreground-only, last point only).
+/// For shared trips, also offers opt-in live location sharing: a member can
+/// broadcast their current position so other members see them move, via the
+/// app-wide `LiveLocationSharingCoordinator` — sharing keeps running after
+/// leaving this screen (see that type's doc comment), so toggling it here
+/// only starts/stops the broadcast, it doesn't own its lifecycle.
 struct TripMapView: View {
     let trip: Trip
 
     @Environment(AuthService.self) private var authService
+    @Environment(LiveLocationSharingCoordinator.self) private var locationSharing
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var mapStyleOption: MapStyleOption = .standard
     @State private var selectedActivityID: UUID?
 
-    @State private var locationTracker = LiveLocationTracker()
-    @State private var isSharingLocation = false
     @State private var memberLocations: [String: LiveLocationDTO] = [:]
     @State private var memberProfiles: [String: AppUserProfile] = [:]
     @State private var locationListener: ListenerRegistration?
@@ -141,7 +142,7 @@ struct TripMapView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if canShareLocation {
                     ShareLocationButton(
-                        isSharing: isSharingLocation,
+                        isSharing: locationSharing.isSharing(tripID: trip.id),
                         action: toggleSharing
                     )
                 }
@@ -223,36 +224,14 @@ struct TripMapView: View {
 
     private func toggleSharing() {
         guard let uid = currentUID else { return }
-        isSharingLocation.toggle()
-        if isSharingLocation {
-            locationTracker.requestPermission()
-            let tripID = trip.id
-            locationTracker.start { coordinate in
-                Task {
-                    try? await FirestoreCollectionSync.push(
-                        tripID: tripID, collection: "liveLocations", docID: uid,
-                        data: LiveLocationDTO(uid: uid, latitude: coordinate.latitude, longitude: coordinate.longitude, updatedAt: .now)
-                    )
-                }
-            }
-        } else {
-            stopSharing(uid: uid)
-        }
+        locationSharing.toggleSharing(trip: trip, uid: uid)
     }
 
-    private func stopSharing(uid: String) {
-        locationTracker.stop()
-        let tripID = trip.id
-        Task { try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "liveLocations", docID: uid) }
-    }
-
+    /// Only tears down the member-location listener — the broadcast itself
+    /// is owned by `locationSharing` and deliberately outlives this screen.
     private func teardown() {
         locationListener?.remove()
         locationListener = nil
-        if isSharingLocation, let uid = currentUID {
-            stopSharing(uid: uid)
-            isSharingLocation = false
-        }
     }
 }
 

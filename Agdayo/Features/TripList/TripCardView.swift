@@ -41,7 +41,7 @@ struct TripCardView: View {
     private var content: some View {
         ZStack(alignment: .trailing) {
             if showsMapBackground, let coordinate {
-                MapBackgroundDecoration(coordinate: coordinate, theme: theme)
+                MapBackgroundDecoration(coordinate: coordinate)
             }
 
             VStack(alignment: .leading, spacing: 0) {
@@ -75,7 +75,6 @@ struct TripCardView: View {
 /// plain card background met the map's clipped edge.
 private struct MapBackgroundDecoration: View {
     let coordinate: CLLocationCoordinate2D
-    let theme: TripTheme
 
     /// The visible, faded column's width; height comes from the card itself.
     private let visibleWidth: CGFloat = 220
@@ -101,9 +100,8 @@ private struct MapBackgroundDecoration: View {
     /// actually changes.
     @State private var cameraPosition: MapCameraPosition
 
-    init(coordinate: CLLocationCoordinate2D, theme: TripTheme) {
+    init(coordinate: CLLocationCoordinate2D) {
         self.coordinate = coordinate
-        self.theme = theme
         _cameraPosition = State(initialValue: .region(Self.region(for: coordinate)))
     }
 
@@ -117,13 +115,10 @@ private struct MapBackgroundDecoration: View {
 
     var body: some View {
         GeometryReader { geometry in
-            Map(position: $cameraPosition, interactionModes: []) {
-                Marker("", coordinate: coordinate)
-                    .tint(theme.accentColor)
-            }
-            .allowsHitTesting(false)
-            .frame(width: geometry.size.width * oversizeFactor, height: geometry.size.height * oversizeFactor)
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            Map(position: $cameraPosition, interactionModes: [])
+                .allowsHitTesting(false)
+                .frame(width: geometry.size.width * oversizeFactor, height: geometry.size.height * oversizeFactor)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
         .frame(width: visibleWidth)
         .clipped()

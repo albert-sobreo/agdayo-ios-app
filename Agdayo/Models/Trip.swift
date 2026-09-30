@@ -26,8 +26,17 @@ final class Trip {
     var theme: TripTheme
     var startDate: Date
     var endDate: Date
+    /// No longer entered directly — kept in sync as the sum of
+    /// `budgetCategories`' planned amounts (see
+    /// `TripMembershipService.syncOverallBudget(for:)`), so it stays a plain
+    /// stored/synced field without a schema change for existing trips.
     var overallBudget: Double
     var currency: String
+    /// Optional planned spending allocation per member, keyed by uid —
+    /// informational only, entered on the Budget page. Not folded into
+    /// `overallBudget`/`isOverBudget`, which are about category planning
+    /// and actual costs, not any one person's share.
+    var memberBudgets: [String: Double] = [:]
     var tripDescription: String
     var createdAt: Date
     var updatedAt: Date
@@ -80,7 +89,8 @@ final class Trip {
         currency: String = "PHP",
         tripDescription: String = "",
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        memberBudgets: [String: Double] = [:]
     ) {
         self.id = id
         self.name = name
@@ -95,6 +105,7 @@ final class Trip {
         self.updatedAt = .now
         self.latitude = latitude
         self.longitude = longitude
+        self.memberBudgets = memberBudgets
     }
 
     var coordinate: CLLocationCoordinate2D? {
@@ -131,15 +142,18 @@ final class Trip {
         transportSegments.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: currency)?.cost ?? 0) }
     }
 
-    var budgetedTotal: Double {
-        budgetCategories.reduce(0) { $0 + $1.amount }
-            + activityCostsTotal
+    /// Money actually committed so far — activity/accommodation/transport
+    /// costs only. Budget categories are planned allocations, not
+    /// expenses, so they're deliberately excluded (compare against
+    /// `overallBudget`, which is their sum, instead of adding them here too).
+    var actualSpentTotal: Double {
+        activityCostsTotal
             + accommodationCostsTotal
             + transportCostsTotal
     }
 
     var isOverBudget: Bool {
-        overallBudget > 0 && budgetedTotal > overallBudget
+        overallBudget > 0 && actualSpentTotal > overallBudget
     }
 
     var numberOfDays: Int {

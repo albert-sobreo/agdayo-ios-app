@@ -4,15 +4,25 @@ import SwiftData
 struct PreparationChecklistView: View {
     let trip: Trip
 
+    /// Live query scoped to this trip rather than a `trip.preparationTasks`
+    /// traversal — see `ItineraryTimelineView`'s equivalent property for why.
+    @Query private var preparationTasks: [PreparationTask]
+
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
     @State private var filter: PreparationFilter = .all
 
+    init(trip: Trip) {
+        self.trip = trip
+        let tripID = trip.id
+        _preparationTasks = Query(filter: #Predicate<PreparationTask> { $0.trip?.id == tripID })
+    }
+
     private var filtered: [PreparationTask] {
         switch filter {
-        case .all: return trip.preparationTasks
-        case .completed: return trip.preparationTasks.filter { $0.completed }
-        case .notCompleted: return trip.preparationTasks.filter { !$0.completed }
+        case .all: return preparationTasks
+        case .completed: return preparationTasks.filter { $0.completed }
+        case .notCompleted: return preparationTasks.filter { !$0.completed }
         }
     }
 
@@ -23,7 +33,7 @@ struct PreparationChecklistView: View {
 
     var body: some View {
         Group {
-            if trip.preparationTasks.isEmpty {
+            if preparationTasks.isEmpty {
                 EmptyStateView(
                     iconName: "checklist",
                     title: "No Prep Tasks Yet",

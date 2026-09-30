@@ -23,6 +23,9 @@ struct TripFieldsDTO: Codable {
     var visitedCountry: String?
     var visitedProvince: String?
     var visitedCity: String?
+    /// Optional so older trip documents (written before this field existed)
+    /// still decode cleanly.
+    var memberBudgets: [String: Double]?
 }
 
 struct TripMemberRecord: Identifiable {
@@ -268,6 +271,7 @@ final class TripContentSyncCoordinator {
         trip.overallBudget = dto.overallBudget
         trip.currency = dto.currency
         trip.tripDescription = dto.tripDescription
+        if let memberBudgets = dto.memberBudgets { trip.memberBudgets = memberBudgets }
         if let latitude = dto.latitude { trip.latitude = latitude }
         if let longitude = dto.longitude { trip.longitude = longitude }
         if let visitedCountry = dto.visitedCountry { trip.visitedCountry = visitedCountry }

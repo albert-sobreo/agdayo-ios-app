@@ -9,22 +9,47 @@ struct BalancesView: View {
     let trip: Trip
     let memberProfiles: [AppUserProfile]
 
+    /// Live queries scoped to this trip rather than relationship traversals
+    /// (`trip.activities`, `trip.settlements`, etc.) — see
+    /// `ItineraryTimelineView`'s equivalent property for why those don't
+    /// reliably refresh live when a child screen inserts a new item.
+    @Query private var activities: [Activity]
+    @Query private var accommodations: [Accommodation]
+    @Query private var transportSegments: [TransportSegment]
+    @Query private var recordedSettlements: [Settlement]
+
     @Environment(\.modelContext) private var modelContext
     @State private var syncErrorMessage: String?
 
+    init(trip: Trip, memberProfiles: [AppUserProfile]) {
+        self.trip = trip
+        self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID })
+        _accommodations = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
+        _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
+        _recordedSettlements = Query(filter: #Predicate<Settlement> { $0.trip?.id == tripID })
+    }
+
     private var balances: [(profile: AppUserProfile, amount: Double)] {
-        let net = ExpenseBalanceService.balances(for: trip)
+        let net = ExpenseBalanceService.balances(
+            activities: activities, accommodations: accommodations, transportSegments: transportSegments,
+            recordedSettlements: recordedSettlements, currency: trip.currency
+        )
         return memberProfiles
             .map { ($0, net[$0.uid] ?? 0) }
             .sorted { $0.1 > $1.1 }
     }
 
     private var settlements: [ExpenseSettlement] {
-        ExpenseBalanceService.settlements(for: trip)
+        ExpenseBalanceService.settlements(
+            activities: activities, accommodations: accommodations, transportSegments: transportSegments,
+            recordedSettlements: recordedSettlements, currency: trip.currency
+        )
     }
 
     private var paymentHistory: [Settlement] {
-        trip.settlements.sorted { $0.date > $1.date }
+        recordedSettlements.sorted { $0.date > $1.date }
     }
 
     private func profile(for uid: String) -> AppUserProfile? {

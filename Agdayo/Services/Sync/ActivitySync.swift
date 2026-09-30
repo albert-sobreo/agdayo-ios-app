@@ -12,6 +12,7 @@ struct ActivityDTO: Codable {
     var costNote: String?
     var exchangeRateToTripCurrency: Double?
     var iconName: String
+    var budgetCategoryID: UUID?
     var paidByUID: String?
     var splitUIDs: [String]?
     var splitAmounts: [String: Double]?
@@ -31,6 +32,7 @@ extension Activity {
             costNote: costNote,
             exchangeRateToTripCurrency: exchangeRateToTripCurrency,
             iconName: iconName,
+            budgetCategoryID: budgetCategoryID,
             paidByUID: paidByUID,
             splitUIDs: splitUIDs,
             splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts
@@ -51,6 +53,7 @@ extension Activity {
             costNote: dto.costNote,
             exchangeRateToTripCurrency: dto.exchangeRateToTripCurrency,
             iconName: dto.iconName,
+            budgetCategoryID: dto.budgetCategoryID,
             paidByUID: dto.paidByUID,
             splitUIDs: dto.splitUIDs ?? [],
             splitAmounts: dto.splitAmounts ?? [:],
@@ -70,6 +73,7 @@ extension Activity {
         costNote = dto.costNote
         exchangeRateToTripCurrency = dto.exchangeRateToTripCurrency
         iconName = dto.iconName
+        budgetCategoryID = dto.budgetCategoryID
         paidByUID = dto.paidByUID
         splitUIDs = dto.splitUIDs ?? []
         splitAmounts = dto.splitAmounts ?? [:]

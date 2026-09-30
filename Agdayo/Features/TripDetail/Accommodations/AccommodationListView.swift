@@ -5,12 +5,23 @@ struct AccommodationListView: View {
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
 
+    /// Live query scoped to this trip rather than a `trip.accommodations`
+    /// traversal — see `ItineraryTimelineView`'s equivalent property for why.
+    @Query private var accommodations: [Accommodation]
+
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
     @State private var editingAccommodation: Accommodation?
 
+    init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
+        self.trip = trip
+        self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _accommodations = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
+    }
+
     private var sorted: [Accommodation] {
-        trip.accommodations.sorted { $0.startDate < $1.startDate }
+        accommodations.sorted { $0.startDate < $1.startDate }
     }
 
     var body: some View {

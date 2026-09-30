@@ -6,6 +6,17 @@ struct TripDetailView: View {
     let trip: Trip
     var onLeftTrip: () -> Void = {}
 
+    /// Live queries scoped to this trip rather than relationship traversals
+    /// (`trip.activities.count`, `trip.planningProgress`, etc.) — see
+    /// `ItineraryTimelineView`'s equivalent property for why those don't
+    /// reliably refresh live when a child screen inserts a new item.
+    @Query private var activities: [Activity]
+    @Query private var accommodations: [Accommodation]
+    @Query private var budgetCategories: [BudgetCategory]
+    @Query private var preparationTasks: [PreparationTask]
+    @Query private var transportSegments: [TransportSegment]
+    @Query private var dayNotes: [DayNote]
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
@@ -13,6 +24,50 @@ struct TripDetailView: View {
     @State private var isShowingSettings = false
     @State private var isShowingShareSheet = false
     @State private var syncCoordinator = TripContentSyncCoordinator()
+
+    init(trip: Trip, onLeftTrip: @escaping () -> Void = {}) {
+        self.trip = trip
+        self.onLeftTrip = onLeftTrip
+        let tripID = trip.id
+        _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID })
+        _accommodations = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
+        _budgetCategories = Query(filter: #Predicate<BudgetCategory> { $0.trip?.id == tripID })
+        _preparationTasks = Query(filter: #Predicate<PreparationTask> { $0.trip?.id == tripID })
+        _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
+        _dayNotes = Query(filter: #Predicate<DayNote> { $0.trip?.id == tripID })
+    }
+
+    /// Same conversion `Trip.activityCostsTotal` does, just against the
+    /// locally-queried `activities` instead of the relationship traversal.
+    private var activityCostsTotal: Double {
+        activities.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+    }
+
+    private var accommodationCostsTotal: Double {
+        accommodations.reduce(0) { $0 + $1.totalCost }
+    }
+
+    private var transportCostsTotal: Double {
+        transportSegments.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: trip.currency)?.cost ?? 0) }
+    }
+
+    /// Money actually committed — categories are planned budget, not an
+    /// expense (see `Trip.actualSpentTotal`).
+    private var actualSpentTotal: Double {
+        activityCostsTotal + accommodationCostsTotal + transportCostsTotal
+    }
+
+    /// Same idea as `Trip.planningProgress`, against the local queries.
+    private var planningProgress: (completed: Int, total: Int) {
+        let sections = [
+            !activities.isEmpty,
+            !budgetCategories.isEmpty,
+            !accommodations.isEmpty,
+            !preparationTasks.isEmpty,
+            !transportSegments.isEmpty,
+        ]
+        return (sections.filter { $0 }.count, sections.count)
+    }
 
     var body: some View {
         ScrollView {
@@ -24,7 +79,7 @@ struct TripDetailView: View {
                     endDate: trip.endDate,
                     theme: trip.theme,
                     status: trip.status,
-                    planningProgress: trip.planningProgress,
+                    planningProgress: planningProgress,
                     members: syncCoordinator.memberProfiles,
                     onViewMap: { isShowingMap = true },
                     onSettings: { isShowingSettings = true }
@@ -32,14 +87,14 @@ struct TripDetailView: View {
 
                 TripSectionsRow(
                     accentColor: trip.theme.accentColor,
-                    activityCount: trip.activities.count,
-                    accommodationCount: trip.accommodations.count,
-                    budgetedTotal: trip.budgetedTotal,
+                    activityCount: activities.count,
+                    accommodationCount: accommodations.count,
+                    actualSpentTotal: actualSpentTotal,
                     overallBudget: trip.overallBudget,
                     currency: trip.currency,
-                    taskCount: trip.preparationTasks.count,
-                    transportCount: trip.transportSegments.count,
-                    noteCount: trip.dayNotes.count,
+                    taskCount: preparationTasks.count,
+                    transportCount: transportSegments.count,
+                    noteCount: dayNotes.count,
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )

@@ -62,7 +62,8 @@ enum TripMembershipService {
         longitude: Double? = nil,
         visitedCountry: String? = nil,
         visitedProvince: String? = nil,
-        visitedCity: String? = nil
+        visitedCity: String? = nil,
+        memberBudgets: [String: Double] = [:]
     ) async throws {
         let joinCode = generateRandomCode()
         let tripRef = tripsCollection.document(tripID.uuidString)
@@ -76,6 +77,7 @@ enum TripMembershipService {
             "overallBudget": overallBudget,
             "currency": currency,
             "tripDescription": tripDescription,
+            "memberBudgets": memberBudgets,
             "joinCode": joinCode,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
@@ -114,7 +116,8 @@ enum TripMembershipService {
         longitude: Double? = nil,
         visitedCountry: String? = nil,
         visitedProvince: String? = nil,
-        visitedCity: String? = nil
+        visitedCity: String? = nil,
+        memberBudgets: [String: Double] = [:]
     ) async throws {
         var data: [String: Any] = [
             "name": name,
@@ -125,6 +128,7 @@ enum TripMembershipService {
             "overallBudget": overallBudget,
             "currency": currency,
             "tripDescription": tripDescription,
+            "memberBudgets": memberBudgets,
             "updatedAt": FieldValue.serverTimestamp(),
         ]
         if let latitude { data["latitude"] = latitude }
@@ -133,6 +137,45 @@ enum TripMembershipService {
         if let visitedProvince { data["visitedProvince"] = visitedProvince }
         if let visitedCity { data["visitedCity"] = visitedCity }
         try await tripsCollection.document(tripID.uuidString).updateData(data)
+    }
+
+    /// Pushes this device's current values for the trip document's synced
+    /// fields — used for local-only mutations that don't already go through
+    /// `ManualTripFormView`/`TripSettingsView`'s own save flow, e.g.
+    /// recomputing `overallBudget` or editing a member's individual budget.
+    @MainActor
+    static func pushTripFieldsUpdate(trip: Trip) {
+        guard trip.ownerUID != nil else { return }
+        let tripID = trip.id
+        let name = trip.name
+        let location = trip.location
+        let theme = trip.theme.rawValue
+        let startDate = trip.startDate
+        let endDate = trip.endDate
+        let overallBudget = trip.overallBudget
+        let currency = trip.currency
+        let tripDescription = trip.tripDescription
+        let latitude = trip.latitude
+        let longitude = trip.longitude
+        let memberBudgets = trip.memberBudgets
+        Task {
+            try? await updateTripRecord(
+                tripID: tripID, name: name, location: location,
+                theme: theme, startDate: startDate, endDate: endDate,
+                overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
+                latitude: latitude, longitude: longitude, memberBudgets: memberBudgets
+            )
+        }
+    }
+
+    /// The overall budget is no longer entered directly — it's always the
+    /// sum of the trip's budget categories, recomputed here whenever one is
+    /// added, edited, or deleted (see `BudgetCategoryEditSheet`,
+    /// `BudgetOverviewView.delete(at:)`).
+    @MainActor
+    static func syncOverallBudget(for trip: Trip) {
+        trip.overallBudget = trip.budgetCategories.reduce(0) { $0 + $1.amount }
+        pushTripFieldsUpdate(trip: trip)
     }
 
     static func deleteTripRecord(tripID: UUID) async throws {

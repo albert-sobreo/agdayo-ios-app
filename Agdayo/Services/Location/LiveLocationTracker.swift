@@ -2,8 +2,14 @@ import CoreLocation
 import Observation
 
 /// Thin CLLocationManager wrapper for foreground-only live location sharing on
-/// a trip's map. Deliberately coarse (100m accuracy, 25m distance filter) —
-/// this is "which member is where on the trip," not turn-by-turn navigation.
+/// a trip's map. Deliberately coarse (100m accuracy) — this is "which member
+/// is where on the trip," not turn-by-turn navigation.
+///
+/// Takes a single-shot `requestLocation()` fix on a repeating timer rather
+/// than `startUpdatingLocation()` — the GPS radio powers down between fixes
+/// instead of streaming continuously, which is the actual battery cost of
+/// live sharing. Trades off live-in-a-moving-car smoothness for battery,
+/// which is the right call for "where's everyone roughly right now."
 @MainActor
 @Observable
 final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
@@ -11,20 +17,15 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
 
     private let manager = CLLocationManager()
     private var onUpdate: ((CLLocationCoordinate2D) -> Void)?
-    private var lastPushedAt: Date?
+    private var timer: Timer?
 
-    /// Minimum time between Firestore writes, on top of the distance
-    /// filter below — GPS can still report a new location every second or
-    /// two while moving (e.g. in a car) even 25m apart, and each one would
-    /// otherwise be a separate document write.
-    private let minimumPushInterval: TimeInterval = 10
+    private let updateInterval: TimeInterval = 120
 
     override init() {
         authorizationStatus = manager.authorizationStatus
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        manager.distanceFilter = 25
     }
 
     func requestPermission() {
@@ -33,12 +34,16 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
 
     func start(onUpdate: @escaping (CLLocationCoordinate2D) -> Void) {
         self.onUpdate = onUpdate
-        lastPushedAt = nil
-        manager.startUpdatingLocation()
+        manager.requestLocation()
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.manager.requestLocation() }
+        }
     }
 
     func stop() {
-        manager.stopUpdatingLocation()
+        timer?.invalidate()
+        timer = nil
         onUpdate = nil
     }
 
@@ -52,11 +57,14 @@ final class LiveLocationTracker: NSObject, CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else { return }
         Task { @MainActor in
-            if let lastPushedAt = self.lastPushedAt, Date().timeIntervalSince(lastPushedAt) < self.minimumPushInterval {
-                return
-            }
-            self.lastPushedAt = .now
             self.onUpdate?(coordinate)
         }
     }
+
+    /// `requestLocation()` requires this method to be implemented at all —
+    /// its absence is a hard runtime crash (`NSInternalInconsistencyException`),
+    /// unlike `startUpdatingLocation()` where it's optional. A single fix
+    /// failing (no signal, momentary GPS hiccup) just gets picked up on the
+    /// next timer tick, so there's nothing to do here.
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
 }

@@ -1,6 +1,23 @@
 import SwiftUI
 import SwiftData
 
+/// Predefined categories a prep task can be filed under, plus `other` for
+/// anything that doesn't fit — its own free-text field is only shown when
+/// selected, so `PreparationTask.category` still stores a plain string
+/// underneath (unchanged for Firestore sync / grouping in the checklist).
+private enum TaskCategoryOption: String, CaseIterable, Identifiable {
+    case documents = "Documents"
+    case packing = "Packing"
+    case essentials = "Essentials"
+    case transportation = "Transportation"
+    case health = "Health"
+    case finance = "Finance"
+    case electronics = "Electronics"
+    case other = "Other"
+
+    var id: String { rawValue }
+}
+
 struct PreparationTaskEditSheet: View {
     let trip: Trip
 
@@ -8,11 +25,16 @@ struct PreparationTaskEditSheet: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var name = ""
-    @State private var category = "Essentials"
+    @State private var selectedCategory: TaskCategoryOption = .essentials
+    @State private var customCategory = ""
     @State private var notes = ""
 
+    private var resolvedCategory: String {
+        selectedCategory == .other ? customCategory.trimmingCharacters(in: .whitespaces) : selectedCategory.rawValue
+    }
+
     private var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !resolvedCategory.isEmpty
     }
 
     var body: some View {
@@ -20,13 +42,13 @@ struct PreparationTaskEditSheet: View {
             Form {
                 Section("Task") {
                     TextField("Name", text: $name)
-                    TextField("Category", text: $category)
-                    HStack {
-                        ForEach(PreparationTaskSuggestion.defaults, id: \.self) { suggestion in
-                            Button(suggestion) { category = suggestion }
-                                .font(AppFont.outfit(12, relativeTo: .caption))
-                                .buttonStyle(.bordered)
+                    Picker("Category", selection: $selectedCategory) {
+                        ForEach(TaskCategoryOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
                         }
+                    }
+                    if selectedCategory == .other {
+                        TextField("Custom Category", text: $customCategory)
                     }
                 }
                 Section("Notes") {
@@ -51,7 +73,7 @@ struct PreparationTaskEditSheet: View {
     private func save() {
         let task = PreparationTask(
             name: name.trimmingCharacters(in: .whitespaces),
-            category: category.trimmingCharacters(in: .whitespaces),
+            category: resolvedCategory,
             notes: notes,
             trip: trip
         )

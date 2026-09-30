@@ -23,6 +23,7 @@ struct TransportSegmentEditSheet: View {
     @State private var currency: String
     @State private var exchangeRate: Double?
     @State private var notes: String
+    @State private var budgetCategoryID: UUID?
     @State private var paidByUID: String?
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
@@ -43,6 +44,7 @@ struct TransportSegmentEditSheet: View {
         _currency = State(initialValue: editingSegment?.currency ?? trip.currency)
         _exchangeRate = State(initialValue: editingSegment?.exchangeRateToTripCurrency)
         _notes = State(initialValue: editingSegment?.notes ?? "")
+        _budgetCategoryID = State(initialValue: editingSegment?.budgetCategoryID)
         _paidByUID = State(initialValue: editingSegment?.paidByUID)
         if let editingSegment, !editingSegment.splitUIDs.isEmpty {
             _splitUIDs = State(initialValue: Set(editingSegment.splitUIDs))
@@ -96,6 +98,7 @@ struct TransportSegmentEditSheet: View {
                     }
                     .onChange(of: currency) { _, _ in exchangeRate = nil }
                     ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: currency, toCurrency: trip.currency, rate: $exchangeRate)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
                 }
 
                 Section("Notes") {
@@ -156,6 +159,7 @@ struct TransportSegmentEditSheet: View {
             segment.currency = currency
             segment.exchangeRateToTripCurrency = rate
             segment.notes = notes.isEmpty ? nil : notes
+            segment.budgetCategoryID = budgetCategoryID
             segment.paidByUID = paidByUID
             segment.splitUIDs = Array(splitUIDs)
             segment.splitAmounts = splitAmounts
@@ -174,6 +178,7 @@ struct TransportSegmentEditSheet: View {
                 currency: currency,
                 exchangeRateToTripCurrency: rate,
                 notes: notes.isEmpty ? nil : notes,
+                budgetCategoryID: budgetCategoryID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,
