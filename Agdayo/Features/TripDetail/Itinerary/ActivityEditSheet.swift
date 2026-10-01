@@ -23,6 +23,7 @@ struct ActivityEditSheet: View {
     @State private var activityDescription: String
     @State private var iconName: String
     @State private var budgetCategoryID: UUID?
+    @State private var budgetMemberUID: String?
     @State private var paidByUID: String?
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
@@ -43,6 +44,7 @@ struct ActivityEditSheet: View {
         _activityDescription = State(initialValue: editingActivity?.activityDescription ?? "")
         _iconName = State(initialValue: editingActivity?.iconName ?? "mappin.and.ellipse")
         _budgetCategoryID = State(initialValue: editingActivity?.budgetCategoryID)
+        _budgetMemberUID = State(initialValue: editingActivity?.budgetMemberUID)
         _paidByUID = State(initialValue: editingActivity?.paidByUID)
         if let editingActivity, !editingActivity.splitUIDs.isEmpty {
             _splitUIDs = State(initialValue: Set(editingActivity.splitUIDs))
@@ -93,7 +95,7 @@ struct ActivityEditSheet: View {
                     .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
                     ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
                     TextField("Note, e.g. \"Included\"", text: $costNote)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
                 }
 
                 Section("Icon") {
@@ -152,6 +154,7 @@ struct ActivityEditSheet: View {
             activity.activityDescription = activityDescription
             activity.iconName = iconName
             activity.budgetCategoryID = budgetCategoryID
+            activity.budgetMemberUID = budgetMemberUID
             activity.paidByUID = paidByUID
             activity.splitUIDs = Array(splitUIDs)
             activity.splitAmounts = splitAmounts
@@ -169,6 +172,7 @@ struct ActivityEditSheet: View {
                 exchangeRateToTripCurrency: rate,
                 iconName: iconName,
                 budgetCategoryID: budgetCategoryID,
+                budgetMemberUID: budgetMemberUID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,

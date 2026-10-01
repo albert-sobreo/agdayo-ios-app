@@ -12,7 +12,7 @@ struct ExpenseBalanceServiceTests {
         let activity = Activity(title: "Dinner", cost: 200, paidByUID: "alice", splitUIDs: ["alice", "bob"], trip: trip)
         context.insert(activity)
 
-        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], recordedSettlements: [], currency: "PHP")
+        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP")
         #expect(balances["alice"] == 100)
         #expect(balances["bob"] == -100)
     }
@@ -28,7 +28,7 @@ struct ExpenseBalanceServiceTests {
         )
         context.insert(activity)
 
-        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], recordedSettlements: [], currency: "PHP")
+        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP")
         #expect(balances["alice"] == 200) // paid 300, owes back only their own 100 share
         #expect(balances["bob"] == -200)
     }
@@ -45,7 +45,7 @@ struct ExpenseBalanceServiceTests {
         )
         context.insert(activity)
 
-        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], recordedSettlements: [], currency: "PHP")
+        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP")
         #expect(balances["alice"] == 336) // paid 560, owed 224 (4 * 56) of it back
         #expect(balances["bob"] == -336)
     }
@@ -59,7 +59,7 @@ struct ExpenseBalanceServiceTests {
         context.insert(noPayer)
         context.insert(noSplit)
 
-        #expect(ExpenseBalanceService.balances(activities: [noPayer, noSplit], accommodations: [], transportSegments: [], recordedSettlements: [], currency: "PHP").isEmpty)
+        #expect(ExpenseBalanceService.balances(activities: [noPayer, noSplit], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP").isEmpty)
     }
 
     @Test func recordedSettlementsNetAgainstRawBalances() {
@@ -71,7 +71,7 @@ struct ExpenseBalanceServiceTests {
         context.insert(activity)
         context.insert(settlement)
 
-        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], recordedSettlements: [settlement], currency: "PHP")
+        let balances = ExpenseBalanceService.balances(activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [settlement], currency: "PHP")
         #expect(balances["alice"] == 0)
         #expect(balances["bob"] == 0)
     }
@@ -84,7 +84,7 @@ struct ExpenseBalanceServiceTests {
         let activity = Activity(title: "Trip essentials", cost: 300, paidByUID: "alice", splitUIDs: ["alice", "bob", "carl"], trip: trip)
         context.insert(activity)
 
-        let settlements = ExpenseBalanceService.settlements(activities: [activity], accommodations: [], transportSegments: [], recordedSettlements: [], currency: "PHP")
+        let settlements = ExpenseBalanceService.settlements(activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP")
         #expect(settlements.count == 2)
         #expect(settlements.allSatisfy { $0.toUID == "alice" && $0.fromUID != $0.toUID })
         #expect(settlements.reduce(0) { $0 + $1.amount } == 200)
@@ -97,8 +97,20 @@ struct ExpenseBalanceServiceTests {
         let accommodation = Accommodation(name: "Hotel", totalCost: 1000, paidByUID: "alice", splitUIDs: ["alice", "bob"], trip: trip)
         context.insert(accommodation)
 
-        let balances = ExpenseBalanceService.balances(activities: [], accommodations: [accommodation], transportSegments: [], recordedSettlements: [], currency: "PHP")
+        let balances = ExpenseBalanceService.balances(activities: [], accommodations: [accommodation], transportSegments: [], expenses: [], recordedSettlements: [], currency: "PHP")
         #expect(balances["alice"] == 500)
         #expect(balances["bob"] == -500)
+    }
+
+    @Test func customExpensesParticipateInBalancesLikeOtherCostTypes() {
+        let context = makeTestContext()
+        let trip = Trip(name: "Trip", location: "X", startDate: .now, endDate: .now, currency: "PHP")
+        context.insert(trip)
+        let expense = Expense(name: "Souvenirs", cost: 200, paidByUID: "alice", splitUIDs: ["alice", "bob"], trip: trip)
+        context.insert(expense)
+
+        let balances = ExpenseBalanceService.balances(activities: [], accommodations: [], transportSegments: [], expenses: [expense], recordedSettlements: [], currency: "PHP")
+        #expect(balances["alice"] == 100)
+        #expect(balances["bob"] == -100)
     }
 }

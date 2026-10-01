@@ -53,6 +53,8 @@ final class TransportSegment {
     /// Which planned budget category this expense counts against, if any —
     /// see `Activity.budgetCategoryID`.
     var budgetCategoryID: UUID?
+    /// See `Activity.budgetMemberUID`.
+    var budgetMemberUID: String?
     var paidByUID: String?
     var splitUIDs: [String] = []
     var splitAmounts: [String: Double] = [:]
@@ -78,6 +80,7 @@ final class TransportSegment {
         exchangeRateToTripCurrency: Double? = nil,
         notes: String? = nil,
         budgetCategoryID: UUID? = nil,
+        budgetMemberUID: String? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -99,6 +102,7 @@ final class TransportSegment {
         self.exchangeRateToTripCurrency = exchangeRateToTripCurrency
         self.notes = notes
         self.budgetCategoryID = budgetCategoryID
+        self.budgetMemberUID = budgetMemberUID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts

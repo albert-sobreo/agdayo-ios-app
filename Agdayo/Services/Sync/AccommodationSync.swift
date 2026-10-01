@@ -11,6 +11,7 @@ struct AccommodationDTO: Codable {
     var startDate: Date
     var endDate: Date
     var budgetCategoryID: UUID?
+    var budgetMemberUID: String?
     var paidByUID: String?
     var splitUIDs: [String]?
     var splitAmounts: [String: Double]?
@@ -29,6 +30,7 @@ extension Accommodation {
             startDate: startDate,
             endDate: endDate,
             budgetCategoryID: budgetCategoryID,
+            budgetMemberUID: budgetMemberUID,
             paidByUID: paidByUID,
             splitUIDs: splitUIDs,
             splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts
@@ -48,6 +50,7 @@ extension Accommodation {
             startDate: dto.startDate,
             endDate: dto.endDate,
             budgetCategoryID: dto.budgetCategoryID,
+            budgetMemberUID: dto.budgetMemberUID,
             paidByUID: dto.paidByUID,
             splitUIDs: dto.splitUIDs ?? [],
             splitAmounts: dto.splitAmounts ?? [:],
@@ -66,6 +69,7 @@ extension Accommodation {
         startDate = dto.startDate
         endDate = dto.endDate
         budgetCategoryID = dto.budgetCategoryID
+        budgetMemberUID = dto.budgetMemberUID
         paidByUID = dto.paidByUID
         splitUIDs = dto.splitUIDs ?? []
         splitAmounts = dto.splitAmounts ?? [:]

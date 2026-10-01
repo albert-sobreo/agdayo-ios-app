@@ -24,6 +24,7 @@ struct TransportSegmentEditSheet: View {
     @State private var exchangeRate: Double?
     @State private var notes: String
     @State private var budgetCategoryID: UUID?
+    @State private var budgetMemberUID: String?
     @State private var paidByUID: String?
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
@@ -45,6 +46,7 @@ struct TransportSegmentEditSheet: View {
         _exchangeRate = State(initialValue: editingSegment?.exchangeRateToTripCurrency)
         _notes = State(initialValue: editingSegment?.notes ?? "")
         _budgetCategoryID = State(initialValue: editingSegment?.budgetCategoryID)
+        _budgetMemberUID = State(initialValue: editingSegment?.budgetMemberUID)
         _paidByUID = State(initialValue: editingSegment?.paidByUID)
         if let editingSegment, !editingSegment.splitUIDs.isEmpty {
             _splitUIDs = State(initialValue: Set(editingSegment.splitUIDs))
@@ -98,7 +100,7 @@ struct TransportSegmentEditSheet: View {
                     }
                     .onChange(of: currency) { _, _ in exchangeRate = nil }
                     ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: currency, toCurrency: trip.currency, rate: $exchangeRate)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
                 }
 
                 Section("Notes") {
@@ -160,6 +162,7 @@ struct TransportSegmentEditSheet: View {
             segment.exchangeRateToTripCurrency = rate
             segment.notes = notes.isEmpty ? nil : notes
             segment.budgetCategoryID = budgetCategoryID
+            segment.budgetMemberUID = budgetMemberUID
             segment.paidByUID = paidByUID
             segment.splitUIDs = Array(splitUIDs)
             segment.splitAmounts = splitAmounts
@@ -179,6 +182,7 @@ struct TransportSegmentEditSheet: View {
                 exchangeRateToTripCurrency: rate,
                 notes: notes.isEmpty ? nil : notes,
                 budgetCategoryID: budgetCategoryID,
+                budgetMemberUID: budgetMemberUID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,

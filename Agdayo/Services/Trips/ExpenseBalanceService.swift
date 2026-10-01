@@ -8,10 +8,11 @@ struct ExpenseSettlement: Identifiable {
 }
 
 /// Aggregates "who paid" / "who's splitting" across Activities,
-/// Accommodations, and TransportSegments (never BudgetCategories — those
-/// are planning estimates, not a payment anyone actually made) into net
-/// per-member balances and a minimal settle-up list. Pure functions, no
-/// persistence — always recomputed from the caller's current data.
+/// Accommodations, TransportSegments, and custom Expenses (never
+/// BudgetCategories — those are planning estimates, not a payment anyone
+/// actually made) into net per-member balances and a minimal settle-up
+/// list. Pure functions, no persistence — always recomputed from the
+/// caller's current data.
 ///
 /// Takes explicit arrays rather than a `Trip` so callers can supply
 /// `@Query`-sourced, live-updating arrays (see `BalancesView`) instead of
@@ -37,11 +38,12 @@ enum ExpenseBalanceService {
         activities: [Activity],
         accommodations: [Accommodation],
         transportSegments: [TransportSegment],
+        expenses: [Expense],
         recordedSettlements: [Settlement],
         currency: String
     ) -> [String: Double] {
         var net: [String: Double] = [:]
-        for item in splittableCosts(activities: activities, accommodations: accommodations, transportSegments: transportSegments, currency: currency) {
+        for item in splittableCosts(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, currency: currency) {
             net[item.paidByUID, default: 0] += item.amount
             for (uid, share) in item.shares {
                 net[uid, default: 0] -= share
@@ -61,10 +63,11 @@ enum ExpenseBalanceService {
         activities: [Activity],
         accommodations: [Accommodation],
         transportSegments: [TransportSegment],
+        expenses: [Expense],
         recordedSettlements: [Settlement],
         currency: String
     ) -> [ExpenseSettlement] {
-        let net = balances(activities: activities, accommodations: accommodations, transportSegments: transportSegments, recordedSettlements: recordedSettlements, currency: currency)
+        let net = balances(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, recordedSettlements: recordedSettlements, currency: currency)
         var creditors = net
             .filter { $0.value > 0.01 }
             .map { $0 }
@@ -99,6 +102,7 @@ enum ExpenseBalanceService {
         activities: [Activity],
         accommodations: [Accommodation],
         transportSegments: [TransportSegment],
+        expenses: [Expense],
         currency: String
     ) -> [SplittableCost] {
         var items: [SplittableCost] = []
@@ -122,6 +126,13 @@ enum ExpenseBalanceService {
                   let paidByUID = segment.paidByUID,
                   !segment.splitUIDs.isEmpty else { continue }
             items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: segment.splitUIDs, splitAmounts: segment.splitAmounts, rate: rate)))
+        }
+
+        for expense in expenses {
+            guard let (cost, rate) = expense.costAndRate(inTripCurrency: currency), cost > 0,
+                  let paidByUID = expense.paidByUID,
+                  !expense.splitUIDs.isEmpty else { continue }
+            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: expense.splitUIDs, splitAmounts: expense.splitAmounts, rate: rate)))
         }
 
         return items

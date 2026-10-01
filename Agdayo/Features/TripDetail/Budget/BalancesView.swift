@@ -16,6 +16,7 @@ struct BalancesView: View {
     @Query private var activities: [Activity]
     @Query private var accommodations: [Accommodation]
     @Query private var transportSegments: [TransportSegment]
+    @Query private var expenses: [Expense]
     @Query private var recordedSettlements: [Settlement]
 
     @Environment(\.modelContext) private var modelContext
@@ -28,13 +29,14 @@ struct BalancesView: View {
         _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID })
         _accommodations = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
         _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
+        _expenses = Query(filter: #Predicate<Expense> { $0.trip?.id == tripID })
         _recordedSettlements = Query(filter: #Predicate<Settlement> { $0.trip?.id == tripID })
     }
 
     private var balances: [(profile: AppUserProfile, amount: Double)] {
         let net = ExpenseBalanceService.balances(
             activities: activities, accommodations: accommodations, transportSegments: transportSegments,
-            recordedSettlements: recordedSettlements, currency: trip.currency
+            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency
         )
         return memberProfiles
             .map { ($0, net[$0.uid] ?? 0) }
@@ -44,7 +46,7 @@ struct BalancesView: View {
     private var settlements: [ExpenseSettlement] {
         ExpenseBalanceService.settlements(
             activities: activities, accommodations: accommodations, transportSegments: transportSegments,
-            recordedSettlements: recordedSettlements, currency: trip.currency
+            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency
         )
     }
 
@@ -60,7 +62,7 @@ struct BalancesView: View {
         List {
             Section("Balances") {
                 if balances.allSatisfy({ abs($0.amount) < 0.01 }) {
-                    Text("No shared expenses yet. Add a paid-by and split to an Activity, Accommodation, or Transport segment to start tracking balances.")
+                    Text("No shared expenses yet. Add a paid-by and split to an Activity, Accommodation, Transport segment, or custom Expense to start tracking balances.")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(balances, id: \.profile.uid) { entry in

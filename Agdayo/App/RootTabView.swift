@@ -137,6 +137,7 @@ struct RootTabView: View {
             let preparationTaskDTOs = trip.preparationTasks.map { ($0.id, $0.dto) }
             let transportSegmentDTOs = trip.transportSegments.map { ($0.id, $0.dto) }
             let dayNoteDTOs = trip.dayNotes.map { ($0.id, $0.dto) }
+            let expenseDTOs = trip.expenses.map { ($0.id, $0.dto) }
 
             Task { @MainActor in
                 do {
@@ -168,6 +169,9 @@ struct RootTabView: View {
                 }
                 for (id, dto) in dayNoteDTOs {
                     try? await FirestoreCollectionSync.push(tripID: tripID, collection: "dayNotes", docID: id, data: dto)
+                }
+                for (id, dto) in expenseDTOs {
+                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "expenses", docID: id, data: dto)
                 }
             }
         }

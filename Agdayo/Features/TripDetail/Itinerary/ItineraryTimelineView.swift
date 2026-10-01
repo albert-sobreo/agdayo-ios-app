@@ -136,7 +136,7 @@ private struct DaySection: View {
 
             ForEach(group.buckets) { bucket in
                 TimeOfDayDivider(label: bucket.bucket.label)
-                ForEach(Array(bucket.activities.enumerated()), id: \.element.id) { index, activity in
+                ForEach(bucket.activities, id: \.id) { activity in
                     NavigationLink {
                         ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
                     } label: {
@@ -148,7 +148,12 @@ private struct DaySection: View {
                             costNote: activity.costNote,
                             iconName: activity.iconName,
                             time: activity.date,
-                            isLast: index == bucket.activities.count - 1
+                            // Whether there's a next activity *that day*, not
+                            // just in this time-of-day bucket — otherwise the
+                            // connecting line stopped short at every bucket
+                            // boundary (e.g. a lone Afternoon activity before
+                            // an Evening one).
+                            isLast: nextActivity(after: activity) == nil
                         )
                     }
                     .buttonStyle(.plain)

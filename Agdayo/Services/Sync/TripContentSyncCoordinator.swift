@@ -88,6 +88,9 @@ final class TripContentSyncCoordinator {
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "settlements", as: SettlementDTO.self) { [weak self] type, docID, dto in
             Task { @MainActor in self?.applySettlement(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
         })
+        listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "expenses", as: ExpenseDTO.self) { [weak self] type, docID, dto in
+            Task { @MainActor in self?.applyExpense(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
+        })
 
         // Listen for members subcollection changes
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "members", as: TripMemberDTO.self) { [weak self] type, docID, dto in
@@ -231,6 +234,23 @@ final class TripContentSyncCoordinator {
             }
         case .removed:
             if let existing = trip.settlements.first(where: { $0.id == id }) {
+                modelContext.delete(existing)
+            }
+        }
+    }
+
+    private func applyExpense(type: DocumentChangeType, docID: String, dto: ExpenseDTO?, trip: Trip, modelContext: ModelContext) {
+        guard let id = UUID(uuidString: docID) else { return }
+        switch type {
+        case .added, .modified:
+            guard let dto else { return }
+            if let existing = trip.expenses.first(where: { $0.id == id }) {
+                existing.apply(dto)
+            } else {
+                modelContext.insert(Expense(id: id, dto: dto, trip: trip))
+            }
+        case .removed:
+            if let existing = trip.expenses.first(where: { $0.id == id }) {
                 modelContext.delete(existing)
             }
         }

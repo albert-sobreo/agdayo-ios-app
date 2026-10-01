@@ -17,6 +17,7 @@ struct AccommodationEditSheet: View {
     @State private var numberOfRooms: Int
     @State private var totalCostText: String
     @State private var budgetCategoryID: UUID?
+    @State private var budgetMemberUID: String?
     @State private var checkInTime: Date
     @State private var checkOutTime: Date
     @State private var startDate: Date
@@ -35,6 +36,7 @@ struct AccommodationEditSheet: View {
         _numberOfRooms = State(initialValue: editingAccommodation?.numberOfRooms ?? 1)
         _totalCostText = State(initialValue: editingAccommodation.map { String($0.totalCost) } ?? "")
         _budgetCategoryID = State(initialValue: editingAccommodation?.budgetCategoryID)
+        _budgetMemberUID = State(initialValue: editingAccommodation?.budgetMemberUID)
         _checkInTime = State(initialValue: Self.time(from: editingAccommodation?.checkInTime ?? "15:00"))
         _checkOutTime = State(initialValue: Self.time(from: editingAccommodation?.checkOutTime ?? "11:00"))
         _startDate = State(initialValue: editingAccommodation?.startDate ?? trip.startDate)
@@ -76,7 +78,7 @@ struct AccommodationEditSheet: View {
                 Section("Cost") {
                     TextField("Total Cost", text: $totalCostText)
                         .keyboardType(.decimalPad)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, selection: $budgetCategoryID)
+                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
                 }
 
                 ExpenseSplitSection(
@@ -119,6 +121,7 @@ struct AccommodationEditSheet: View {
             accommodation.numberOfRooms = numberOfRooms
             accommodation.totalCost = Double(totalCostText) ?? 0
             accommodation.budgetCategoryID = budgetCategoryID
+            accommodation.budgetMemberUID = budgetMemberUID
             accommodation.checkInTime = checkIn
             accommodation.checkOutTime = checkOut
             accommodation.startDate = startDate
@@ -138,6 +141,7 @@ struct AccommodationEditSheet: View {
                 startDate: startDate,
                 endDate: endDate,
                 budgetCategoryID: budgetCategoryID,
+                budgetMemberUID: budgetMemberUID,
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,

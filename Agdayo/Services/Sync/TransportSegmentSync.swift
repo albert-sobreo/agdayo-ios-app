@@ -15,6 +15,7 @@ struct TransportSegmentDTO: Codable {
     var exchangeRateToTripCurrency: Double?
     var notes: String?
     var budgetCategoryID: UUID?
+    var budgetMemberUID: String?
     var paidByUID: String?
     var splitUIDs: [String]?
     var splitAmounts: [String: Double]?
@@ -37,6 +38,7 @@ extension TransportSegment {
             exchangeRateToTripCurrency: exchangeRateToTripCurrency,
             notes: notes,
             budgetCategoryID: budgetCategoryID,
+            budgetMemberUID: budgetMemberUID,
             paidByUID: paidByUID,
             splitUIDs: splitUIDs,
             splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts
@@ -60,6 +62,7 @@ extension TransportSegment {
             exchangeRateToTripCurrency: dto.exchangeRateToTripCurrency,
             notes: dto.notes,
             budgetCategoryID: dto.budgetCategoryID,
+            budgetMemberUID: dto.budgetMemberUID,
             paidByUID: dto.paidByUID,
             splitUIDs: dto.splitUIDs ?? [],
             splitAmounts: dto.splitAmounts ?? [:],
@@ -82,6 +85,7 @@ extension TransportSegment {
         exchangeRateToTripCurrency = dto.exchangeRateToTripCurrency
         notes = dto.notes
         budgetCategoryID = dto.budgetCategoryID
+        budgetMemberUID = dto.budgetMemberUID
         paidByUID = dto.paidByUID
         splitUIDs = dto.splitUIDs ?? []
         splitAmounts = dto.splitAmounts ?? [:]

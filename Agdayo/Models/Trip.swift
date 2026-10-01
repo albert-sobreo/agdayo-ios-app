@@ -78,6 +78,9 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \Settlement.trip)
     var settlements: [Settlement] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \Expense.trip)
+    var expenses: [Expense] = []
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -142,14 +145,21 @@ final class Trip {
         transportSegments.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: currency)?.cost ?? 0) }
     }
 
-    /// Money actually committed so far — activity/accommodation/transport
-    /// costs only. Budget categories are planned allocations, not
-    /// expenses, so they're deliberately excluded (compare against
-    /// `overallBudget`, which is their sum, instead of adding them here too).
+    /// Same conversion as `activityCostsTotal`.
+    var expenseCostsTotal: Double {
+        expenses.reduce(0) { $0 + ($1.costAndRate(inTripCurrency: currency)?.cost ?? 0) }
+    }
+
+    /// Money actually committed so far — activity/accommodation/transport/
+    /// custom-expense costs only. Budget categories are planned
+    /// allocations, not expenses, so they're deliberately excluded
+    /// (compare against `overallBudget`, which is their sum, instead of
+    /// adding them here too).
     var actualSpentTotal: Double {
         activityCostsTotal
             + accommodationCostsTotal
             + transportCostsTotal
+            + expenseCostsTotal
     }
 
     var isOverBudget: Bool {

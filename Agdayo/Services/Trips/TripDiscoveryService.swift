@@ -87,6 +87,12 @@ enum TripDiscoveryService {
                 modelContext.insert(DayNote(id: uuid, dto: dto, trip: trip))
             }
         }
+        if let expenses = try? await FirestoreCollectionSync.fetchAll(tripID: tripID, collection: "expenses", as: ExpenseDTO.self) {
+            for (id, dto) in expenses {
+                guard let uuid = UUID(uuidString: id) else { continue }
+                modelContext.insert(Expense(id: uuid, dto: dto, trip: trip))
+            }
+        }
 
         return trip
     }

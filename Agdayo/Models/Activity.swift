@@ -25,6 +25,11 @@ final class Activity {
     /// purely for the Budget page's planned-vs-actual breakdown, not used
     /// in `costAndRate`/split logic.
     var budgetCategoryID: UUID?
+    /// Alternative to `budgetCategoryID` — attaches this expense to a
+    /// member's individual budget instead of a category. At most one of
+    /// the two is ever set; the Budget page's picker clears the other when
+    /// you pick one.
+    var budgetMemberUID: String?
     var paidByUID: String?
     var splitUIDs: [String] = []
     /// Custom per-member share amounts, keyed by uid. Empty means "split
@@ -52,6 +57,7 @@ final class Activity {
         exchangeRateToTripCurrency: Double? = nil,
         iconName: String = "mappin.and.ellipse",
         budgetCategoryID: UUID? = nil,
+        budgetMemberUID: String? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -71,6 +77,7 @@ final class Activity {
         self.exchangeRateToTripCurrency = exchangeRateToTripCurrency
         self.iconName = iconName
         self.budgetCategoryID = budgetCategoryID
+        self.budgetMemberUID = budgetMemberUID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts

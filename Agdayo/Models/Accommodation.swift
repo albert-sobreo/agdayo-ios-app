@@ -31,6 +31,8 @@ final class Accommodation {
     /// Which planned budget category this expense counts against, if any —
     /// see `Activity.budgetCategoryID`.
     var budgetCategoryID: UUID?
+    /// See `Activity.budgetMemberUID`.
+    var budgetMemberUID: String?
     var paidByUID: String?
     var splitUIDs: [String] = []
     var splitAmounts: [String: Double] = [:]
@@ -48,6 +50,7 @@ final class Accommodation {
         startDate: Date = .now,
         endDate: Date = .now,
         budgetCategoryID: UUID? = nil,
+        budgetMemberUID: String? = nil,
         paidByUID: String? = nil,
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
@@ -64,6 +67,7 @@ final class Accommodation {
         self.startDate = startDate
         self.endDate = endDate
         self.budgetCategoryID = budgetCategoryID
+        self.budgetMemberUID = budgetMemberUID
         self.paidByUID = paidByUID
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts
