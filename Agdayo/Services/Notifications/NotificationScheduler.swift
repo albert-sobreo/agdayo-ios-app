@@ -3,8 +3,7 @@ import UserNotifications
 
 /// Local, on-device reminders for upcoming activities and transport
 /// departures — scheduled purely from data already synced to this device.
-/// No server, push entitlement, or paid Apple Developer enrollment needed
-/// (unlike the dormant WeatherKit feature). Each reminder's identifier is
+/// No server or push entitlement needed. Each reminder's identifier is
 /// derived from the model's own id, so re-scheduling (an edit, or a change
 /// synced in from another member) replaces the pending request instead of
 /// duplicating it.

@@ -19,7 +19,6 @@ struct ItineraryTimelineView: View {
 
     @State private var isAddingActivity = false
     @State private var isGeneratingWithAI = false
-    @State private var forecastsByDay: [Date: DailyForecastSummary] = [:]
 
     init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
@@ -57,7 +56,7 @@ struct ItineraryTimelineView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
-                        DaySection(dayIndex: index + 1, group: group, trip: trip, forecast: forecastsByDay[group.day], memberProfiles: memberProfiles)
+                        DaySection(dayIndex: index + 1, group: group, trip: trip, memberProfiles: memberProfiles)
                     }
                 }
                 .padding()
@@ -93,19 +92,6 @@ struct ItineraryTimelineView: View {
                 AIItineraryReviewSheet(trip: trip, memberProfiles: memberProfiles)
             }
         }
-        .task {
-            await loadForecasts()
-        }
-    }
-
-    /// Fails soft — no WeatherKit capability yet, no network, or the trip's
-    /// dates simply fall outside WeatherKit's ~10-day forecast window all
-    /// just mean no chips show, not an error.
-    private func loadForecasts() async {
-        guard let coordinate = trip.coordinate else { return }
-        guard let daily = try? await WeatherForecastService.dailyForecast(for: coordinate) else { return }
-        let calendar = Calendar.current
-        forecastsByDay = Dictionary(daily.map { (calendar.startOfDay(for: $0.date), $0) }, uniquingKeysWith: { first, _ in first })
     }
 }
 
@@ -113,7 +99,6 @@ private struct DaySection: View {
     let dayIndex: Int
     let group: DayGroup
     let trip: Trip
-    var forecast: DailyForecastSummary?
     var memberProfiles: [AppUserProfile] = []
 
     /// Flattened across bucket boundaries so travel time is computed between
@@ -125,14 +110,8 @@ private struct DaySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Day \(dayIndex) · \(group.day.formatted(date: .abbreviated, time: .omitted))")
-                    .font(AppFont.outfit(20, weight: .semibold, relativeTo: .title3))
-                if let forecast {
-                    Spacer()
-                    WeatherChip(forecast: forecast)
-                }
-            }
+            Text("Day \(dayIndex) · \(group.day.formatted(date: .abbreviated, time: .omitted))")
+                .font(AppFont.outfit(20, weight: .semibold, relativeTo: .title3))
 
             ForEach(group.buckets) { bucket in
                 TimeOfDayDivider(label: bucket.bucket.label)
@@ -251,23 +230,6 @@ private struct TravelConnectorView: View {
         formatter.allowedUnits = [.hour, .minute]
         formatter.maximumUnitCount = 2
         return formatter.string(from: seconds) ?? "\(Int(seconds / 60)) min"
-    }
-}
-
-private struct WeatherChip: View {
-    let forecast: DailyForecastSummary
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: forecast.symbolName)
-                .symbolRenderingMode(.multicolor)
-            Text(forecast.highTemperature.formatted(.measurement(width: .narrow, usage: .weather, hidesScaleName: true, numberFormatStyle: .number.precision(.fractionLength(0)))))
-            Text("/")
-                .foregroundStyle(.secondary)
-            Text(forecast.lowTemperature.formatted(.measurement(width: .narrow, usage: .weather, hidesScaleName: true, numberFormatStyle: .number.precision(.fractionLength(0)))))
-                .foregroundStyle(.secondary)
-        }
-        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
     }
 }
 

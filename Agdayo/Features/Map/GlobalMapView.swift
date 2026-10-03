@@ -4,14 +4,124 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// Map tab root — one pin per *trip* (using its destination), not per
-/// activity (that's `TripMapView`, reached from inside a trip's detail).
+/// Map tab root. Defaults to the itinerary map of whichever trip is
+/// happening right now (`TripMapView`, with activity pins, routes, and live
+/// location sharing) — reusing the per-trip map wholesale, since "what's on
+/// the map for my current trip" is far more useful day-to-day than an
+/// overview once you're actually traveling. When more than one trip is
+/// active at the same time, a compact switcher lets you flip between them
+/// without leaving the tab. Falls back to the all-trips pin overview when
+/// nothing's active right now, which also stays one tap away via the
+/// toolbar even while viewing a specific trip's itinerary.
+struct GlobalMapView: View {
+    var onLeftTrip: () -> Void = {}
+
+    @Query(sort: \Trip.startDate) private var trips: [Trip]
+
+    @State private var selectedActiveTripID: UUID?
+    @State private var isShowingAllTrips = false
+
+    private var activeTrips: [Trip] {
+        trips.filter { $0.status == .active }
+    }
+
+    private var selectedActiveTrip: Trip? {
+        guard !activeTrips.isEmpty else { return nil }
+        if let selectedActiveTripID, let match = activeTrips.first(where: { $0.id == selectedActiveTripID }) {
+            return match
+        }
+        return activeTrips.first
+    }
+
+    var body: some View {
+        Group {
+            if let trip = selectedActiveTrip {
+                VStack(spacing: 0) {
+                    if activeTrips.count > 1 {
+                        ActiveTripSwitcher(
+                            trips: activeTrips,
+                            selectedTripID: trip.id,
+                            onSelect: { selectedActiveTripID = $0 }
+                        )
+                    }
+                    TripMapView(trip: trip)
+                }
+            } else {
+                AllTripsOverviewMapView(onLeftTrip: onLeftTrip)
+            }
+        }
+        .toolbar {
+            if selectedActiveTrip != nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isShowingAllTrips = true
+                    } label: {
+                        Label("All Trips", systemImage: "map")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingAllTrips) {
+            NavigationStack {
+                AllTripsOverviewMapView(onLeftTrip: {
+                    isShowingAllTrips = false
+                    onLeftTrip()
+                })
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { isShowingAllTrips = false }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Floating pill row for switching which active trip's itinerary map is
+/// shown — only rendered when more than one trip is happening at once,
+/// since there's nothing to switch between otherwise.
+private struct ActiveTripSwitcher: View {
+    let trips: [Trip]
+    let selectedTripID: UUID
+    let onSelect: (UUID) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(trips) { trip in
+                    let isSelected = trip.id == selectedTripID
+                    Button {
+                        onSelect(trip.id)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(trip.theme.accentColor)
+                                .frame(width: 10, height: 10)
+                            Text(trip.name)
+                                .font(AppFont.outfit(14, weight: isSelected ? .bold : .medium, relativeTo: .subheadline))
+                                .lineLimit(1)
+                                .foregroundStyle(.primary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .glassOrStickerControl(isSelected: isSelected, tint: trip.theme.accentColor)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+    }
+}
+
+/// One pin per *trip* (using its destination), not per activity — the
+/// original Map tab behavior, now the fallback for when no trip is active
+/// right now, and otherwise reachable via the "All Trips" toolbar button.
 /// Doubles as a shareable "places I've traveled" overview via the Share
 /// button, which composites a themed dot per trip onto a map snapshot.
-struct GlobalMapView: View {
-    /// Lets the caller (`RootTabView`) switch back to the Trips tab once a
-    /// trip is left from here — popping this tab's own stack alone would
-    /// just land back on the map, not "the trips list" the user expects.
+private struct AllTripsOverviewMapView: View {
     var onLeftTrip: () -> Void = {}
 
     @Query(sort: \Trip.startDate) private var trips: [Trip]
