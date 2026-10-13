@@ -49,7 +49,7 @@ struct ItineraryTimelineView: View {
                     message: "Add your first stop to start building the itinerary.",
                     actionTitle: "Add Activity",
                     action: { isAddingActivity = true },
-                    secondaryActionTitle: AIAvailability.isItineraryGenerationAvailable ? "Generate with AI" : nil,
+                    secondaryActionTitle: AIAvailability.isItineraryGenerationAvailable ? "Ask AI" : nil,
                     secondaryAction: AIAvailability.isItineraryGenerationAvailable ? { isGeneratingWithAI = true } : nil
                 )
                 .padding(.top, 60)
@@ -69,7 +69,7 @@ struct ItineraryTimelineView: View {
                 if AIAvailability.isItineraryGenerationAvailable {
                     Menu {
                         Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
-                        Button("Generate with AI", systemImage: "sparkles") { isGeneratingWithAI = true }
+                        Button("Ask AI", systemImage: "sparkles") { isGeneratingWithAI = true }
                     } label: {
                         Image(systemName: "plus")
                     }

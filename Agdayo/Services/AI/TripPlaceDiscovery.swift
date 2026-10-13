@@ -1,6 +1,13 @@
 import CoreLocation
 import MapKit
 
+/// Grounds AI suggestion generation in real places. Uses category-filtered
+/// POI search (`MKLocalPointsOfInterestRequest` + `MKPointOfInterestFilter`)
+/// rather than natural-language queries like "Taipei restaurants" — matching
+/// against Apple Maps' own structured POI categories is far more reliable
+/// than hoping a free-text search ranks the right kind of place first, and
+/// it's the main lever available for improving suggestion quality without
+/// a bigger language model.
 @available(iOS 26.0, *)
 enum TripPlaceDiscovery {
 
@@ -8,16 +15,23 @@ enum TripPlaceDiscovery {
         let name: String
         let category: String
         let coordinate: CLLocationCoordinate2D
+        /// A short "neighborhood, city" hint when MapKit has one, so the
+        /// model can anchor descriptions to a real part of town instead of
+        /// guessing.
+        let locality: String?
     }
 
     private static let searchRadius: CLLocationDistance = 5_000
+    /// How many of the closest results to keep per category.
+    private static let perCategoryLimit = 6
+    private static let totalLimit = 24
 
-    private static let categories = [
-        ("attractions", "Attraction"),
-        ("restaurants", "Restaurant"),
-        ("cafes", "Cafe"),
-        ("museums", "Museum"),
-        ("parks", "Park")
+    private static let categories: [(filter: [MKPointOfInterestCategory], displayCategory: String)] = [
+        ([.landmark, .nationalMonument, .amusementPark, .aquarium, .zoo, .castle, .fortress], "Attraction"),
+        ([.restaurant], "Restaurant"),
+        ([.cafe, .bakery], "Cafe"),
+        ([.museum], "Museum"),
+        ([.park, .nationalPark], "Park")
     ]
 
     static func search(
@@ -30,11 +44,10 @@ enum TripPlaceDiscovery {
             returning: [[PlaceCandidate]].self
         ) { group in
 
-            for (queryCategory, displayCategory) in categories {
+            for (filter, displayCategory) in categories {
                 group.addTask {
                     await searchCategory(
-                        destination: destination,
-                        queryCategory: queryCategory,
+                        filter: filter,
                         displayCategory: displayCategory,
                         center: center
                     )
@@ -67,7 +80,7 @@ enum TripPlaceDiscovery {
                 seen.insert(key)
                 unique.append(place)
 
-                if unique.count >= 15 {
+                if unique.count >= totalLimit {
                     return unique
                 }
             }
@@ -77,40 +90,52 @@ enum TripPlaceDiscovery {
     }
 
     private static func searchCategory(
-        destination: String,
-        queryCategory: String,
+        filter: [MKPointOfInterestCategory],
         displayCategory: String,
         center: CLLocationCoordinate2D
     ) async -> [PlaceCandidate] {
 
-        let request = MKLocalSearch.Request()
-
-        request.naturalLanguageQuery = "\(destination) \(queryCategory)"
-
-        request.region = MKCoordinateRegion(
+        let request = MKLocalPointsOfInterestRequest(
             center: center,
-            latitudinalMeters: searchRadius,
-            longitudinalMeters: searchRadius
+            radius: searchRadius
         )
+
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: filter)
 
         guard let response = try? await MKLocalSearch(request: request).start()
         else {
             return []
         }
 
+        let centerLocation = CLLocation(latitude: center.latitude, longitude: center.longitude)
+
         return response.mapItems
-            .prefix(3)
-            .compactMap { item in
+            .compactMap { item -> (PlaceCandidate, CLLocationDistance)? in
 
                 guard let name = item.name else {
                     return nil
                 }
 
-                return PlaceCandidate(
+                let coordinate = item.placemark.coordinate
+                let distance = centerLocation.distance(
+                    from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                )
+
+                let locality = [item.placemark.subLocality, item.placemark.locality]
+                    .compactMap { $0 }
+                    .joined(separator: ", ")
+
+                let candidate = PlaceCandidate(
                     name: name,
                     category: displayCategory,
-                    coordinate: item.placemark.coordinate
+                    coordinate: coordinate,
+                    locality: locality.isEmpty ? nil : locality
                 )
+
+                return (candidate, distance)
             }
+            .sorted { $0.1 < $1.1 }
+            .prefix(perCategoryLimit)
+            .map(\.0)
     }
 }

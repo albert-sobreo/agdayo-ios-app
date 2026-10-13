@@ -5,73 +5,64 @@ import MapKit
 enum ItineraryDistanceRanking {
 
     static func rank(
-        _ days: [GeneratedDay],
+        _ groups: [SuggestionGroup],
         around tripCenter: CLLocationCoordinate2D?
-    ) async -> [GeneratedDay] {
+    ) async -> [SuggestionGroup] {
 
         guard let tripCenter else {
-            return days
+            return groups
         }
 
         var anchor = tripCenter
-        var rankedDays: [GeneratedDay] = []
+        var rankedGroups: [SuggestionGroup] = []
 
-        for day in days {
+        for group in groups {
 
-            var rankedDay = day
-            var rankedBlocks: [GeneratedTimeBlock] = []
+            let resolved = await withTaskGroup(
+                of: (SuggestionOption, CLLocationCoordinate2D?).self
+            ) { taskGroup -> [(SuggestionOption, CLLocationCoordinate2D?)] in
 
-            for block in day.timeBlocks {
-
-                let resolved = await withTaskGroup(
-                    of: (GeneratedActivity, CLLocationCoordinate2D?).self
-                ) { group -> [(GeneratedActivity, CLLocationCoordinate2D?)] in
-
-                    for option in block.options {
-                        group.addTask {
-                            (
-                                option,
-                                await resolveCoordinate(
-                                    for: option.location,
-                                    near: tripCenter
-                                )
+                for option in group.options {
+                    taskGroup.addTask {
+                        (
+                            option,
+                            await resolveCoordinate(
+                                for: option.location,
+                                near: tripCenter
                             )
-                        }
+                        )
                     }
-
-                    var results: [(GeneratedActivity, CLLocationCoordinate2D?)] = []
-
-                    for await result in group {
-                        results.append(result)
-                    }
-
-                    return results
                 }
 
-                let sorted = resolved.sorted {
-                    distance(
-                        from: anchor,
-                        to: $0.1
-                    ) < distance(
-                        from: anchor,
-                        to: $1.1
-                    )
+                var results: [(SuggestionOption, CLLocationCoordinate2D?)] = []
+
+                for await result in taskGroup {
+                    results.append(result)
                 }
 
-                var rankedBlock = block
-                rankedBlock.options = sorted.map(\.0)
-                rankedBlocks.append(rankedBlock)
-
-                if let closest = sorted.first?.1 {
-                    anchor = closest
-                }
+                return results
             }
 
-            rankedDay.timeBlocks = rankedBlocks
-            rankedDays.append(rankedDay)
+            let sorted = resolved.sorted {
+                distance(
+                    from: anchor,
+                    to: $0.1
+                ) < distance(
+                    from: anchor,
+                    to: $1.1
+                )
+            }
+
+            var rankedGroup = group
+            rankedGroup.options = sorted.map(\.0)
+            rankedGroups.append(rankedGroup)
+
+            if let closest = sorted.first?.1 {
+                anchor = closest
+            }
         }
 
-        return rankedDays
+        return rankedGroups
     }
 
     static func resolveCoordinate(
