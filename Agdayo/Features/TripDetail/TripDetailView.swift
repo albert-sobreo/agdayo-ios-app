@@ -20,6 +20,7 @@ struct TripDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(TripLiveActivityCoordinator.self) private var liveActivity
     @State private var isShowingMap = false
     @State private var isShowingSettings = false
     @State private var isShowingShareSheet = false
@@ -81,8 +82,10 @@ struct TripDetailView: View {
                     status: trip.status,
                     planningProgress: planningProgress,
                     members: syncCoordinator.memberProfiles,
+                    isLiveActivityRunning: liveActivity.isRunning(tripID: trip.id),
                     onViewMap: { isShowingMap = true },
-                    onSettings: { isShowingSettings = true }
+                    onSettings: { isShowingSettings = true },
+                    onInvite: { isShowingShareSheet = true }
                 )
 
                 TripSectionsRow(
@@ -98,19 +101,11 @@ struct TripDetailView: View {
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
-                Text("Activities")
-                    .padding(.horizontal)
-                    .font(AppFont.outfit(24, weight: .semibold))
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
             }
             .padding(.bottom, 24)
         }
-        .background {
-            Image("light-bg")
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-        }
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -147,6 +142,12 @@ struct TripDetailView: View {
                 try? await TripMembershipService.ensureMembership(tripID: trip.id, uid: uid, role: role)
             }
             syncCoordinator.start(for: trip, modelContext: modelContext)
+        }
+        .task {
+            // Opportunistic refresh — see `TripLiveActivityCoordinator`'s
+            // doc comment on why there's no push to do this in the
+            // background. No-ops if this trip's Live Activity isn't running.
+            liveActivity.refresh(trip: trip, activities: activities)
         }
         // Deliberately no `.onDisappear { syncCoordinator.stop() }` — this
         // view stays the root of `Members`/`Itinerary`/etc. while those are

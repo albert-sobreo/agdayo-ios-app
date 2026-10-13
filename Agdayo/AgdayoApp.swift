@@ -41,6 +41,7 @@ struct AgdayoApp: App {
     }()
 
     private let locationSharing = LiveLocationSharingCoordinator()
+    private let liveActivity = TripLiveActivityCoordinator()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -89,6 +90,7 @@ struct AgdayoApp: App {
                 .preferredColorScheme(.light)
                 .environment(authService)
                 .environment(locationSharing)
+                .environment(liveActivity)
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }

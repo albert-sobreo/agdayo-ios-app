@@ -110,8 +110,20 @@ private struct DaySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Day \(dayIndex) · \(group.day.formatted(date: .abbreviated, time: .omitted))")
-                .font(AppFont.outfit(20, weight: .semibold, relativeTo: .title3))
+            HStack(alignment: .firstTextBaseline) {
+                Text("Day \(dayIndex)")
+                    .font(AppFont.barlowCondensed(36, weight: .regular))
+                    .textCase(.uppercase)
+                Text(group.day.formatted(
+                    .dateTime
+                        .weekday(.abbreviated)
+                        .month(.abbreviated)
+                        .day()
+                ))
+                .font(AppFont.barlowCondensed(16, weight: .regular))
+                .textCase(.uppercase)
+                .tracking(2)
+            }
 
             ForEach(group.buckets) { bucket in
                 TimeOfDayDivider(label: bucket.bucket.label)

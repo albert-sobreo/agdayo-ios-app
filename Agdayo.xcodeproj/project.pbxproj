@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		902352353070CD7200BABE95 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 902352343070CD7200BABE95 /* WidgetKit.framework */; };
+		902352373070CD7200BABE95 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 902352363070CD7200BABE95 /* SwiftUI.framework */; };
+		902352423070CD7400BABE95 /* AgdayoWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 902352323070CD7200BABE95 /* AgdayoWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		90C6BAAB30628F1100AC021B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAA30628F1100AC021B /* FirebaseAuth */; };
 		90C6BAAD30628F1100AC021B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAC30628F1100AC021B /* FirebaseCore */; };
 		90C6BAAF30628F1100AC021B /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 90C6BAAE30628F1100AC021B /* FirebaseDatabase */; };
@@ -16,6 +19,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		902352403070CD7400BABE95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 907161EE30621FC500495C61 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 902352313070CD7200BABE95;
+			remoteInfo = AgdayoWidgetsExtension;
+		};
 		90EBDA943065F29F001AB2A3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 907161EE30621FC500495C61 /* Project object */;
@@ -32,13 +42,35 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		902352473070CD7400BABE95 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				902352423070CD7400BABE95 /* AgdayoWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		902352323070CD7200BABE95 /* AgdayoWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AgdayoWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		902352343070CD7200BABE95 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = /System/Library/Frameworks/WidgetKit.framework; sourceTree = "<absolute>"; };
+		902352363070CD7200BABE95 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = /System/Library/Frameworks/SwiftUI.framework; sourceTree = "<absolute>"; };
 		907161F630621FC500495C61 /* Agdayo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Agdayo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EBDA903065F29F001AB2A3 /* AgdayoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgdayoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90EBDA9D3065F2A4001AB2A3 /* AgdayoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AgdayoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		902352463070CD7400BABE95 /* Exceptions for "AgdayoWidgets" folder in "AgdayoWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 902352313070CD7200BABE95 /* AgdayoWidgetsExtension */;
+		};
 		90C6BA9B30624B3300AC021B /* Exceptions for "Agdayo" folder in "Agdayo" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -49,6 +81,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		902352383070CD7200BABE95 /* AgdayoWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				902352463070CD7400BABE95 /* Exceptions for "AgdayoWidgets" folder in "AgdayoWidgetsExtension" target */,
+			);
+			path = AgdayoWidgets;
+			sourceTree = "<group>";
+		};
 		907161F830621FC500495C61 /* Agdayo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -70,6 +110,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		9023522F3070CD7200BABE95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				902352373070CD7200BABE95 /* SwiftUI.framework in Frameworks */,
+				902352353070CD7200BABE95 /* WidgetKit.framework in Frameworks */,
+			);
+		};
 		907161F330621FC500495C61 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -94,12 +141,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		902352333070CD7200BABE95 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				902352343070CD7200BABE95 /* WidgetKit.framework */,
+				902352363070CD7200BABE95 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		907161ED30621FC500495C61 = {
 			isa = PBXGroup;
 			children = (
 				907161F830621FC500495C61 /* Agdayo */,
 				90EBDA913065F29F001AB2A3 /* AgdayoTests */,
 				90EBDA9E3065F2A4001AB2A3 /* AgdayoUITests */,
+				902352383070CD7200BABE95 /* AgdayoWidgets */,
+				902352333070CD7200BABE95 /* Frameworks */,
 				907161F730621FC500495C61 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -110,6 +168,7 @@
 				907161F630621FC500495C61 /* Agdayo.app */,
 				90EBDA903065F29F001AB2A3 /* AgdayoTests.xctest */,
 				90EBDA9D3065F2A4001AB2A3 /* AgdayoUITests.xctest */,
+				902352323070CD7200BABE95 /* AgdayoWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -117,6 +176,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		902352313070CD7200BABE95 /* AgdayoWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 902352433070CD7400BABE95 /* Build configuration list for PBXNativeTarget "AgdayoWidgetsExtension" */;
+			buildPhases = (
+				9023522E3070CD7200BABE95 /* Sources */,
+				9023522F3070CD7200BABE95 /* Frameworks */,
+				902352303070CD7200BABE95 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				902352383070CD7200BABE95 /* AgdayoWidgets */,
+			);
+			name = AgdayoWidgetsExtension;
+			productName = AgdayoWidgetsExtension;
+			productReference = 902352323070CD7200BABE95 /* AgdayoWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		907161F530621FC500495C61 /* Agdayo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9071620330621FC600495C61 /* Build configuration list for PBXNativeTarget "Agdayo" */;
@@ -124,8 +201,12 @@
 				907161F230621FC500495C61 /* Sources */,
 				907161F330621FC500495C61 /* Frameworks */,
 				907161F430621FC500495C61 /* Resources */,
+				902352473070CD7400BABE95 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				902352413070CD7400BABE95 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				907161F830621FC500495C61 /* Agdayo */,
@@ -195,6 +276,9 @@
 				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					902352313070CD7200BABE95 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 					907161F530621FC500495C61 = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -229,11 +313,17 @@
 				907161F530621FC500495C61 /* Agdayo */,
 				90EBDA8F3065F29F001AB2A3 /* AgdayoTests */,
 				90EBDA9C3065F2A4001AB2A3 /* AgdayoUITests */,
+				902352313070CD7200BABE95 /* AgdayoWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		902352303070CD7200BABE95 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		907161F430621FC500495C61 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -252,6 +342,11 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		9023522E3070CD7200BABE95 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		907161F230621FC500495C61 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -270,6 +365,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		902352413070CD7400BABE95 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 902352313070CD7200BABE95 /* AgdayoWidgetsExtension */;
+			targetProxy = 902352403070CD7400BABE95 /* PBXContainerItemProxy */;
+		};
 		90EBDA953065F29F001AB2A3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 907161F530621FC500495C61 /* Agdayo */;
@@ -283,6 +383,88 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		902352443070CD7400BABE95 /* Debug configuration for PBXNativeTarget "AgdayoWidgetsExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9L4W9TZH5H;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AgdayoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AgdayoWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = albert.Agdayo.AgdayoWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		902352453070CD7400BABE95 /* Release configuration for PBXNativeTarget "AgdayoWidgetsExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9L4W9TZH5H;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AgdayoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = AgdayoWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = albert.Agdayo.AgdayoWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 		9071620130621FC600495C61 /* Debug configuration for PBXProject "Agdayo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -420,6 +602,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -431,7 +614,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = albert.Agdayo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -462,6 +645,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -473,7 +657,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = albert.Agdayo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -567,6 +751,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		902352433070CD7400BABE95 /* Build configuration list for PBXNativeTarget "AgdayoWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				902352443070CD7400BABE95 /* Debug configuration for PBXNativeTarget "AgdayoWidgetsExtension" */,
+				902352453070CD7400BABE95 /* Release configuration for PBXNativeTarget "AgdayoWidgetsExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		907161F130621FC500495C61 /* Build configuration list for PBXProject "Agdayo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

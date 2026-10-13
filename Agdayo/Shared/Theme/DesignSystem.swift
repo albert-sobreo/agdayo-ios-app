@@ -9,6 +9,29 @@ enum AppRadius {
     static let pill: CGFloat = 6        // rounded-md — tags
 }
 
+/// Spacing scale for the redesigned screens — named steps instead of ad hoc
+/// padding values, matching the rhythm seen across the Home/Trip Detail mockups.
+enum AppSpacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 16
+    static let lg: CGFloat = 24
+    static let xl: CGFloat = 32
+}
+
+extension View {
+    /// Small-caps metadata label treatment repeated throughout the
+    /// redesigned Home/Trip Detail screens ("NEXT UP", "DEPART", "ACTIVE ·
+    /// DAY 2 OF 4") — bold Outfit, uppercased, tracked out.
+    func trackedLabel(_ size: CGFloat = 11, color: Color = .secondary) -> some View {
+        self
+            .font(AppFont.outfit(size, weight: .bold, relativeTo: .caption2))
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .foregroundStyle(color)
+    }
+}
+
 extension View {
     /// The web app's flat "sticker" card: opaque surface, thin themed border,
     /// and a hard offset shadow with zero blur (radius: 0 renders a crisp,
@@ -100,13 +123,15 @@ struct PillTag: View {
             }
             Text(text)
         }
-        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+        .font(AppFont.outfit(12, weight: .bold, relativeTo: .caption))
+        .tracking(2)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(background)
         .foregroundStyle(foreground)
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.pill))
         .accessibilityElement(children: .combine)
+        .textCase(.uppercase)
     }
 }
 

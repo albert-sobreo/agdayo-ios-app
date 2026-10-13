@@ -14,12 +14,16 @@ struct SquareNavCard: View {
                 .font(.system(size: 28))
                 .foregroundStyle(accentColor)
             Spacer(minLength: 0)
-            Text(subtitle)
-                .font(AppFont.outfit(12))
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(AppFont.outfit(16, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 0){
+                Text(subtitle)
+                    .font(AppFont.outfit(12))
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(AppFont.barlowCondensed(16, weight: .semibold))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding()
         .frame(minWidth: 128, minHeight: 128, alignment: .leading)

@@ -63,6 +63,7 @@ struct PrivacyPolicyView: View {
             }
             .padding(20)
         }
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .navigationTitle("Privacy Policy")
         .navigationBarTitleDisplayMode(.inline)
     }

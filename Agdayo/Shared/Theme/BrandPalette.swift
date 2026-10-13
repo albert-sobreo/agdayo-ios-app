@@ -47,3 +47,29 @@ struct BrandProgressTrack: View {
         .frame(height: height)
     }
 }
+
+#Preview("Brand Palette Swatches") {
+    let swatches: [(String, Color)] = [
+        ("canvas", BrandPalette.canvas),
+        ("blush", BrandPalette.blush),
+        ("maroon", BrandPalette.maroon),
+        ("rose", BrandPalette.rose),
+        ("roseTrack", BrandPalette.roseTrack),
+        ("mint", BrandPalette.mint),
+        ("mintText", BrandPalette.mintText),
+        ("ink", BrandPalette.ink),
+        ("cardSurface", BrandPalette.cardSurface)
+    ]
+    return VStack(spacing: 0) {
+        ForEach(swatches, id: \.0) { name, color in
+            HStack {
+                Text(name).font(AppFont.outfit(14, weight: .semibold))
+                Spacer()
+                Text("TOKYO").font(AppFont.barlowCondensed(20, weight: .bold))
+            }
+            .padding()
+            .background(color)
+        }
+        BrandProgressTrack(fraction: 0.4).padding()
+    }
+}

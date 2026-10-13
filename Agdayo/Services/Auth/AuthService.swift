@@ -1,12 +1,14 @@
+import AuthenticationServices
+import CryptoKit
 import FirebaseAuth
 import FirebaseCore
 import GoogleSignIn
 import Observation
 import UIKit
 
-/// Wraps Firebase Auth for Google + email/password sign-in. Sign-in is
-/// optional and deferred app-wide — this only gets used once the user taps
-/// "Sign In" from Profile, never at launch.
+/// Wraps Firebase Auth for Google + Apple + email/password sign-in. Sign-in
+/// is optional and deferred app-wide — this only gets used once the user
+/// taps "Sign In" from Profile, never at launch.
 @Observable
 final class AuthService {
     private(set) var firebaseUser: FirebaseAuth.User?
@@ -43,6 +45,55 @@ final class AuthService {
         )
         let authResult = try await Auth.auth().signIn(with: credential)
         try await UserDirectoryService.ensureUserDocument(for: authResult.user)
+    }
+
+    /// Generates a fresh nonce and its SHA256 hash, used together to guard
+    /// against replay attacks — the raw value goes to Firebase, the hash
+    /// goes to Apple. The caller (`SignInView`) sets `request.nonce` to the
+    /// hash right before performing the authorization request, then hands
+    /// the raw value back to `signInWithApple(credential:rawNonce:)` once
+    /// Apple's authorization completes.
+    static func makeAppleSignInNonce() -> (raw: String, hashed: String) {
+        let raw = randomNonceString()
+        let hashed = sha256(raw)
+        return (raw, hashed)
+    }
+
+    /// Exchanges an Apple ID credential for a Firebase session. `rawNonce`
+    /// must be the un-hashed value from the same `makeAppleSignInNonce()`
+    /// call whose hash was sent in the original request.
+    func signInWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
+        guard let tokenData = credential.identityToken,
+              let idTokenString = String(data: tokenData, encoding: .utf8) else {
+            throw AuthServiceError.invalidAppleCredential
+        }
+        let firebaseCredential = OAuthProvider.credential(providerID: .apple, idToken: idTokenString, rawNonce: rawNonce)
+        let authResult = try await Auth.auth().signIn(with: firebaseCredential)
+        try await UserDirectoryService.ensureUserDocument(for: authResult.user)
+    }
+
+    private static func randomNonceString(length: Int = 32) -> String {
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+        while remainingLength > 0 {
+            var randoms = [UInt8](repeating: 0, count: 16)
+            let status = SecRandomCopyBytes(kSecRandomDefault, randoms.count, &randoms)
+            precondition(status == errSecSuccess, "Unable to generate a secure nonce.")
+            for random in randoms where remainingLength > 0 {
+                if random < charset.count {
+                    result.append(charset[Int(random)])
+                    remainingLength -= 1
+                }
+            }
+        }
+        return result
+    }
+
+    private static func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 
     func signUp(email: String, password: String) async throws {
@@ -110,6 +161,19 @@ final class AuthService {
         try await user.reauthenticate(with: credential)
     }
 
+    /// Same idea as `reauthenticateWithGoogle()`, for Apple accounts — the
+    /// caller re-runs the authorization request and hands back a fresh
+    /// credential (see `signInWithApple(credential:rawNonce:)`).
+    func reauthenticateWithApple(credential: ASAuthorizationAppleIDCredential, rawNonce: String) async throws {
+        guard let user = Auth.auth().currentUser,
+              let tokenData = credential.identityToken,
+              let idTokenString = String(data: tokenData, encoding: .utf8) else {
+            throw AuthServiceError.invalidAppleCredential
+        }
+        let firebaseCredential = OAuthProvider.credential(providerID: .apple, idToken: idTokenString, rawNonce: rawNonce)
+        try await user.reauthenticate(with: firebaseCredential)
+    }
+
     /// Same idea as `reauthenticateWithGoogle()`, for email/password accounts
     /// — the caller has to prompt for the password again since Firebase
     /// never exposes the current one.
@@ -153,6 +217,7 @@ final class AuthService {
 enum AuthServiceError: LocalizedError {
     case noPresentingViewController
     case missingGoogleIDToken
+    case invalidAppleCredential
     case requiresRecentLogin
 
     var errorDescription: String? {
@@ -161,6 +226,8 @@ enum AuthServiceError: LocalizedError {
             return "Couldn't find a screen to present sign-in from."
         case .missingGoogleIDToken:
             return "Google sign-in didn't return an ID token."
+        case .invalidAppleCredential:
+            return "Apple sign-in didn't return a usable credential."
         case .requiresRecentLogin:
             return "For your security, please sign in again to confirm this action."
         }

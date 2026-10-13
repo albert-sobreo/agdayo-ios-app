@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 import SwiftData
 import FirebaseAuth
@@ -16,6 +17,8 @@ struct ProfileView: View {
                 ProfileForm(profile: profile)
             } else {
                 ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(BrandPalette.canvas.ignoresSafeArea())
             }
         }
         .navigationTitle("Profile")
@@ -36,6 +39,7 @@ private struct ProfileForm: View {
     @State private var isPresentingSignIn = false
     @State private var isShowingDeleteConfirmation = false
     @State private var isShowingReauthPassword = false
+    @State private var isShowingReauthApple = false
     @State private var isDeletingAccount = false
     @State private var isShowingDeleteError = false
     @State private var deleteAccountErrorMessage = ""
@@ -97,12 +101,20 @@ private struct ProfileForm: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .sheet(isPresented: $isPresentingSignIn) {
             SignInView()
         }
         .sheet(isPresented: $isShowingReauthPassword) {
             ReauthPasswordSheet { password in
                 try await authService.reauthenticateWithPassword(password)
+                await deleteAccount()
+            }
+        }
+        .sheet(isPresented: $isShowingReauthApple) {
+            ReauthAppleSheet { credential, rawNonce in
+                try await authService.reauthenticateWithApple(credential: credential, rawNonce: rawNonce)
                 await deleteAccount()
             }
         }
@@ -202,9 +214,12 @@ private struct ProfileForm: View {
             }
             appUserProfile = nil
         } catch AuthServiceError.requiresRecentLogin {
-            if authService.signInProviderID == "google.com" {
+            switch authService.signInProviderID {
+            case "google.com":
                 await reauthenticateWithGoogleThenRetryDelete()
-            } else {
+            case "apple.com":
+                isShowingReauthApple = true
+            default:
                 isShowingReauthPassword = true
             }
         } catch {
@@ -291,6 +306,85 @@ private struct ReauthPasswordSheet: View {
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+/// Apple re-presentation for Apple-signed-in accounts when Firebase
+/// requires a fresher session before it will delete the account — same
+/// idea as `ReauthPasswordSheet`, just for the other sign-in method.
+private struct ReauthAppleSheet: View {
+    var onSubmit: (ASAuthorizationAppleIDCredential, String) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.authorizationController) private var authorizationController
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text("Confirm with Apple to continue deleting your account.")
+                    .font(AppFont.outfit(14, relativeTo: .subheadline))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 16)
+
+                Button {
+                    Task { await submit() }
+                } label: {
+                    HStack {
+                        Image(systemName: "apple.logo")
+                        Text("Continue with Apple")
+                    }
+                }
+                .buttonStyle(.appSecondary)
+                .disabled(isSubmitting)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(Color.appDanger)
+                        .multilineTextAlignment(.center)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .overlay {
+                if isSubmitting {
+                    ProgressView()
+                }
+            }
+        }
+    }
+
+    private func submit() async {
+        errorMessage = nil
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            let nonce = AuthService.makeAppleSignInNonce()
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.nonce = nonce.hashed
+
+            let result = try await authorizationController.performRequest(request)
+            guard case .appleID(let credential) = result else {
+                errorMessage = "Apple sign-in didn't return a usable credential."
+                return
+            }
+            try await onSubmit(credential, nonce.raw)
+            dismiss()
+        } catch {
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 }

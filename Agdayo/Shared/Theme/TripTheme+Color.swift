@@ -5,15 +5,22 @@ import SwiftUI
 extension TripTheme {
     /// The "500" brand shade — primary accent, progress fill, icon tint.
     var accentColor: Color {
+        Color(hex: accentColorHex)
+    }
+
+    /// Raw hex for `accentColor` — used wherever a plain string is needed
+    /// instead of a `Color` (e.g. `TripLiveActivityAttributes.themeColorHex`,
+    /// handed to the widget extension, which has no `TripTheme` of its own).
+    var accentColorHex: UInt32 {
         switch self {
-        case .peach: return Color(hex: 0xF0A693)
-        case .blue: return Color(hex: 0x0EA5E9)
-        case .amber: return Color(hex: 0xF59E0B)
-        case .emerald: return Color(hex: 0x10B981)
-        case .violet: return Color(hex: 0x8B5CF6)
-        case .teal: return Color(hex: 0x14B8A6)
-        case .rose: return Color(hex: 0xF43F5E)
-        case .slate: return Color(hex: 0x64748B)
+        case .peach: return 0xF0A693
+        case .blue: return 0x0EA5E9
+        case .amber: return 0xF59E0B
+        case .emerald: return 0x10B981
+        case .violet: return 0x8B5CF6
+        case .teal: return 0x14B8A6
+        case .rose: return 0xF43F5E
+        case .slate: return 0x64748B
         }
     }
 

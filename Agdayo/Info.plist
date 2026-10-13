@@ -21,6 +21,12 @@
 		<string>Outfit-ExtraBold.ttf</string>
 		<string>Outfit-Black.ttf</string>
 		<string>matatas_one.otf</string>
+		<string>BarlowCondensed-Regular.ttf</string>
+		<string>BarlowCondensed-Medium.ttf</string>
+		<string>BarlowCondensed-SemiBold.ttf</string>
+		<string>BarlowCondensed-Bold.ttf</string>
+		<string>BarlowCondensed-ExtraBold.ttf</string>
+		<string>BarlowCondensed-Black.ttf</string>
 	</array>
 </dict>
 </plist>

@@ -9,56 +9,132 @@ struct TripHeaderView: View {
     let status: TripStatus
     let planningProgress: (completed: Int, total: Int)
     var members: [AppUserProfile] = []
+    var isLiveActivityRunning: Bool = false
     let onViewMap: () -> Void
     let onSettings: () -> Void
+    var onInvite: () -> Void = {}
 
-    private var dateRangeText: String {
-        let formatter = Date.FormatStyle().month(.abbreviated).day().year()
-        return "\(startDate.formatted(formatter)) – \(endDate.formatted(formatter))"
+    private var headline: Color {
+        theme.accentColor.mix(with: .black, by: 0.35)
+    }
+
+    private var dayNumber: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let start = calendar.startOfDay(for: startDate)
+        return max(1, (calendar.dateComponents([.day], from: start, to: today).day ?? 0) + 1)
+    }
+
+    private var numberOfDays: Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: startDate)
+        let end = calendar.startOfDay(for: endDate)
+        return max(1, (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
+    }
+
+    private func monthDay(_ date: Date) -> String {
+        date.formatted(Date.FormatStyle().month(.abbreviated).day())
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
             HStack {
-                StatusBadge(status: status)
+                if status == .active {
+                    PillTag(
+                        text: "Active · Day \(dayNumber) of \(numberOfDays)".uppercased(),
+                        background: theme.lightTintColor,
+                        foreground: theme.accentColor
+                    )
+                } else {
+                    StatusBadge(status: status)
+                        .textCase(.uppercase)
+                        .tracking(2)
+                }
                 Spacer()
                 Button(action: onViewMap) {
-                    PillTag(
-                        text: "View on Map",
-                        background: theme.lightTintColor,
-                        foreground: theme.accentColor,
-                        icon: "map"
-                    )
+                    Label("View on Map", systemImage: "map")
+                        .font(AppFont.outfit(12, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(theme.accentColor)
+                        .textCase(.uppercase)
                 }
                 .buttonStyle(.plain)
-                Button(action: onSettings) {
-                    Image(systemName: "gearshape.fill")
-                        .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(location.uppercased())
+                    .font(AppFont.barlowCondensed(72, weight: .ultraLight))
+                    .foregroundStyle(headline)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.6)
+                HStack(alignment: .center) {
+                    Text(name.uppercased())
+                        .font(AppFont.barlowCondensed(20, weight: .semibold, relativeTo: .subheadline))
+                        .tracking(1)
+                        .foregroundStyle(headline)
+                        .padding(.trailing, 4)
+                    
+                    Button(action: onSettings) {
+                        Image(systemName: "pencil")
+                            .foregroundStyle(headline)
+                    }
+                    .accessibilityLabel("Trip Settings")
                 }
-                .accessibilityLabel("Trip Settings")
             }
 
-            Text(name)
-                .font(AppFont.outfit(36, weight: .bold, relativeTo: .largeTitle))
-                .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
-                .lineLimit(2)
+            HStack(spacing: 0) {
+                statColumn(label: "Depart", value: monthDay(startDate))
+                    .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Label(location, systemImage: "mappin.and.ellipse")
-                Label(dateRangeText, systemImage: "calendar")
+                verticalDivider
+
+                statColumn(label: "Return", value: monthDay(endDate))
+                    .frame(maxWidth: .infinity)
+
+                verticalDivider
+
+                statColumn(label: "Days", value: "\(numberOfDays)")
+                    .frame(maxWidth: .infinity)
             }
-            .font(AppFont.outfit(15, relativeTo: .subheadline))
-            .foregroundStyle(.secondary)
 
             TripPlanningProgressBar(progress: planningProgress, theme: theme)
 
-            if !members.isEmpty {
-                MemberAvatarRow(members: members, theme: theme)
+            HStack(spacing: 12) {
+                if !members.isEmpty {
+                    MemberAvatarRow(members: members, theme: theme)
+                }
+                Button(action: onInvite) {
+                    Text("+ Invite".uppercased())
+                        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+                        .tracking(1)
+                        .foregroundStyle(theme.accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .overlay(Capsule().strokeBorder(theme.accentColor.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(theme.headerBackground)
+    }
+
+    private var verticalDivider: some View {
+        Rectangle()
+            .fill(theme.accentColor.opacity(0.3))
+            .frame(width: 1, height: 28)
+            .padding(.horizontal, 12)
+    }
+
+    private func statColumn(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .trackedLabel(10, color: headline.opacity(0.7))
+            Text(value.uppercased())
+                .font(AppFont.barlowCondensed(36, weight: .light))
+                .foregroundStyle(headline)
+        }
     }
 }
 
@@ -121,20 +197,23 @@ private struct TripPlanningProgressBar: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Planning Progress: \(progress.completed)/\(progress.total)")
-                .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Planning")
+                    .trackedLabel(11, color: theme.accentColor.mix(with: .black, by: 0.35).opacity(0.7))
+                Spacer()
+                Text("\(progress.completed) of \(progress.total) done")
+                    .trackedLabel(11, color: theme.accentColor.mix(with: .black, by: 0.35).opacity(0.7))
+            }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(theme.trackColor)
-                    RoundedRectangle(cornerRadius: 4)
+                    Capsule().fill(theme.trackColor)
+                    Capsule()
                         .fill(theme.accentColor)
                         .frame(width: geometry.size.width * fraction)
                 }
             }
-            .frame(height: 8)
+            .frame(height: 6)
         }
     }
 }

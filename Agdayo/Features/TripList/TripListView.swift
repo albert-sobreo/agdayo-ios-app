@@ -61,12 +61,14 @@ struct TripListView: View {
                         .buttonStyle(.bordered)
                         .tint(Color.appPrimary)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if filteredTrips.isEmpty {
                     EmptyStateView(
                         iconName: "magnifyingglass",
                         title: "No Matching Trips",
                         message: "Try a different name or destination."
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
                         if !activeTrips.isEmpty {
@@ -76,7 +78,7 @@ struct TripListView: View {
                                 }
                                 .onDelete(perform: deleteActiveTrips)
                             } header: {
-                                Text("Upcoming & Active")
+                                sectionHeader("Upcoming & Active")
                             }
                         }
                         if !completedTrips.isEmpty {
@@ -86,17 +88,18 @@ struct TripListView: View {
                                 }
                                 .onDelete(perform: deleteCompletedTrips)
                             } header: {
-                                Text("Completed")
+                                sectionHeader("Completed")
                             }
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                     .refreshable {
                         await refresh()
                     }
                 }
             }
-            .background(BackgroundImageModifier())
+            .background(BrandPalette.canvas.ignoresSafeArea())
             .navigationTitle("My Trips")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search trips")
@@ -143,16 +146,31 @@ struct TripListView: View {
         }
     }
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .textCase(.uppercase)
+            .font(AppFont.barlowCondensed(20, weight: .regular, relativeTo: .title3))
+            .tracking(2)
+            .foregroundStyle(.primary)
+    }
+
     @ViewBuilder
     private func tripRow(_ trip: Trip) -> some View {
-        NavigationLink(value: trip) {
+        ZStack {
+            // Hidden `NavigationLink` drives the tap-to-navigate behavior
+            // without `List` appending its automatic disclosure chevron —
+            // that accessory only appears when a `NavigationLink` is the
+            // row's own top-level content.
+            NavigationLink(value: trip) { EmptyView() }
+                .opacity(0)
             TripCardView(
                 name: trip.name,
                 location: trip.location,
                 theme: trip.theme,
                 startDate: trip.startDate,
                 endDate: trip.endDate,
-                status: trip.status
+                status: trip.status,
+                coordinate: trip.coordinate
             )
         }
         .listRowSeparator(.hidden)

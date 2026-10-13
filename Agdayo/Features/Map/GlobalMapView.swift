@@ -151,6 +151,8 @@ private struct AllTripsOverviewMapView: View {
                     title: "No Trips Pinned Yet",
                     message: "Trips with a destination will show up here once you add them."
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BrandPalette.canvas.ignoresSafeArea())
             } else {
                 ZStack(alignment: .bottom) {
                     Map(position: $cameraPosition, selection: $selectedTripID) {
@@ -171,7 +173,6 @@ private struct AllTripsOverviewMapView: View {
                                 }
                                 .buttonStyle(.plain)
                             }
-                            .tag(entry.trip.id)
                         }
                     }
                     .mapStyle(mapStyleOption.mapStyle)
@@ -370,7 +371,9 @@ private struct TripPinView: View {
     @ViewBuilder
     private var label: some View {
         let styledText = Text(trip.name)
-            .font(AppFont.outfit(13, weight: .bold, relativeTo: .caption))
+            .font(AppFont.barlowCondensed(14, weight: .bold, relativeTo: .caption))
+            .tracking(2)
+            .textCase(.uppercase)
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)

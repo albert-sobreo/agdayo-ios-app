@@ -31,7 +31,7 @@ final class TripLiveActivityCoordinator {
         )
         let state = Self.contentState(trip: trip, activities: activities)
         do {
-            _ = try Activity<TripLiveActivityAttributes>.request(
+            _ = try ActivityKit.Activity<TripLiveActivityAttributes>.request(
                 attributes: attributes,
                 content: .init(state: state, staleDate: nil)
             )
@@ -52,7 +52,7 @@ final class TripLiveActivityCoordinator {
         let state = Self.contentState(trip: trip, activities: activities)
         let tripIDString = trip.id.uuidString
         Task {
-            for activity in Activity<TripLiveActivityAttributes>.activities where activity.attributes.tripID == tripIDString {
+            for activity in ActivityKit.Activity<TripLiveActivityAttributes>.activities where activity.attributes.tripID == tripIDString {
                 await activity.update(.init(state: state, staleDate: nil))
             }
         }
@@ -62,7 +62,7 @@ final class TripLiveActivityCoordinator {
         guard let runningTripID else { return }
         let tripIDString = runningTripID.uuidString
         Task {
-            for activity in Activity<TripLiveActivityAttributes>.activities where activity.attributes.tripID == tripIDString {
+            for activity in ActivityKit.Activity<TripLiveActivityAttributes>.activities where activity.attributes.tripID == tripIDString {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
@@ -75,7 +75,7 @@ final class TripLiveActivityCoordinator {
     /// user never explicitly turned it off), and reconciles `runningTripID`
     /// if a Live Activity is unexpectedly still/no-longer running.
     func reconcile(trip: Trip, activities: [Activity]) {
-        let stillRunning = Activity<TripLiveActivityAttributes>.activities.contains { $0.attributes.tripID == trip.id.uuidString }
+        let stillRunning = ActivityKit.Activity<TripLiveActivityAttributes>.activities.contains { $0.attributes.tripID == trip.id.uuidString }
         if runningTripID == trip.id, !stillRunning {
             start(trip: trip, activities: activities)
         } else if stillRunning {

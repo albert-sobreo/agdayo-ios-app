@@ -1,8 +1,10 @@
+import AuthenticationServices
 import SwiftUI
 
 struct SignInView: View {
     @Environment(AuthService.self) private var authService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.authorizationController) private var authorizationController
 
     private enum Mode {
         case signIn, signUp
@@ -40,6 +42,17 @@ struct SignInView: View {
                             .scaledToFit()
                             .frame(width: 18, height: 18)
                         Text("Continue with Google")
+                    }
+                }
+                .buttonStyle(.appSecondary)
+                .disabled(isLoading)
+
+                Button {
+                    Task { await handleAppleSignIn() }
+                } label: {
+                    HStack {
+                        Image(systemName: "apple.logo")
+                        Text("Continue with Apple")
                     }
                 }
                 .buttonStyle(.appSecondary)
@@ -123,6 +136,32 @@ struct SignInView: View {
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleAppleSignIn() async {
+        errorMessage = nil
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let nonce = AuthService.makeAppleSignInNonce()
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.requestedScopes = [.fullName, .email]
+            request.nonce = nonce.hashed
+
+            let result = try await authorizationController.performRequest(request)
+            guard case .appleID(let credential) = result else {
+                errorMessage = "Apple sign-in didn't return a usable credential."
+                return
+            }
+            try await authService.signInWithApple(credential: credential, rawNonce: nonce.raw)
+            dismiss()
+        } catch {
+            // Tapping outside the sheet or pressing Cancel also lands here
+            // as an error — don't show that one.
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 

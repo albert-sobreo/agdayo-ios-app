@@ -67,6 +67,8 @@ struct VisitedPlacesMapView: View {
                     title: "No Visited Places Yet",
                     message: "Places from your completed trips will show up here."
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BrandPalette.canvas.ignoresSafeArea())
             } else {
                 Map(position: $cameraPosition) {
                     ForEach(groupedPlaces) { place in

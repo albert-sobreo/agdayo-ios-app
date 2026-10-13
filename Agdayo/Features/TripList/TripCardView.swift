@@ -9,14 +9,7 @@ struct TripCardView: View {
     let startDate: Date
     let endDate: Date
     let status: TripStatus
-    /// Only rendered when both this and `showsMapBackground` are set — kept
-    /// off by default so `TripListView`'s plain list rows are unaffected;
-    /// only `HomeView`'s showcase card opts in.
     var coordinate: CLLocationCoordinate2D? = nil
-    var showsMapBackground: Bool = false
-    /// Bigger, extra-bold title — off by default (`TripListView`'s rows
-    /// keep the standard size); `HomeView`'s single showcase card opts in
-    /// since it has the space and prominence to justify it.
     var emphasizesTitle: Bool = false
 
     var body: some View {
@@ -40,8 +33,8 @@ struct TripCardView: View {
 
     private var content: some View {
         ZStack(alignment: .trailing) {
-            if showsMapBackground, let coordinate {
-                MapBackgroundDecoration(coordinate: coordinate)
+            if status != .completed, let coordinate {
+                MapBackgroundDecoration(coordinate: coordinate, locationQuery: location)
             }
 
             VStack(alignment: .leading, spacing: 0) {
@@ -54,7 +47,6 @@ struct TripCardView: View {
                 )
 
                 TripCardFooter(
-                    location: location,
                     startDate: startDate,
                     endDate: endDate,
                     theme: theme
@@ -64,52 +56,33 @@ struct TripCardView: View {
     }
 }
 
-/// A small, non-interactive map pinned to the trip's destination, faded
-/// into the card's right edge — purely decorative, so interaction is fully
-/// disabled to avoid fighting the card's own tap/navigation gesture.
-///
-/// Spans the *full* height of the card (via `GeometryReader`, since the
-/// card's height comes from its sibling `VStack` and isn't known ahead of
-/// time) rather than a fixed square — a fixed-height square only covered
-/// the middle of a taller card, leaving a hard seam above/below where the
-/// plain card background met the map's clipped edge.
-private struct MapBackgroundDecoration: View {
+struct MapBackgroundDecoration: View {
     let coordinate: CLLocationCoordinate2D
+    var locationQuery: String = ""
 
-    /// The visible, faded column's width; height comes from the card itself.
     private let visibleWidth: CGFloat = 220
-    /// Apple's attribution logo is required and can't be turned off via
-    /// API, so instead the map is rendered this much larger than the
-    /// visible column and centered — the excess (which always includes
-    /// whichever corner the logo lands in) gets clipped away by the
-    /// smaller outer frame below. The region's span is scaled up by the
-    /// same factor so the cropped, visible portion still shows the same
-    /// real-world area as an un-cropped map would, instead of looking
-    /// more zoomed in.
     private static let oversizeFactor: CGFloat = 1.6
-    private static let baseSpanMeters: CLLocationDistance = 8000
+    private static let cityBaseSpanMeters: CLLocationDistance = 60000
+    private static let countryFallbackSpanMeters: CLLocationDistance = 1_500_000
     private var oversizeFactor: CGFloat { Self.oversizeFactor }
 
-    /// `Map(initialPosition:)` only seeds the camera once, on first
-    /// creation — since `HomeView`'s showcase card keeps the same view
-    /// identity across re-renders (same position in the tree), switching
-    /// to a different trip after leaving the current one changed
-    /// `coordinate` but left the already-created map's camera pointed at
-    /// the old trip. Driving the camera through this `@State` + the
-    /// `onChange` below re-centers it explicitly whenever `coordinate`
-    /// actually changes.
-    @State private var cameraPosition: MapCameraPosition
-
-    init(coordinate: CLLocationCoordinate2D) {
-        self.coordinate = coordinate
-        _cameraPosition = State(initialValue: .region(Self.region(for: coordinate)))
+    private var isCountryLevel: Bool {
+        !locationQuery.trimmingCharacters(in: .whitespaces).contains(",")
     }
 
-    private static func region(for coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
+    @State private var cameraPosition: MapCameraPosition
+
+    init(coordinate: CLLocationCoordinate2D, locationQuery: String = "") {
+        self.coordinate = coordinate
+        self.locationQuery = locationQuery
+        _cameraPosition = State(initialValue: .region(Self.region(center: coordinate, spanMeters: Self.cityBaseSpanMeters)))
+    }
+
+    private static func region(center: CLLocationCoordinate2D, spanMeters: CLLocationDistance) -> MKCoordinateRegion {
         MKCoordinateRegion(
-            center: coordinate,
-            latitudinalMeters: baseSpanMeters * oversizeFactor,
-            longitudinalMeters: baseSpanMeters * oversizeFactor
+            center: center,
+            latitudinalMeters: spanMeters * oversizeFactor,
+            longitudinalMeters: spanMeters * oversizeFactor
         )
     }
 
@@ -129,7 +102,17 @@ private struct MapBackgroundDecoration: View {
         // `CLLocationCoordinate2D` isn't `Equatable`, so `onChange` keys off
         // a plain comparable pair of its components instead.
         .onChange(of: [coordinate.latitude, coordinate.longitude]) { _, _ in
-            cameraPosition = .region(Self.region(for: coordinate))
+            cameraPosition = .region(Self.region(center: coordinate, spanMeters: Self.cityBaseSpanMeters))
+        }
+        .task(id: locationQuery) {
+            guard isCountryLevel else { return }
+            let geocoder = CLGeocoder()
+            guard let placemark = try? await geocoder.geocodeAddressString(locationQuery).first else { return }
+            if let region = placemark.region as? CLCircularRegion {
+                cameraPosition = .region(Self.region(center: region.center, spanMeters: region.radius * 2))
+            } else if let center = placemark.location?.coordinate {
+                cameraPosition = .region(Self.region(center: center, spanMeters: Self.countryFallbackSpanMeters))
+            }
         }
     }
 }
@@ -141,24 +124,30 @@ private struct TripCardHeader: View {
     let status: TripStatus
     var emphasizesTitle: Bool = false
 
+    private var headline: Color {
+        theme.accentColor.mix(with: .black, by: 0.35)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             StatusBadge(status: status)
+                .textCase(.uppercase)
+                .tracking(2)
                 .padding(.horizontal)
                 .padding(.top)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(name)
-                    .font(AppFont.outfit(emphasizesTitle ? 32 : 26, weight: emphasizesTitle ? .heavy : .bold, relativeTo: .title2))
-                    .foregroundStyle(
-                        theme.accentColor.mix(with: .black, by: 0.35)
-                    )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(location.uppercased())
+                    .font(AppFont.barlowCondensed(48, weight: .semibold, relativeTo: .title2))
+                    .tracking(2)
+                    .foregroundStyle(headline)
                     .lineLimit(1)
-                Text(location)
-                    .font(AppFont.outfit(14, weight: .regular, relativeTo: .subheadline))
-                    .foregroundStyle(
-                        theme.accentColor.mix(with: .black, by: 0.35)
-                    )
+                    .minimumScaleFactor(0.7)
+                Text(name.uppercased())
+                    .font(AppFont.barlowCondensed(16, weight: .semibold, relativeTo: .subheadline))
+                    .tracking(2)
+                    .foregroundStyle(headline)
+                    .lineLimit(1)
             }
             .padding(.horizontal)
         }
@@ -167,23 +156,46 @@ private struct TripCardHeader: View {
 }
 
 private struct TripCardFooter: View {
-    let location: String
     let startDate: Date
     let endDate: Date
     let theme: TripTheme
 
-    private var dateRangeText: String {
-        let formatter = Date.FormatStyle().month(.abbreviated).day()
-        return "\(startDate.formatted(formatter)) – \(endDate.formatted(formatter))"
+    private var numberOfDays: Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: startDate)
+        let end = calendar.startOfDay(for: endDate)
+        return max(1, (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
+    }
+
+    private func monthDay(_ date: Date) -> String {
+        date.formatted(Date.FormatStyle().month(.abbreviated).day())
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(dateRangeText, systemImage: "calendar")
-            Label(location, systemImage: "mappin.and.ellipse")
+        HStack(spacing: 0) {
+            statColumn(label: "Depart", value: monthDay(startDate))
+            verticalDivider
+            statColumn(label: "Return", value: monthDay(endDate))
+            verticalDivider
+            statColumn(label: "Days", value: "\(numberOfDays)")
         }
-        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
-        .foregroundStyle(theme.accentColor)
         .padding()
+    }
+
+    private var verticalDivider: some View {
+        Rectangle()
+            .fill(theme.accentColor.opacity(0.3))
+            .frame(width: 1, height: 28)
+            .padding(.horizontal, 12)
+    }
+
+    private func statColumn(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .trackedLabel(10, color: theme.accentColor.mix(with: .black, by: 0.35).opacity(0.7))
+            Text(value.uppercased())
+                .font(AppFont.barlowCondensed(20, weight: .semibold))
+                .foregroundStyle(theme.accentColor.mix(with: .black, by: 0.35))
+        }
     }
 }

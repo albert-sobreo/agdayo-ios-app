@@ -14,6 +14,7 @@ struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
     @Environment(LiveLocationSharingCoordinator.self) private var locationSharing
+    @Environment(TripLiveActivityCoordinator.self) private var liveActivity
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var deepLinkCode: String = ""
@@ -97,6 +98,18 @@ struct RootTabView: View {
             // has synced, so it's cheap to run on every foreground.
             if newPhase == .active {
                 backfillOwnershipIfNeeded()
+                // Live Activities have no push server to refresh them in
+                // the background, so every foreground is the opportunity
+                // to bring the current/next-activity state up to date (and
+                // to restart one that expired under the system's 8h/12h
+                // cap while the trip is still active).
+                if let runningTripID = liveActivity.runningTripID {
+                    if let trip = trips.first(where: { $0.id == runningTripID }), trip.status == .active {
+                        liveActivity.reconcile(trip: trip, activities: trip.activities)
+                    } else {
+                        liveActivity.stop()
+                    }
+                }
             }
             // Live sharing is deliberately foreground-only (see
             // `LiveLocationSharingCoordinator`) — stop broadcasting the
