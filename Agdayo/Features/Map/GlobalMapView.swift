@@ -155,7 +155,7 @@ private struct AllTripsOverviewMapView: View {
                 .background(BrandPalette.canvas.ignoresSafeArea())
             } else {
                 ZStack(alignment: .bottom) {
-                    Map(position: $cameraPosition, selection: $selectedTripID) {
+                    Map(position: $cameraPosition) {
                         ForEach(tripsWithCoordinates, id: \.trip.id) { entry in
                             Annotation(
                                 entry.trip.name,

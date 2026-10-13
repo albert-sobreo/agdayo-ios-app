@@ -397,8 +397,8 @@ private struct TripSummaryCardView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Text(trip.name.uppercased())
-                    .font(AppFont.outfit(11, weight: .semibold, relativeTo: .caption))
-                    .tracking(1)
+                    .font(AppFont.barlowCondensed(11, weight: .semibold, relativeTo: .caption))
+                    .tracking(2)
                     .foregroundStyle(headline)
                     .lineLimit(1)
             }
