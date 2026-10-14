@@ -187,14 +187,28 @@ struct TripListView: View {
 
     private func deleteActiveTrips(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(activeTrips[index])
+            delete(activeTrips[index])
         }
     }
 
     private func deleteCompletedTrips(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(completedTrips[index])
+            delete(completedTrips[index])
         }
+    }
+
+    /// Mirrors `TripDetailView.deleteTrip()` — swiping to delete here was
+    /// only ever removing the local SwiftData object, leaving the
+    /// Firestore trip record (and its subcollections) behind for any trip
+    /// that had been uploaded.
+    private func delete(_ trip: Trip) {
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            Task {
+                try? await TripMembershipService.deleteTripRecord(tripID: tripID)
+            }
+        }
+        modelContext.delete(trip)
     }
 
     private func refresh() async {

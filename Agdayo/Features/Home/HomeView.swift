@@ -68,6 +68,8 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 28) {
                             if let showcasedTrip {
                                 showcaseSection(showcasedTrip, topInset: topSafeAreaInset)
+                            } else {
+                                showcaseEmptyState(topInset: topSafeAreaInset)
                             }
                             if !otherUpcoming.isEmpty {
                                 upcomingScroller
@@ -268,6 +270,27 @@ struct HomeView: View {
                 }
         }
         .buttonStyle(.plain)
+    }
+
+    /// Stands in for `showcaseSection` whenever there's no active/upcoming
+    /// trip to feature — keeps the same top padding/background structure
+    /// as a real showcase card so this is still the first thing in the
+    /// scroll content and the page doesn't render behind the header.
+    @ViewBuilder
+    private func showcaseEmptyState(topInset: CGFloat) -> some View {
+        EmptyStateView(
+            iconName: "airplane.departure",
+            title: "No Upcoming Trips",
+            message: "Plan your next trip or join a friend's trip with an invite code.",
+            actionTitle: "Create a Trip",
+            action: { isPresentingCreateFlow = true },
+            secondaryActionTitle: "Join with Code",
+            secondaryAction: { isPresentingJoinFlow = true }
+        )
+        .padding(.horizontal)
+        .padding(.top, topInset + AppSpacing.md)
+        .padding(.bottom, AppSpacing.lg)
+        .background(BrandPalette.blush)
     }
 
     @ViewBuilder
