@@ -178,15 +178,28 @@ enum TripMembershipService {
         pushTripFieldsUpdate(trip: trip)
     }
 
+    /// Every subcollection a trip can have, mirroring what
+    /// `TripContentSyncCoordinator.start(for:)` listens to plus `members`.
+    private static let tripSubcollections = [
+        "members", "liveLocations", "activities", "accommodations", "budgetCategories",
+        "preparationTasks", "transportSegments", "dayNotes", "settlements", "expenses"
+    ]
+
+    /// Each subcollection is cleaned up independently (`try?`) so one
+    /// failing (a transient network blip, a permission edge case) can't
+    /// block the rest — most importantly, can't block the final `tripRef
+    /// .delete()` below, which previously ran last and would silently
+    /// never execute if any earlier step threw (the whole function is
+    /// wrapped in `try?` at every call site, so that failure was
+    /// invisible — the trip document would just survive).
     static func deleteTripRecord(tripID: UUID) async throws {
         let tripRef = tripsCollection.document(tripID.uuidString)
         if let data = try? await tripRef.getDocument().data(),
            let joinCode = data["joinCode"] as? String {
             try? await joinCodesCollection.document(joinCode).delete()
         }
-        let members = try await tripRef.collection("members").getDocuments()
-        for member in members.documents {
-            try await member.reference.delete()
+        for name in tripSubcollections {
+            try? await FirestoreCollectionSync.deleteAllDocuments(tripID: tripID, collection: name)
         }
         try await tripRef.delete()
     }

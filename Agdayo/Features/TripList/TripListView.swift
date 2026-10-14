@@ -76,7 +76,6 @@ struct TripListView: View {
                                 ForEach(activeTrips) { trip in
                                     tripRow(trip)
                                 }
-                                .onDelete(perform: deleteActiveTrips)
                             } header: {
                                 sectionHeader("Upcoming & Active")
                             }
@@ -86,7 +85,6 @@ struct TripListView: View {
                                 ForEach(completedTrips) { trip in
                                     tripRow(trip)
                                 }
-                                .onDelete(perform: deleteCompletedTrips)
                             } header: {
                                 sectionHeader("Completed")
                             }
@@ -183,18 +181,24 @@ struct TripListView: View {
             )
         )
         .listRowBackground(Color.clear)
-    }
-
-    private func deleteActiveTrips(at offsets: IndexSet) {
-        for index in offsets {
-            delete(activeTrips[index])
+        .swipeActions(edge: .trailing) {
+            // Hidden for a trip owned by a different account — the
+            // Firestore `delete` rule on `trips/{tripId}` only allows the
+            // owner to delete it, so a non-owner's swipe would silently
+            // remove just their local copy and leave the remote record
+            // behind, which is confusing to offer as "Delete."
+            if isOwner(trip) {
+                Button(role: .destructive) {
+                    delete(trip)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
         }
     }
 
-    private func deleteCompletedTrips(at offsets: IndexSet) {
-        for index in offsets {
-            delete(completedTrips[index])
-        }
+    private func isOwner(_ trip: Trip) -> Bool {
+        trip.ownerUID == nil || trip.ownerUID == authService.firebaseUser?.uid
     }
 
     /// Mirrors `TripDetailView.deleteTrip()` — swiping to delete here was

@@ -1,10 +1,12 @@
 import SwiftUI
+import FirebaseAuth
 
 struct TripSettingsView: View {
     let trip: Trip
     var onDeleted: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthService.self) private var authService
 
     @State private var name: String
     @State private var location: String
@@ -35,6 +37,15 @@ struct TripSettingsView: View {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
             && !location.trimmingCharacters(in: .whitespaces).isEmpty
             && startDate <= endDate
+    }
+
+    /// A trip that's never been synced (`ownerUID == nil`) has no owner
+    /// concept yet — this device is effectively it. Once synced, only the
+    /// account that created it can delete it (see the Firestore `delete`
+    /// rule on `trips/{tripId}`), so hide the action for everyone else
+    /// rather than showing a control that silently fails remotely.
+    private var isCurrentUserOwner: Bool {
+        trip.ownerUID == nil || trip.ownerUID == authService.firebaseUser?.uid
     }
 
     var body: some View {
@@ -100,11 +111,13 @@ struct TripSettingsView: View {
                         .lineLimit(3...6)
                 }
 
-                Section {
-                    Button("Delete Trip", role: .destructive) {
-                        isShowingDeleteConfirmation = true
+                if isCurrentUserOwner {
+                    Section {
+                        Button("Delete Trip", role: .destructive) {
+                            isShowingDeleteConfirmation = true
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .navigationTitle("Trip Settings")

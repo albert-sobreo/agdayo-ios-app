@@ -28,6 +28,17 @@ enum FirestoreCollectionSync {
         try await collection(tripID: tripID, name: name).document(docID).delete()
     }
 
+    /// Deletes every document in a subcollection — Firestore never cascades
+    /// a parent document delete into its subcollections, so callers like
+    /// `TripMembershipService.deleteTripRecord` have to clear each one out
+    /// by hand.
+    static func deleteAllDocuments(tripID: UUID, collection name: String) async throws {
+        let snapshot = try await collection(tripID: tripID, name: name).getDocuments()
+        for document in snapshot.documents {
+            try await document.reference.delete()
+        }
+    }
+
     /// One-shot fetch of every document in a subcollection — used when
     /// materializing a trip locally for the first time (e.g. a newly
     /// discovered trip you were added to), as opposed to `listen` which is
