@@ -8,7 +8,8 @@ import MapKit
 /// than hoping a free-text search ranks the right kind of place first, and
 /// it's the main lever available for improving suggestion quality without
 /// a bigger language model.
-@available(iOS 26.0, *)
+// Pure MapKit, so no `@available(iOS 26.0, *)` — Plan My Day uses it too and
+// has to work on devices without Apple Intelligence.
 enum TripPlaceDiscovery {
 
     struct PlaceCandidate {
@@ -21,9 +22,9 @@ enum TripPlaceDiscovery {
         let locality: String?
     }
 
-    private static let searchRadius: CLLocationDistance = 5_000
+    static let defaultRadius: CLLocationDistance = 5_000
     /// How many of the closest results to keep per category.
-    private static let perCategoryLimit = 6
+    static let defaultPerCategoryLimit = 6
     private static let totalLimit = 24
 
     private static let categories: [(filter: [MKPointOfInterestCategory], displayCategory: String)] = [
@@ -89,15 +90,21 @@ enum TripPlaceDiscovery {
         return unique
     }
 
-    private static func searchCategory(
+    /// One category-filtered POI search, closest results first. Internal so
+    /// other planners (e.g. Plan My Day) can run their own per-category
+    /// searches with a different radius/limit instead of the AI sheet's
+    /// merged-and-capped `search(near:destination:)`.
+    static func searchCategory(
         filter: [MKPointOfInterestCategory],
         displayCategory: String,
-        center: CLLocationCoordinate2D
+        center: CLLocationCoordinate2D,
+        radius: CLLocationDistance = defaultRadius,
+        limit: Int = defaultPerCategoryLimit
     ) async -> [PlaceCandidate] {
 
         let request = MKLocalPointsOfInterestRequest(
             center: center,
-            radius: searchRadius
+            radius: radius
         )
 
         request.pointOfInterestFilter = MKPointOfInterestFilter(including: filter)
@@ -135,7 +142,7 @@ enum TripPlaceDiscovery {
                 return (candidate, distance)
             }
             .sorted { $0.1 < $1.1 }
-            .prefix(perCategoryLimit)
+            .prefix(limit)
             .map(\.0)
     }
 }

@@ -19,6 +19,13 @@ struct ItineraryTimelineView: View {
 
     @State private var isAddingActivity = false
     @State private var isGeneratingWithAI = false
+    /// Non-nil while the Plan My Day sheet is up; `.some(nil)` means "pick a day for me".
+    @State private var planRequest: PlanRequest?
+
+    private struct PlanRequest: Identifiable {
+        let id = UUID()
+        let day: Date?
+    }
 
     init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
@@ -27,10 +34,13 @@ struct ItineraryTimelineView: View {
         _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID }, sort: \Activity.date)
     }
 
+    /// Every day of the trip (plus any stray day that has activities outside
+    /// the trip's range), so empty days can host a "Plan my day" row.
     private var dayGroups: [DayGroup] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: activities) { calendar.startOfDay(for: $0.date) }
-        return grouped.keys.sorted().map { day in
+        let days = Set(trip.calendarDays).union(grouped.keys)
+        return days.sorted().map { day in
             let dayActivities = (grouped[day] ?? []).sorted { $0.date < $1.date }
             let buckets = TimeOfDayBucket.allCases.compactMap { bucket -> BucketGroup? in
                 let matches = dayActivities.filter { bucket.contains(hour: calendar.component(.hour, from: $0.date)) }
@@ -49,14 +59,20 @@ struct ItineraryTimelineView: View {
                     message: "Add your first stop to start building the itinerary.",
                     actionTitle: "Add Activity",
                     action: { isAddingActivity = true },
-                    secondaryActionTitle: AIAvailability.isItineraryGenerationAvailable ? "Ask AI" : nil,
-                    secondaryAction: AIAvailability.isItineraryGenerationAvailable ? { isGeneratingWithAI = true } : nil
+                    secondaryActionTitle: "Plan My Day",
+                    secondaryAction: { planRequest = PlanRequest(day: nil) }
                 )
                 .padding(.top, 60)
             } else {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
-                        DaySection(dayIndex: index + 1, group: group, trip: trip, memberProfiles: memberProfiles)
+                        DaySection(
+                            dayIndex: index + 1,
+                            group: group,
+                            trip: trip,
+                            memberProfiles: memberProfiles,
+                            onPlanDay: { planRequest = PlanRequest(day: group.day) }
+                        )
                     }
                 }
                 .padding()
@@ -66,23 +82,20 @@ struct ItineraryTimelineView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                if AIAvailability.isItineraryGenerationAvailable {
-                    Menu {
-                        Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
+                Menu {
+                    Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
+                    Button("Plan My Day", systemImage: "wand.and.stars") { planRequest = PlanRequest(day: nil) }
+                    if AIAvailability.isItineraryGenerationAvailable {
                         Button("Ask AI", systemImage: "sparkles") { isGeneratingWithAI = true }
-                    } label: {
-                        Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Add Activity")
-                } else {
-                    Button {
-                        isAddingActivity = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add Activity")
+                } label: {
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel("Add to Itinerary")
             }
+        }
+        .sheet(item: $planRequest) { request in
+            PlanMyDaySheet(trip: trip, initialDay: request.day)
         }
         .sheet(isPresented: $isAddingActivity) {
             ActivityEditSheet(trip: trip, memberProfiles: memberProfiles)
@@ -100,6 +113,7 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
+    var onPlanDay: () -> Void = {}
 
     /// Flattened across bucket boundaries so travel time is computed between
     /// actual consecutive stops (e.g. last Morning stop → first Noon stop),
@@ -123,6 +137,18 @@ private struct DaySection: View {
                 .font(AppFont.barlowCondensed(16, weight: .regular))
                 .textCase(.uppercase)
                 .tracking(2)
+            }
+
+            if group.buckets.isEmpty {
+                Button(action: onPlanDay) {
+                    Label("Nothing planned — Plan my day", systemImage: "wand.and.stars")
+                        .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .foregroundStyle(trip.theme.accentColor)
+                        .background(trip.theme.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
             }
 
             ForEach(group.buckets) { bucket in

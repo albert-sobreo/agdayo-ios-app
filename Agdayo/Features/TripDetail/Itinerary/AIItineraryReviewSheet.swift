@@ -456,48 +456,18 @@ struct AIItineraryReviewSheet: View {
     }
 
     private func insertActivity(from option: SuggestionOption, date: Date) {
-        let coordinate = resolvedCoordinates[option.location]
-        let currencyCode = validCurrencyCode(option.costCurrency)
-        let activity = Activity(
+        ActivitySaver.insert(
             title: option.title,
-            activityDescription: option.description,
+            description: option.description,
             location: option.location,
-            latitude: coordinate?.latitude,
-            longitude: coordinate?.longitude,
+            coordinate: resolvedCoordinates[option.location],
             date: date,
-            cost: option.cost > 0 ? option.cost : nil,
-            costCurrency: option.cost > 0 ? currencyCode : nil,
+            cost: option.cost,
+            costCurrency: validCurrencyCode(option.costCurrency),
             iconName: clampedIconName(option.iconName),
-            trip: trip
+            trip: trip,
+            modelContext: modelContext
         )
-        modelContext.insert(activity)
-        pushIfShared(activity)
-        if option.cost > 0, currencyCode != trip.currency {
-            applyExchangeRate(for: activity, from: currencyCode)
-        }
-    }
-
-    /// Snapshots a conversion rate onto the activity so it still counts
-    /// toward budget totals/balances (see `Activity.costAndRate`), which
-    /// otherwise excludes any cost whose currency doesn't match the trip's
-    /// and has no rate recorded.
-    private func applyExchangeRate(for activity: Activity, from currencyCode: String) {
-        let tripCurrency = trip.currency
-        Task {
-            guard let rate = await CurrencyConversionService.fetchRate(from: currencyCode, to: tripCurrency) else { return }
-            activity.exchangeRateToTripCurrency = rate
-            pushIfShared(activity)
-        }
-    }
-
-    private func pushIfShared(_ activity: Activity) {
-        guard trip.ownerUID != nil else { return }
-        let tripID = trip.id
-        let activityID = activity.id
-        let dto = activity.dto
-        Task {
-            try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: activityID, data: dto)
-        }
     }
 
     /// Deliberately local time zone (the `DateFormatter` default), not
