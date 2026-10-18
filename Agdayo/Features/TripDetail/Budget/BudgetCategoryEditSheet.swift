@@ -27,11 +27,22 @@ struct BudgetCategoryEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TextField("Category, e.g. Flights", text: $name)
-                TextField("Amount", text: $amountText)
-                    .keyboardType(.decimalPad)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Category", icon: "tag", accent: trip.theme.accentColor) {
+                        FormField("Name") {
+                            TextField("e.g. Flights", text: $name)
+                        }
+                        FormField("Amount") {
+                            TextField("Amount", text: $amountText)
+                                .keyboardType(.decimalPad)
+                        }
+                    }
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingCategory == nil ? "Add Category" : "Edit Category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -140,99 +140,122 @@ struct PlanMyDaySheet: View {
     // MARK: Setup
 
     private var setupView: some View {
-        Form {
-            Section("Day") {
-                Picker("Day", selection: $model.day) {
-                    ForEach(Array(trip.calendarDays.enumerated()), id: \.element) { index, day in
-                        Text("Day \(index + 1) · \(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")
-                            .tag(day)
-                    }
-                }
-            }
-
-            Section {
-                Button {
-                    isPickingBase = true
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Planning around")
-                                .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
-                                .foregroundStyle(trip.theme.accentColor)
-                            if let base = model.base {
-                                Text(base.searchName)
-                                    .font(AppFont.outfit(16, weight: .semibold, relativeTo: .body))
-                                    .foregroundStyle(.primary)
-                                Text(base.reason)
-                                    .font(AppFont.outfit(12, relativeTo: .caption))
-                                    .foregroundStyle(trip.theme.accentColor)
-                            } else if model.isResolvingBase {
-                                Text("Finding where you'll be…")
-                                    .foregroundStyle(trip.theme.accentColor)
-                            } else {
-                                Text("Choose a place")
-                                    .foregroundStyle(.primary)
-                            }
+        let accent = trip.theme.accentColor
+        return ScrollView {
+            VStack(spacing: 14) {
+                setupCard("Day", icon: "calendar") {
+                    Picker("Day", selection: $model.day) {
+                        ForEach(Array(trip.calendarDays.enumerated()), id: \.element) { index, day in
+                            Text("Day \(index + 1) · \(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")
+                                .tag(day)
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(trip.theme.accentColor)
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                setupCard("Where", icon: "mappin.and.ellipse") {
+                    Button {
+                        isPickingBase = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("PLANNING AROUND")
+                                    .font(AppFont.outfit(10, weight: .semibold, relativeTo: .caption2))
+                                    .tracking(1.5)
+                                    .foregroundStyle(accent)
+                                if let base = model.base {
+                                    Text(base.searchName)
+                                        .font(AppFont.barlowCondensed(26, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                    Text(base.reason)
+                                        .font(AppFont.outfit(12, relativeTo: .caption))
+                                        .foregroundStyle(accent)
+                                } else if model.isResolvingBase {
+                                    Text("Finding where you'll be…")
+                                        .font(AppFont.outfit(15, relativeTo: .body))
+                                        .foregroundStyle(accent)
+                                } else {
+                                    Text("Choose a place")
+                                        .font(AppFont.barlowCondensed(26, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(accent)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Text(model.base?.isBroad == true
+                         ? "That's a large area. Pick a town or city to plan around for a tighter day."
+                         : "Staying in another city, or heading out on a day trip? Change this to plan around that place.")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(accent)
+                }
+
+                setupCard("What are you into?", icon: "heart") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+                        ForEach(Interest.allCases) { interest in
+                            interestChip(interest)
+                        }
                     }
                 }
-            } header: {
-                Text("Where")
-                    .foregroundStyle(trip.theme.accentColor)
-            } footer: {
-                Text(model.base?.isBroad == true
-                     ? "That's a large area. Pick a town or city to plan around for a tighter day."
-                     : "Staying in another city, or heading out on a day trip? Change this to plan around that place.")
-                    .foregroundStyle(trip.theme.accentColor)
-            }
 
-            Section {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                    ForEach(Interest.allCases) { interest in
-                        interestChip(interest)
+                setupCard("How busy?", icon: "gauge.with.dots.needle.50percent") {
+                    Picker("Pace", selection: $model.pace) {
+                        ForEach(Pace.allCases) { pace in
+                            Text(pace.displayName).tag(pace)
+                        }
                     }
-                }
-                .padding(.vertical, 4)
-            } header: {
-                Text("What are you into?")
-            }
+                    .pickerStyle(.segmented)
 
-            Section {
-                Picker("Pace", selection: $model.pace) {
-                    ForEach(Pace.allCases) { pace in
-                        Text(pace.displayName).tag(pace)
+                    Text("\(model.pace.steps.count) steps: \(model.pace.summary).")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
+                }
+
+                setupCard("How far out?", icon: "location.circle") {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        MoneyAmount(text: "\(Int(model.radiusKm))", size: 40, color: accent)
+                        Text("km")
+                            .font(AppFont.outfit(15, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(.secondary)
                     }
-                }
-                .pickerStyle(.segmented)
-            } header: {
-                Text("How busy?")
-            } footer: {
-                Text("\(model.pace.steps.count) steps: \(model.pace.summary).")
-            }
+                    Slider(value: $model.radiusKm, in: 1...30, step: 1)
 
-            Section {
-                Slider(value: $model.radiusKm, in: 1...30, step: 1)
-            } header: {
-                Text("How far out? · \(Int(model.radiusKm)) km")
-            } footer: {
-                Text("Places within this distance of \(model.base?.searchName ?? trip.location). Nearby cities are listed in their own sections.")
-            }
-
-            Section {
-                Button {
-                    Task { await model.start() }
-                } label: {
-                    Text("Start planning")
-                        .frame(maxWidth: .infinity)
+                    Text("Places within this distance of \(model.base?.searchName ?? trip.location). Nearby cities are listed in their own sections.")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.appPrimary)
             }
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
+            .padding()
+        }
+        .background(BrandPalette.canvas.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                Task { await model.start() }
+            } label: {
+                Text("Start planning")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.appPrimary)
+            .padding()
+            .background(.bar)
+        }
+    }
+
+    /// One setup question as a card: a Budget-style header, then its controls.
+    private func setupCard<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+        MoneyCard {
+            VStack(alignment: .leading, spacing: 12) {
+                MoneySectionHeader(title: title, iconName: icon, accentColor: trip.theme.accentColor)
+                content()
+            }
         }
     }
 

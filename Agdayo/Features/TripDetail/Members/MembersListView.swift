@@ -30,96 +30,93 @@ struct MembersListView: View {
             // Unauthenticated / Local-only Banner
             if !authService.isSignedIn || trip.ownerUID == nil {
                 Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "person.badge.shield.checkmark.fill")
-                                .font(.title2)
-                                .foregroundStyle(trip.theme.accentColor)
-                            Text("Sign In to Collaborate")
-                                .font(AppFont.outfit(16, weight: .bold, relativeTo: .headline))
-                        }
-                        Text("Sign in to invite friends with a shareable code and plan this trip together in real-time.")
-                            .font(AppFont.outfit(13, relativeTo: .subheadline))
-                            .foregroundStyle(.secondary)
+                    MoneyCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 12) {
+                                MoneyIconBadge(systemName: "person.badge.shield.checkmark.fill", accentColor: trip.theme.accentColor)
+                                Text("Sign in to collaborate")
+                                    .font(AppFont.barlowCondensed(24, weight: .semibold))
+                            }
+                            Text("Sign in to invite friends with a shareable code and plan this trip together in real-time.")
+                                .font(AppFont.outfit(13, relativeTo: .subheadline))
+                                .foregroundStyle(.secondary)
 
-                        Button {
-                            isShowingSignIn = true
-                        } label: {
-                            Text("Sign In")
-                                .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
+                            Button {
+                                isShowingSignIn = true
+                            } label: {
+                                Text("Sign In")
+                                    .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(trip.theme.accentColor)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(trip.theme.accentColor)
                     }
-                    .padding(.vertical, 6)
+                    .moneyRow()
                 }
             } else {
                 // Quick Invite Code Card
                 Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("TRIP INVITE CODE")
-                                    .font(AppFont.outfit(11, weight: .bold, relativeTo: .caption2))
-                                    .tracking(1.2)
-                                    .foregroundStyle(.secondary)
+                    MoneyCard {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("TRIP INVITE CODE")
+                                .font(AppFont.outfit(11, weight: .semibold, relativeTo: .caption2))
+                                .tracking(1.5)
+                                .foregroundStyle(.secondary)
 
+                            HStack(spacing: 10) {
                                 if joinCode.isEmpty {
                                     ProgressView()
-                                        .frame(height: 28)
+                                        .frame(height: 40)
                                 } else {
                                     Text(joinCode)
-                                        .font(AppFont.outfit(24, weight: .bold, relativeTo: .title3))
-                                        .monospaced()
+                                        .font(AppFont.barlowCondensed(40, weight: .semibold))
+                                        .tracking(4)
                                         .foregroundStyle(trip.theme.accentColor)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
                                 }
-                            }
 
-                            Spacer()
+                                Spacer()
 
-                            if !joinCode.isEmpty {
-                                Button {
-                                    UIPasteboard.general.string = joinCode
-                                    hasCopiedCode = true
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                        hasCopiedCode = false
+                                if !joinCode.isEmpty {
+                                    Button {
+                                        UIPasteboard.general.string = joinCode
+                                        hasCopiedCode = true
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            hasCopiedCode = false
+                                        }
+                                    } label: {
+                                        Image(systemName: hasCopiedCode ? "checkmark" : "doc.on.doc")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundStyle(hasCopiedCode ? .green : trip.theme.accentColor)
+                                            .frame(width: 40, height: 40)
+                                            .background(trip.theme.accentColor.opacity(0.14), in: Circle())
                                     }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Copy invite code")
+                                }
+
+                                Button {
+                                    isShowingShareSheet = true
                                 } label: {
-                                    Image(systemName: hasCopiedCode ? "checkmark" : "doc.on.doc")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(hasCopiedCode ? .green : trip.theme.accentColor)
-                                        .padding(10)
-                                        .background(trip.theme.lightTintColor)
-                                        .clipShape(Circle())
+                                    Label("Invite", systemImage: "square.and.arrow.up")
+                                        .font(AppFont.outfit(13, weight: .bold, relativeTo: .caption))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(trip.theme.accentColor, in: Capsule())
+                                        .foregroundStyle(.white)
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel("Copy invite code")
                             }
 
-                            Button {
-                                isShowingShareSheet = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "square.and.arrow.up")
-                                    Text("Invite")
-                                }
-                                .font(AppFont.outfit(13, weight: .bold, relativeTo: .caption))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(trip.theme.accentColor)
-                                .foregroundStyle(.white)
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
+                            Text("Anyone with this code can join and view/edit this trip.")
+                                .font(AppFont.outfit(12, relativeTo: .caption))
+                                .foregroundStyle(.secondary)
                         }
-
-                        Text("Anyone with this code can join and view/edit this trip.")
-                            .font(AppFont.outfit(12, relativeTo: .caption))
-                            .foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 4)
+                    .moneyRow()
                 }
             }
 
@@ -128,34 +125,35 @@ struct MembersListView: View {
                 let records = syncCoordinator.memberRecords
                 if records.isEmpty {
                     // Fallback when syncCoordinator hasn't populated yet or offline
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(trip.theme.accentColor)
-                            .frame(width: 40, height: 40)
-                            .overlay(
-                                Text(String(authService.firebaseUser?.displayName?.first ?? "Y").uppercased())
-                                    .font(AppFont.outfit(16, weight: .bold, relativeTo: .body))
-                                    .foregroundStyle(.white)
-                            )
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(authService.firebaseUser?.displayName ?? "Trip Creator")
-                                .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
-                            if let email = authService.firebaseUser?.email {
-                                Text(email)
-                                    .font(AppFont.outfit(12, relativeTo: .caption))
-                                    .foregroundStyle(.secondary)
+                    MoneyCard(padding: 14) {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(trip.theme.accentColor)
+                                .frame(width: 44, height: 44)
+                                .overlay(
+                                    Text(String(authService.firebaseUser?.displayName?.first ?? "Y").uppercased())
+                                        .font(AppFont.outfit(16, weight: .bold, relativeTo: .body))
+                                        .foregroundStyle(.white)
+                                )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(authService.firebaseUser?.displayName ?? "Trip Creator")
+                                    .font(AppFont.outfit(16, weight: .semibold, relativeTo: .body))
+                                if let email = authService.firebaseUser?.email {
+                                    Text(email)
+                                        .font(AppFont.outfit(12, relativeTo: .caption))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            Spacer()
+                            Text("Owner")
+                                .font(AppFont.outfit(11, weight: .bold, relativeTo: .caption2))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(trip.theme.accentColor.opacity(0.15), in: Capsule())
+                                .foregroundStyle(trip.theme.accentColor)
                         }
-                        Spacer()
-                        Text("Owner")
-                            .font(AppFont.outfit(11, weight: .bold, relativeTo: .caption2))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(trip.theme.lightTintColor)
-                            .foregroundStyle(trip.theme.accentColor)
-                            .clipShape(Capsule())
                     }
-                    .padding(.vertical, 4)
+                    .moneyRow()
                 } else {
                     ForEach(records) { member in
                         MemberRowView(
@@ -167,15 +165,24 @@ struct MembersListView: View {
                                 removeMember(member)
                             }
                         )
+                        .moneyRow()
                     }
                 }
-            } header: {
-                Text("Members (\(max(1, syncCoordinator.memberRecords.count)))")
-                    .font(AppFont.outfit(12, weight: .bold, relativeTo: .caption))
-            } footer: {
+
+                // A row rather than a footer: a plain list draws footers on a white background.
                 Text("All members have permission to view, add, and update activities, budget, accommodations, and notes.")
                     .font(AppFont.outfit(11, relativeTo: .caption2))
                     .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20))
+            } header: {
+                HStack {
+                    MoneySectionHeader(title: "Members", iconName: "person.2", accentColor: trip.theme.accentColor)
+                    Text("\(max(1, syncCoordinator.memberRecords.count))")
+                        .font(AppFont.barlowCondensed(20, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // Leave Trip (for non-owners)
@@ -184,16 +191,21 @@ struct MembersListView: View {
                     Button(role: .destructive) {
                         isShowingLeaveConfirmation = true
                     } label: {
-                        HStack {
-                            Spacer()
-                            Text("Leave Trip")
+                        MoneyCard(padding: 14) {
+                            Label("Leave Trip", systemImage: "rectangle.portrait.and.arrow.right")
                                 .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
-                            Spacer()
+                                .frame(maxWidth: .infinity)
                         }
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                    .moneyRow()
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .navigationTitle("Members")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

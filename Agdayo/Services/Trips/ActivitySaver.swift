@@ -5,7 +5,7 @@ import SwiftData
 /// The one place a new `Activity` gets inserted, pushed to Firestore (for
 /// shared trips), and given an exchange-rate snapshot (when its cost is in a
 /// different currency than the trip's). Shared by every flow that creates
-/// activities in bulk — the AI suggestion sheet and Plan My Day — so they
+/// activities in bulk (Plan My Day), so it
 /// can't drift apart.
 enum ActivitySaver {
 

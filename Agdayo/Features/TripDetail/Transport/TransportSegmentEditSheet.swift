@@ -63,60 +63,94 @@ struct TransportSegmentEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Mode") {
-                    Picker("Mode", selection: $mode) {
-                        ForEach(TransportMode.allCases) { mode in
-                            Label(mode.displayName, systemImage: mode.iconName).tag(mode)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Mode", icon: "arrow.triangle.swap", accent: trip.theme.accentColor) {
+                        FormField {
+                            Picker("Mode", selection: $mode) {
+                                ForEach(TransportMode.allCases) { mode in
+                                    Label(mode.displayName, systemImage: mode.iconName).tag(mode)
+                                }
+                            }
                         }
                     }
-                }
 
-                Section("Departure") {
-                    LocationSearchField(placeholder: "Departure Location", text: $departureLocation, onSelect: { name, _ in departureLocation = name })
-                    DatePicker("Departure", selection: $departureDateTime, displayedComponents: [.date, .hourAndMinute])
-                }
-
-                Section("Arrival") {
-                    LocationSearchField(placeholder: "Arrival Location", text: $arrivalLocation, onSelect: { name, _ in arrivalLocation = name })
-                    Toggle("Add arrival date/time", isOn: $hasArrivalDetails)
-                    if hasArrivalDetails {
-                        DatePicker("Arrival", selection: $arrivalDateTime, displayedComponents: [.date, .hourAndMinute])
-                    }
-                }
-
-                Section("Booking") {
-                    TextField("Booking Reference (optional)", text: $bookingRef)
-                    TextField("Seat Number (optional)", text: $seatNumber)
-                }
-
-                Section("Cost") {
-                    TextField("Cost", text: $costText)
-                        .keyboardType(.decimalPad)
-                    Picker("Currency", selection: $currency) {
-                        ForEach(CurrencyCode.common, id: \.self) { code in
-                            Text(code).tag(code)
+                    FormCard(title: "Departure", icon: "airplane.departure", accent: trip.theme.accentColor) {
+                        FormField("Location") {
+                            LocationSearchField(placeholder: "Departure Location", text: $departureLocation, onSelect: { name, _ in departureLocation = name })
+                        }
+                        FormField {
+                            DatePicker("Departure", selection: $departureDateTime, displayedComponents: [.date, .hourAndMinute])
                         }
                     }
-                    .onChange(of: currency) { _, _ in exchangeRate = nil }
-                    ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: currency, toCurrency: trip.currency, rate: $exchangeRate)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
-                }
 
-                Section("Notes") {
-                    TextField("Optional notes", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                    FormCard(title: "Arrival", icon: "airplane.arrival", accent: trip.theme.accentColor) {
+                        FormField("Location") {
+                            LocationSearchField(placeholder: "Arrival Location", text: $arrivalLocation, onSelect: { name, _ in arrivalLocation = name })
+                        }
+                        FormField {
+                            Toggle("Add arrival date/time", isOn: $hasArrivalDetails)
+                        }
+                        if hasArrivalDetails {
+                            FormField {
+                                DatePicker("Arrival", selection: $arrivalDateTime, displayedComponents: [.date, .hourAndMinute])
+                            }
+                        }
+                    }
 
-                ExpenseSplitSection(
-                    memberProfiles: memberProfiles,
-                    totalCost: Double(costText) ?? 0,
-                    currencyCode: currency,
-                    paidByUID: $paidByUID,
-                    splitUIDs: $splitUIDs,
-                    splitAmounts: $splitAmounts
-                )
+                    FormCard(title: "Booking", icon: "ticket", accent: trip.theme.accentColor) {
+                        FormField("Booking reference") {
+                            TextField("Optional", text: $bookingRef)
+                        }
+                        FormField("Seat number") {
+                            TextField("Optional", text: $seatNumber)
+                        }
+                    }
+
+                    FormCard(title: "Cost", icon: "wallet.pass", accent: trip.theme.accentColor) {
+                        FormField("Cost") {
+                            TextField("Cost", text: $costText)
+                                .keyboardType(.decimalPad)
+                        }
+                        FormField {
+                            Picker("Currency", selection: $currency) {
+                                ForEach(CurrencyCode.common, id: \.self) { code in
+                                    Text(code).tag(code)
+                                }
+                            }
+                            .onChange(of: currency) { _, _ in exchangeRate = nil }
+                        }
+                        if currency != trip.currency {
+                            FormField {
+                                ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: currency, toCurrency: trip.currency, rate: $exchangeRate)
+                            }
+                        }
+                        FormField {
+                            BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
+                        }
+                    }
+
+                    FormCard(title: "Notes", icon: "note.text", accent: trip.theme.accentColor) {
+                        FormField {
+                            TextField("Optional notes", text: $notes, axis: .vertical)
+                                .lineLimit(3...6)
+                        }
+                    }
+
+                    ExpenseSplitSection(
+                        memberProfiles: memberProfiles,
+                        totalCost: Double(costText) ?? 0,
+                        currencyCode: currency,
+                        accentColor: trip.theme.accentColor,
+                        paidByUID: $paidByUID,
+                        splitUIDs: $splitUIDs,
+                        splitAmounts: $splitAmounts
+                    )
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingSegment == nil ? "Add Transport" : "Edit Transport")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

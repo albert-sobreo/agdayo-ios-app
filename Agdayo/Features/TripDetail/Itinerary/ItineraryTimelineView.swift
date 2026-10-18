@@ -22,7 +22,6 @@ struct ItineraryTimelineView: View {
     @Query private var activities: [Activity]
 
     @State private var isAddingActivity = false
-    @State private var isGeneratingWithAI = false
     /// Non-nil while the Plan My Day sheet is up; a nil `day` means "pick one for me".
     @State private var planRequest: PlanRequest?
 
@@ -63,6 +62,10 @@ struct ItineraryTimelineView: View {
                     secondaryAction: { planRequest = PlanRequest(day: nil) }
                 )
                 .padding(.top, 60)
+            }
+            .background {
+                // Full-screen only; embedded in the trip screen it sits on that screen's own background.
+                if !isEmbedded { BrandPalette.canvas.ignoresSafeArea() }
             }
         } else {
             if isEmbedded {
@@ -110,9 +113,6 @@ struct ItineraryTimelineView: View {
                 Menu {
                     Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
                     Button("Plan My Day", systemImage: "wand.and.stars") { planRequest = PlanRequest(day: nil) }
-                    if AIAvailability.isItineraryGenerationAvailable {
-                        Button("Ask AI", systemImage: "sparkles") { isGeneratingWithAI = true }
-                    }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -124,11 +124,6 @@ struct ItineraryTimelineView: View {
         }
         .sheet(isPresented: $isAddingActivity) {
             ActivityEditSheet(trip: trip, memberProfiles: memberProfiles)
-        }
-        .sheet(isPresented: $isGeneratingWithAI) {
-            if #available(iOS 26.0, *) {
-                AIItineraryReviewSheet(trip: trip, memberProfiles: memberProfiles)
-            }
         }
     }
 }

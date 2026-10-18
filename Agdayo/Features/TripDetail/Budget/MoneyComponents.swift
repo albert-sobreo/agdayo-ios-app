@@ -69,6 +69,15 @@ struct MoneyIconBadge: View {
 }
 
 extension View {
+    /// Edit-sheet forms: the app's canvas behind the grouped rows, and the
+    /// trip's color for pickers, toggles and links.
+    func brandForm(accent: Color) -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(BrandPalette.canvas.ignoresSafeArea())
+            .tint(accent)
+    }
+
     /// Row chrome for the money lists: each row is a card of its own sitting on
     /// the canvas, with no list background or separator.
     func moneyRow() -> some View {

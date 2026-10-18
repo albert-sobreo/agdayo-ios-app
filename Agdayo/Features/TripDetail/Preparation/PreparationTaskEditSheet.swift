@@ -39,23 +39,37 @@ struct PreparationTaskEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Task") {
-                    TextField("Name", text: $name)
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(TaskCategoryOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Task", icon: "checklist", accent: trip.theme.accentColor) {
+                        FormField("Name") {
+                            TextField("Name", text: $name)
+                        }
+                        FormField {
+                            Picker("Category", selection: $selectedCategory) {
+                                ForEach(TaskCategoryOption.allCases) { option in
+                                    Text(option.rawValue).tag(option)
+                                }
+                            }
+                        }
+                        if selectedCategory == .other {
+                            FormField("Custom category") {
+                                TextField("Custom Category", text: $customCategory)
+                            }
                         }
                     }
-                    if selectedCategory == .other {
-                        TextField("Custom Category", text: $customCategory)
+
+                    FormCard(title: "Notes", icon: "note.text", accent: trip.theme.accentColor) {
+                        FormField {
+                            TextField("Optional notes", text: $notes, axis: .vertical)
+                                .lineLimit(3...6)
+                        }
                     }
                 }
-                Section("Notes") {
-                    TextField("Optional notes", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle("Add Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

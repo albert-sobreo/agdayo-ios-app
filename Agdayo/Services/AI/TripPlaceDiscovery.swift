@@ -1,15 +1,12 @@
 import CoreLocation
 import MapKit
 
-/// Grounds AI suggestion generation in real places. Uses category-filtered
-/// POI search (`MKLocalPointsOfInterestRequest` + `MKPointOfInterestFilter`)
-/// rather than natural-language queries like "Taipei restaurants" — matching
-/// against Apple Maps' own structured POI categories is far more reliable
-/// than hoping a free-text search ranks the right kind of place first, and
-/// it's the main lever available for improving suggestion quality without
-/// a bigger language model.
-// Pure MapKit, so no `@available(iOS 26.0, *)` — Plan My Day uses it too and
-// has to work on devices without Apple Intelligence.
+/// Finds real places for Plan My Day. Uses category-filtered POI search
+/// (`MKLocalPointsOfInterestRequest` + `MKPointOfInterestFilter`) rather than
+/// only natural-language queries like "Taipei restaurants" — matching against
+/// Apple Maps' own structured POI categories is more reliable than hoping a
+/// free-text search ranks the right kind of place first.
+// Pure MapKit, so it works on every device.
 enum TripPlaceDiscovery {
 
     struct PlaceCandidate {
@@ -97,7 +94,7 @@ enum TripPlaceDiscovery {
 
     /// One category-filtered POI search, closest results first. Internal so
     /// other planners (e.g. Plan My Day) can run their own per-category
-    /// searches with a different radius/limit instead of the AI sheet's
+    /// searches with a different radius/limit instead of the
     /// merged-and-capped `search(near:destination:)`.
     static func searchCategory(
         filter: [MKPointOfInterestCategory],

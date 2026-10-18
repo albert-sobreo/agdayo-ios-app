@@ -34,6 +34,8 @@ struct TransportSegmentListView: View {
                     actionTitle: "Add Transport",
                     action: { isAdding = true }
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BrandPalette.canvas.ignoresSafeArea())
             } else {
                 List {
                     ForEach(sorted) { segment in
@@ -43,6 +45,7 @@ struct TransportSegmentListView: View {
                             TransportSegmentRow(segment: segment, accentColor: trip.theme.accentColor)
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                         .swipeActions(edge: .leading) {
                             Button {
                                 Task { await toggleCalendar(for: segment) }
@@ -58,6 +61,8 @@ struct TransportSegmentListView: View {
                     .onDelete(perform: delete)
                 }
                 .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(BrandPalette.canvas.ignoresSafeArea())
             }
         }
         .navigationTitle("Transport")
@@ -102,24 +107,74 @@ struct TransportSegmentListView: View {
     }
 }
 
+/// One trip leg as a ticket-style card: mode, then where from and where to
+/// with times, then booking details and cost.
 private struct TransportSegmentRow: View {
     let segment: TransportSegment
     let accentColor: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: segment.mode.iconName)
-                .foregroundStyle(accentColor)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(segment.departureLocation) → \(segment.arrivalLocation)")
-                    .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
-                Text("\(segment.departureDate.formatted(date: .abbreviated, time: .omitted)) · \(segment.departureTime)")
-                    .font(AppFont.outfit(12, relativeTo: .caption))
-                    .foregroundStyle(.secondary)
+        MoneyCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    MoneyIconBadge(systemName: segment.mode.iconName, accentColor: accentColor)
+                    Text(segment.departureDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                        .font(AppFont.outfit(13, weight: .semibold, relativeTo: .footnote))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    PillTag(text: segment.mode.displayName, background: accentColor.opacity(0.15), foreground: accentColor)
+                }
+
+                HStack(alignment: .top, spacing: 8) {
+                    endpoint(segment.departureLocation, time: segment.departureTime, alignment: .leading)
+                    Image(systemName: "arrow.right")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(accentColor)
+                        .padding(.top, 10)
+                    endpoint(segment.arrivalLocation, time: segment.arrivalTime, alignment: .trailing)
+                }
+
+                if hasDetails {
+                    Divider()
+                    HStack(spacing: 10) {
+                        if let ref = segment.bookingRef, !ref.isEmpty {
+                            detail("ticket", ref)
+                        }
+                        if let seat = segment.seatNumber, !seat.isEmpty {
+                            detail("chair", seat)
+                        }
+                        Spacer()
+                        if segment.cost > 0 {
+                            MoneyAmount(text: segment.cost.formattedCurrency(code: segment.currency), size: 20)
+                        }
+                    }
+                }
             }
-            Spacer()
-            PillTag(text: segment.mode.displayName, background: accentColor.opacity(0.15), foreground: accentColor)
         }
-        .padding(.vertical, 6)
+    }
+
+    private var hasDetails: Bool {
+        segment.cost > 0 || !(segment.bookingRef ?? "").isEmpty || !(segment.seatNumber ?? "").isEmpty
+    }
+
+    /// Time first, in large type, with the place underneath.
+    private func endpoint(_ place: String, time: String?, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            Text(time.flatMap { $0.isEmpty ? nil : $0 } ?? "--:--")
+                .font(AppFont.barlowCondensed(28, weight: .semibold))
+                .foregroundStyle(accentColor)
+            Text(place.isEmpty ? "Anywhere" : place)
+                .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(alignment == .leading ? .leading : .trailing)
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+    }
+
+    private func detail(_ systemName: String, _ text: String) -> some View {
+        Label(text, systemImage: systemName)
+            .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
+            .foregroundStyle(.secondary)
     }
 }

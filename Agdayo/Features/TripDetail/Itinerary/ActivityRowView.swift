@@ -50,7 +50,7 @@ struct ActivityRowView: View {
         HStack(alignment: .top, spacing: 0) {
             Text(time, format: .dateTime.hour().minute())
                 .font(AppFont.barlowCondensed(18, weight: .semibold))
-                .foregroundStyle(accentColor)
+                .foregroundStyle(.primary)
                 .frame(width: ItineraryRail.timeWidth, alignment: .leading)
                 .padding(.vertical, verticalPadding)
 

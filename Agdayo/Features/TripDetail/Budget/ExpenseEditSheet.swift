@@ -61,44 +61,70 @@ struct ExpenseEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Expense") {
-                    TextField("Name, e.g. Souvenirs", text: $name)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
-                }
-
-                Section("When") {
-                    Toggle("Add date", isOn: $hasDate)
-                    if hasDate {
-                        DatePicker("Date", selection: $date, in: trip.startDate...trip.endDate, displayedComponents: .date)
-                    }
-                    Toggle("Add time", isOn: $hasTime)
-                    if hasTime {
-                        DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                    }
-                }
-
-                Section("Cost") {
-                    TextField("Amount", text: $costText)
-                        .keyboardType(.decimalPad)
-                    Picker("Currency", selection: $costCurrency) {
-                        ForEach(CurrencyCode.common, id: \.self) { code in
-                            Text(code).tag(code)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Expense", icon: "receipt", accent: trip.theme.accentColor) {
+                        FormField("Name") {
+                            TextField("e.g. Souvenirs", text: $name)
+                        }
+                        FormField {
+                            BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
                         }
                     }
-                    .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
-                    ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
-                }
 
-                ExpenseSplitSection(
-                    memberProfiles: memberProfiles,
-                    totalCost: Double(costText) ?? 0,
-                    currencyCode: costCurrency,
-                    paidByUID: $paidByUID,
-                    splitUIDs: $splitUIDs,
-                    splitAmounts: $splitAmounts
-                )
+                    FormCard(title: "When", icon: "clock", accent: trip.theme.accentColor) {
+                        FormField {
+                            Toggle("Add date", isOn: $hasDate)
+                        }
+                        if hasDate {
+                            FormField {
+                                DatePicker("Date", selection: $date, in: trip.startDate...trip.endDate, displayedComponents: .date)
+                            }
+                        }
+                        FormField {
+                            Toggle("Add time", isOn: $hasTime)
+                        }
+                        if hasTime {
+                            FormField {
+                                DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                            }
+                        }
+                    }
+
+                    FormCard(title: "Cost", icon: "wallet.pass", accent: trip.theme.accentColor) {
+                        FormField("Amount") {
+                            TextField("Amount", text: $costText)
+                                .keyboardType(.decimalPad)
+                        }
+                        FormField {
+                            Picker("Currency", selection: $costCurrency) {
+                                ForEach(CurrencyCode.common, id: \.self) { code in
+                                    Text(code).tag(code)
+                                }
+                            }
+                            .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
+                        }
+                        if costCurrency != trip.currency {
+                            FormField {
+                                ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
+                            }
+                        }
+                    }
+
+                    ExpenseSplitSection(
+                        memberProfiles: memberProfiles,
+                        totalCost: Double(costText) ?? 0,
+                        currencyCode: costCurrency,
+                        accentColor: trip.theme.accentColor,
+                        paidByUID: $paidByUID,
+                        splitUIDs: $splitUIDs,
+                        splitAmounts: $splitAmounts
+                    )
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingExpense == nil ? "Add Expense" : "Edit Expense")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

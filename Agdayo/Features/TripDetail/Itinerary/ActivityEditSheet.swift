@@ -66,57 +66,83 @@ struct ActivityEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Activity") {
-                    TextField("Title", text: $title)
-                    LocationSearchField(
-                        placeholder: "Location",
-                        text: $location,
-                        onSelect: { name, coordinate in
-                            location = name
-                            latitude = coordinate?.latitude
-                            longitude = coordinate?.longitude
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Activity", icon: "mappin.and.ellipse", accent: trip.theme.accentColor) {
+                        FormField("Title") {
+                            TextField("Title", text: $title)
                         }
-                    )
-                }
-
-                Section("When") {
-                    DatePicker("Date & Time", selection: $date, in: dateRange, displayedComponents: [.date, .hourAndMinute])
-                }
-
-                Section("Cost") {
-                    TextField("Amount (optional)", text: $costText)
-                        .keyboardType(.decimalPad)
-                    Picker("Currency", selection: $costCurrency) {
-                        ForEach(CurrencyCode.common, id: \.self) { code in
-                            Text(code).tag(code)
+                        FormField("Location") {
+                            LocationSearchField(
+                                placeholder: "Location",
+                                text: $location,
+                                onSelect: { name, coordinate in
+                                    location = name
+                                    latitude = coordinate?.latitude
+                                    longitude = coordinate?.longitude
+                                }
+                            )
                         }
                     }
-                    .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
-                    ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
-                    TextField("Note, e.g. \"Included\"", text: $costNote)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
-                }
 
-                Section("Icon") {
-                    IconPickerGrid(selectedIcon: $iconName, accentColor: trip.theme.accentColor)
-                        .frame(height: 260)
-                }
+                    FormCard(title: "When", icon: "clock", accent: trip.theme.accentColor) {
+                        FormField {
+                            DatePicker("Date & Time", selection: $date, in: dateRange, displayedComponents: [.date, .hourAndMinute])
+                        }
+                    }
 
-                Section("Description") {
-                    TextField("Optional details", text: $activityDescription, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                    FormCard(title: "Cost", icon: "wallet.pass", accent: trip.theme.accentColor) {
+                        FormField("Amount") {
+                            TextField("Optional", text: $costText)
+                                .keyboardType(.decimalPad)
+                        }
+                        FormField {
+                            Picker("Currency", selection: $costCurrency) {
+                                ForEach(CurrencyCode.common, id: \.self) { code in
+                                    Text(code).tag(code)
+                                }
+                            }
+                            .onChange(of: costCurrency) { _, _ in exchangeRate = nil }
+                        }
+                        if costCurrency != trip.currency {
+                            FormField {
+                                ExchangeRateField(amount: Double(costText) ?? 0, fromCurrency: costCurrency, toCurrency: trip.currency, rate: $exchangeRate)
+                            }
+                        }
+                        FormField("Note") {
+                            TextField("e.g. \"Included\"", text: $costNote)
+                        }
+                        FormField {
+                            BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
+                        }
+                    }
 
-                ExpenseSplitSection(
-                    memberProfiles: memberProfiles,
-                    totalCost: Double(costText) ?? 0,
-                    currencyCode: costCurrency,
-                    paidByUID: $paidByUID,
-                    splitUIDs: $splitUIDs,
-                    splitAmounts: $splitAmounts
-                )
+                    FormCard(title: "Icon", icon: "square.grid.2x2", accent: trip.theme.accentColor) {
+                        IconPickerGrid(selectedIcon: $iconName, accentColor: trip.theme.accentColor)
+                            .frame(height: 260)
+                    }
+
+                    FormCard(title: "Description", icon: "text.alignleft", accent: trip.theme.accentColor) {
+                        FormField {
+                            TextField("Optional details", text: $activityDescription, axis: .vertical)
+                                .lineLimit(3...6)
+                        }
+                    }
+
+                    ExpenseSplitSection(
+                        memberProfiles: memberProfiles,
+                        totalCost: Double(costText) ?? 0,
+                        currencyCode: costCurrency,
+                        accentColor: trip.theme.accentColor,
+                        paidByUID: $paidByUID,
+                        splitUIDs: $splitUIDs,
+                        splitAmounts: $splitAmounts
+                    )
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingActivity == nil ? "Add Activity" : "Edit Activity")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

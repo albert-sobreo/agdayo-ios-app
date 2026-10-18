@@ -8,7 +8,7 @@ import SwiftUI
 /// may need fine-tuning once compared side-by-side on device.
 enum BrandPalette {
     /// Off-white page background outside the hero surface.
-    static let canvas = Color(hex: 0xF3F0EC)
+    static let canvas = Color(hex: 0xF9F7F4)
     /// Dusty-pink wash behind the active-trip hero card / trip detail header.
     static let blush = Color(hex: 0xFBDED9)
     /// Deep maroon — hero headlines ("TOKYO"), "View on Map", category icons.
@@ -24,7 +24,7 @@ enum BrandPalette {
     /// The "F" member avatar / dark text accents.
     static let ink = Color(hex: 0x1A1A1A)
     /// Nav tile background, a shade lighter than `canvas`.
-    static let cardSurface = Color(hex: 0xEDEAE6)
+    static let cardSurface = Color(hex: 0xF3F1ED)
 }
 
 /// The plain rose-on-blush progress bar used for "Planning" completion in

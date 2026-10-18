@@ -14,6 +14,7 @@ struct MemberRowView: View {
     }
 
     var body: some View {
+        MoneyCard(padding: 14) {
         HStack(spacing: 12) {
             // Avatar
             Group {
@@ -27,7 +28,7 @@ struct MemberRowView: View {
                     monogramView
                 }
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 44, height: 44)
             .clipShape(Circle())
 
             // Details
@@ -63,7 +64,7 @@ struct MemberRowView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(theme.lightTintColor)
+                .background(theme.accentColor.opacity(0.15))
                 .foregroundStyle(theme.accentColor)
                 .clipShape(Capsule())
             } else {
@@ -89,7 +90,7 @@ struct MemberRowView: View {
                 .accessibilityLabel("Remove \(member.profile.displayName)")
             }
         }
-        .padding(.vertical, 4)
+        }
         .confirmationDialog(
             "Remove \(member.profile.displayName)?",
             isPresented: $isShowingConfirmRemove,

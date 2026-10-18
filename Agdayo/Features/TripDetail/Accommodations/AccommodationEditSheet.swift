@@ -56,40 +56,66 @@ struct AccommodationEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Accommodation") {
-                    TextField("Name", text: $name)
-                    Picker("Type", selection: $type) {
-                        ForEach(AccommodationType.allCases) { type in
-                            Text(type.displayName).tag(type)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Accommodation", icon: "bed.double", accent: trip.theme.accentColor) {
+                        FormField("Name") {
+                            TextField("Name", text: $name)
+                        }
+                        FormField {
+                            Picker("Type", selection: $type) {
+                                ForEach(AccommodationType.allCases) { type in
+                                    Text(type.displayName).tag(type)
+                                }
+                            }
+                        }
+                        FormField("Location") {
+                            LocationSearchField(placeholder: "Location", text: $location, onSelect: { name, _ in location = name })
+                        }
+                        FormField {
+                            Stepper("Rooms: \(numberOfRooms)", value: $numberOfRooms, in: 1...20)
                         }
                     }
-                    LocationSearchField(placeholder: "Location", text: $location, onSelect: { name, _ in location = name })
-                    Stepper("Rooms: \(numberOfRooms)", value: $numberOfRooms, in: 1...20)
-                }
 
-                Section("Dates") {
-                    DatePicker("Check-in Date", selection: $startDate, in: trip.startDate...trip.endDate, displayedComponents: .date)
-                    DatePicker("Check-in Time", selection: $checkInTime, displayedComponents: .hourAndMinute)
-                    DatePicker("Check-out Date", selection: $endDate, in: startDate...trip.endDate, displayedComponents: .date)
-                    DatePicker("Check-out Time", selection: $checkOutTime, displayedComponents: .hourAndMinute)
-                }
+                    FormCard(title: "Dates", icon: "calendar", accent: trip.theme.accentColor) {
+                        FormField {
+                            DatePicker("Check-in Date", selection: $startDate, in: trip.startDate...trip.endDate, displayedComponents: .date)
+                        }
+                        FormField {
+                            DatePicker("Check-in Time", selection: $checkInTime, displayedComponents: .hourAndMinute)
+                        }
+                        FormField {
+                            DatePicker("Check-out Date", selection: $endDate, in: startDate...trip.endDate, displayedComponents: .date)
+                        }
+                        FormField {
+                            DatePicker("Check-out Time", selection: $checkOutTime, displayedComponents: .hourAndMinute)
+                        }
+                    }
 
-                Section("Cost") {
-                    TextField("Total Cost", text: $totalCostText)
-                        .keyboardType(.decimalPad)
-                    BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
-                }
+                    FormCard(title: "Cost", icon: "wallet.pass", accent: trip.theme.accentColor) {
+                        FormField("Total cost") {
+                            TextField("Total Cost", text: $totalCostText)
+                                .keyboardType(.decimalPad)
+                        }
+                        FormField {
+                            BudgetCategoryPicker(categories: trip.budgetCategories, memberProfiles: memberProfiles, categoryID: $budgetCategoryID, memberUID: $budgetMemberUID)
+                        }
+                    }
 
-                ExpenseSplitSection(
-                    memberProfiles: memberProfiles,
-                    totalCost: Double(totalCostText) ?? 0,
-                    currencyCode: trip.currency,
-                    paidByUID: $paidByUID,
-                    splitUIDs: $splitUIDs,
-                    splitAmounts: $splitAmounts
-                )
+                    ExpenseSplitSection(
+                        memberProfiles: memberProfiles,
+                        totalCost: Double(totalCostText) ?? 0,
+                        currencyCode: trip.currency,
+                        accentColor: trip.theme.accentColor,
+                        paidByUID: $paidByUID,
+                        splitUIDs: $splitUIDs,
+                        splitAmounts: $splitAmounts
+                    )
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingAccommodation == nil ? "Add Accommodation" : "Edit Accommodation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

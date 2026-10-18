@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A glowing highlight band sweeping across the text, repeating forever —
-/// the "AI is thinking" loading state used while generation is in flight.
+/// a loading state used while results are being found.
 /// Pure `foregroundStyle` animation (no overlay/mask layering), since
 /// `LinearGradient`'s `UnitPoint` start/end are themselves animatable.
 struct ShimmerText: View {

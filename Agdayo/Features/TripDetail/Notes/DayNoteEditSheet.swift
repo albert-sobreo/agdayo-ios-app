@@ -26,12 +26,28 @@ struct DayNoteEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                DatePicker("Day", selection: $day, in: trip.startDate...trip.endDate, displayedComponents: .date)
-                TextField("Title", text: $title)
-                TextField("Content", text: $content, axis: .vertical)
-                    .lineLimit(4...8)
+            ScrollView {
+                VStack(spacing: 14) {
+                    FormCard(title: "Day", icon: "calendar", accent: trip.theme.accentColor) {
+                        FormField {
+                            DatePicker("Day", selection: $day, in: trip.startDate...trip.endDate, displayedComponents: .date)
+                        }
+                    }
+
+                    FormCard(title: "Note", icon: "note.text", accent: trip.theme.accentColor) {
+                        FormField("Title") {
+                            TextField("Title", text: $title)
+                        }
+                        FormField("Content") {
+                            TextField("Content", text: $content, axis: .vertical)
+                                .lineLimit(4...8)
+                        }
+                    }
+                }
+                .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
+            .brandForm(accent: trip.theme.accentColor)
             .navigationTitle(editingNote == nil ? "Add Note" : "Edit Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
