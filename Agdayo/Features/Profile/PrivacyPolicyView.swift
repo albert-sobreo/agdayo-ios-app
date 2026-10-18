@@ -22,11 +22,11 @@ struct PrivacyPolicyView: View {
                 }
 
                 PolicySection(title: "Account Information") {
-                    Text("Signing in is optional: you can plan trips fully offline without an account. If you choose to sign in (with Google or email/password), Agdayo collects your email address, display name, and, if using Google, your Google profile photo. This is used only to identify you to trip members you invite and to sync your trips across devices.")
+                    Text("Signing in is optional: you can plan trips fully offline without an account. If you choose to sign in (with Apple, Google, or email/password), Agdayo collects your email address (which may be Apple's private relay address if you choose to hide it), display name, and, if using Google, your Google profile photo. The Full Name you set in Profile is saved to your account and shown to the members of trips you share. This is used only to identify you to trip members you invite and to sync your trips across devices.")
                 }
 
                 PolicySection(title: "Location") {
-                    Text("Agdayo uses location in a few places, always with your explicit permission:\n\n• Destination and activity search: resolves place names you type into map coordinates. Your device's location is used only to bias search results toward nearby places.\n• Live trip location sharing (opt-in): while a trip is open and you've enabled it, your coarse location (deliberately rounded to roughly 100 meters, foreground-only) is shared with that trip's other members so you can find each other. This stops the moment you leave the screen or turn it off.\n• Visited-places map: trip destinations you've entered are shown on a personal map of places you've been.\n\nAgdayo never tracks your location in the background.")
+                    Text("Agdayo uses location in a few places, always with your explicit permission:\n\n• Destination and activity search: resolves place names you type into map coordinates. Your device's location is used only to bias search results toward nearby places.\n• Live trip location sharing (opt-in): while a trip is open and you've enabled it, your coarse location (deliberately rounded to roughly 100 meters, foreground-only) is shared with that trip's other members so you can find each other. This stops the moment you leave the screen or turn it off.\n• Plan My Day: the area you plan around (your trip's destination or a place you pick) is used to find nearby restaurants, sights, and other places through Apple Maps.\n• Visited-places map: trip destinations you've entered are shown on a personal map of places you've been.\n\nAgdayo never tracks your location in the background.")
                 }
 
                 PolicySection(title: "Trip Content") {
@@ -37,12 +37,16 @@ struct PrivacyPolicyView: View {
                     Text("If you choose to add an activity or transport booking to your device's Calendar, Agdayo requests Calendar access for that one action. Reminders for upcoming activities are scheduled as local notifications on your device only. Agdayo does not use push notifications and has no server that knows your notification schedule.")
                 }
 
+                PolicySection(title: "On-Device Translation") {
+                    Text("When place names in Plan My Day are in a foreign language, Agdayo shows an English translation. This uses Apple's Translation framework, which translates on your device. The place names are not sent to Agdayo's servers.")
+                }
+
                 PolicySection(title: "On-Device AI") {
                     Text("AI itinerary suggestions, where available, are generated entirely on your device using Apple's on-device Apple Intelligence models. Your trip details are not sent to Agdayo's servers or any third party for this feature.")
                 }
 
                 PolicySection(title: "Third-Party Services") {
-                    Text("Agdayo relies on a small number of services to function:\n\n• Firebase (Google): authentication and the cloud database used for shared trips.\n• Apple MapKit: place search, maps, and directions.\n• A currency-exchange-rate API: receives only currency codes (e.g. \"USD\", \"PHP\"), never any personal or trip data.\n\nNone of these are used for advertising.")
+                    Text("Agdayo relies on a small number of services to function:\n\n• Firebase (Google): authentication and the cloud database used for shared trips.\n• Apple MapKit: place search, maps, and directions. Search terms and the area being searched are sent to Apple to return results, under Apple's privacy policy.\n• A currency-exchange-rate API: receives only currency codes (e.g. \"USD\", \"PHP\"), never any personal or trip data.\n\nNone of these are used for advertising.")
                 }
 
                 PolicySection(title: "Your Choices") {
@@ -71,7 +75,7 @@ struct PrivacyPolicyView: View {
     private static let lastUpdated: String = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM d, yyyy"
-        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 9, day: 25)) ?? .now)
+        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 10, day: 18)) ?? .now)
     }()
 }
 
