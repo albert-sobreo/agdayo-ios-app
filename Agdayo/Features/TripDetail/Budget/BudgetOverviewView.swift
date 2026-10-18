@@ -134,191 +134,323 @@ struct BudgetOverviewView: View {
         expenses.sorted { ($0.dateTime ?? .distantPast) > ($1.dateTime ?? .distantPast) }
     }
 
-    var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    BudgetProgressBar(spent: actualSpentTotal, total: trip.overallBudget, currency: trip.currency)
-                    Text("Planned: \(categoriesTotal.formattedCurrency(code: trip.currency)) · Spent — Activities: \(activityCostsTotal.formattedCurrency(code: trip.currency)) · Stays: \(accommodationCostsTotal.formattedCurrency(code: trip.currency)) · Transport: \(transportCostsTotal.formattedCurrency(code: trip.currency)) · Other: \(expenseCostsTotal.formattedCurrency(code: trip.currency))")
-                        .font(AppFont.outfit(11, relativeTo: .caption2))
-                        .foregroundStyle(.secondary)
+    // MARK: Design
+
+    private var accent: Color { trip.theme.accentColor }
+
+    private var isOverBudget: Bool {
+        trip.overallBudget > 0 && actualSpentTotal > trip.overallBudget
+    }
+
+    private var spentFraction: Double {
+        guard trip.overallBudget > 0 else { return 0 }
+        return min(actualSpentTotal / trip.overallBudget, 1)
+    }
+
+    /// The summary at the top: what's been spent, against the budget, in the
+    /// same blush hero style as the trip header.
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Spent")
+                    .trackedLabel(11, color: BrandPalette.maroon.opacity(0.75))
+                Spacer()
+                if trip.overallBudget > 0 {
+                    PillTag(
+                        text: isOverBudget ? "Over budget" : "On track",
+                        background: isOverBudget ? BrandPalette.maroon : BrandPalette.mint,
+                        foreground: isOverBudget ? .white : BrandPalette.mintText
+                    )
+                } else {
+                    PillTag(text: "No budget set", background: Color.white.opacity(0.6), foreground: BrandPalette.maroon)
                 }
             }
 
-            Section("Categories") {
+            MoneyAmount(text: actualSpentTotal.formattedCurrency(code: trip.currency), size: 52, color: BrandPalette.maroon)
+
+            BrandProgressTrack(
+                fraction: spentFraction,
+                fill: isOverBudget ? BrandPalette.maroon : BrandPalette.rose,
+                track: BrandPalette.roseTrack,
+                height: 8
+            )
+
+            HStack {
+                Text(trip.overallBudget > 0
+                     ? "of \(trip.overallBudget.formattedCurrency(code: trip.currency)) budget"
+                     : "Add a category to set a budget")
+                Spacer()
+                if trip.overallBudget > 0 {
+                    Text(isOverBudget
+                         ? "\((actualSpentTotal - trip.overallBudget).formattedCurrency(code: trip.currency)) over"
+                         : "\((trip.overallBudget - actualSpentTotal).formattedCurrency(code: trip.currency)) left")
+                        .fontWeight(.semibold)
+                }
+            }
+            .font(AppFont.outfit(13, relativeTo: .footnote))
+            .foregroundStyle(BrandPalette.maroon.opacity(0.85))
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(BrandPalette.blush, in: RoundedRectangle(cornerRadius: AppRadius.card))
+    }
+
+    /// Where the spending went, as four tiles like the trip screen's section buttons.
+    private var breakdownGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            breakdownTile("map", "Activities", activityCostsTotal)
+            breakdownTile("bed.double", "Stays", accommodationCostsTotal)
+            breakdownTile("airplane", "Transport", transportCostsTotal)
+            breakdownTile("cart", "Other", expenseCostsTotal)
+        }
+    }
+
+    private func breakdownTile(_ icon: String, _ title: String, _ amount: Double) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundStyle(accent)
+            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 0) {
+                MoneyAmount(text: amount.formattedCurrency(code: trip.currency), size: 22)
+                Text(title)
+                    .font(AppFont.barlowCondensed(14, weight: .semibold))
+                    .tracking(2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+        .modifier(GlassOrStickerCard(cornerRadius: AppRadius.smallerCard))
+    }
+
+    /// A budget line (category or person): name, planned amount, and how much
+    /// of it is spent.
+    private func budgetLine(icon: String, name: String, planned: Double, spent: Double) -> some View {
+        let over = planned > 0 && spent > planned
+        let fraction = planned > 0 ? min(spent / planned, 1) : 0
+        return MoneyCard {
+            HStack(alignment: .top, spacing: 12) {
+                MoneyIconBadge(systemName: icon, accentColor: accent)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(name)
+                            .font(AppFont.outfit(16, weight: .semibold, relativeTo: .body))
+                        Spacer()
+                        MoneyAmount(text: planned.formattedCurrency(code: trip.currency), size: 22)
+                    }
+                    BrandProgressTrack(
+                        fraction: fraction,
+                        fill: over ? BrandPalette.maroon : BrandPalette.rose,
+                        track: BrandPalette.roseTrack,
+                        height: 6
+                    )
+                    Text(over
+                         ? "\(spent.formattedCurrency(code: trip.currency)) spent, over by \((spent - planned).formattedCurrency(code: trip.currency))"
+                         : "\(spent.formattedCurrency(code: trip.currency)) spent")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(over ? BrandPalette.maroon : Color.secondary)
+                }
+            }
+        }
+    }
+
+    /// A costed item (activity, stay, transport or expense) with what it's
+    /// tagged to and its amount, converted to the trip's currency when needed.
+    private func itemCard(
+        icon: String,
+        title: String,
+        attachment: String?,
+        amount: String,
+        converted: String?,
+        showsChevron: Bool = false
+    ) -> some View {
+        MoneyCard {
+            HStack(spacing: 12) {
+                MoneyIconBadge(systemName: icon, accentColor: accent)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                        .lineLimit(2)
+                    if let attachment {
+                        PillTag(text: attachment, background: accent.opacity(0.14), foreground: accent)
+                    }
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    MoneyAmount(text: amount, size: 20)
+                    if let converted {
+                        Text("≈ \(converted)")
+                            .font(AppFont.outfit(11, relativeTo: .caption2))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if showsChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private func convertedText(currency: String?, converted: Double?) -> String? {
+        guard let currency, currency != trip.currency, let converted else { return nil }
+        return converted.formattedCurrency(code: trip.currency)
+    }
+
+    private func header(_ title: String, _ icon: String) -> some View {
+        MoneySectionHeader(title: title, iconName: icon, accentColor: accent)
+    }
+
+    var body: some View {
+        List {
+            Section {
+                heroCard.moneyRow()
+                breakdownGrid.moneyRow()
+            }
+
+            Section {
                 if budgetCategories.isEmpty {
-                    Text("No budget categories yet.")
-                        .foregroundStyle(.secondary)
+                    emptyNote("No budget categories yet. Add one to start planning your spending.")
+                        .moneyRow()
                 } else {
                     ForEach(budgetCategories) { category in
                         Button {
                             editingCategory = category
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(category.name)
-                                    Text("\(spent(for: category).formattedCurrency(code: trip.currency)) spent")
-                                        .font(AppFont.outfit(11, relativeTo: .caption2))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(category.amount.formattedCurrency(code: trip.currency))
-                                    .foregroundStyle(.secondary)
-                            }
+                            budgetLine(icon: "tag", name: category.name, planned: category.amount, spent: spent(for: category))
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                     }
                     .onDelete(perform: delete)
                 }
+            } header: {
+                header("Categories", "tag")
             }
 
             if !memberProfiles.isEmpty {
-                Section("Individual Budgets") {
+                Section {
                     ForEach(memberProfiles, id: \.uid) { profile in
                         Button {
                             memberBudgetTarget = MemberBudgetTarget(profile: profile)
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(profile.displayName)
-                                    Text("\(spent(forMemberUID: profile.uid).formattedCurrency(code: trip.currency)) spent")
-                                        .font(AppFont.outfit(11, relativeTo: .caption2))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text((trip.memberBudgets[profile.uid] ?? 0).formattedCurrency(code: trip.currency))
-                                    .foregroundStyle(.secondary)
-                            }
+                            budgetLine(
+                                icon: "person",
+                                name: profile.displayName,
+                                planned: trip.memberBudgets[profile.uid] ?? 0,
+                                spent: spent(forMemberUID: profile.uid)
+                            )
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                     }
+                } header: {
+                    header("Individual Budgets", "person.2")
                 }
             }
 
             if !costedActivities.isEmpty {
-                Section("Activities") {
+                Section {
                     ForEach(costedActivities) { activity in
-                        NavigationLink {
-                            ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(activity.title)
-                                    if let label = attachmentLabel(categoryID: activity.budgetCategoryID, memberUID: activity.budgetMemberUID) {
-                                        Text(label)
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 1) {
-                                    Text((activity.cost ?? 0).formattedCurrency(code: activity.costCurrency ?? trip.currency))
-                                        .foregroundStyle(.secondary)
-                                    if let costCurrency = activity.costCurrency, costCurrency != trip.currency,
-                                       let converted = activity.costAndRate(inTripCurrency: trip.currency)?.cost {
-                                        Text("≈ \(converted.formattedCurrency(code: trip.currency))")
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary.opacity(0.7))
-                                    }
-                                }
+                        // The card draws its own chevron, so the link is hidden
+                        // behind it (otherwise the list adds a second one).
+                        ZStack {
+                            NavigationLink {
+                                ActivityDetailView(trip: trip, activity: activity, accentColor: accent, memberProfiles: memberProfiles)
+                            } label: {
+                                EmptyView()
                             }
+                            .opacity(0)
+
+                            itemCard(
+                                icon: "map",
+                                title: activity.title,
+                                attachment: attachmentLabel(categoryID: activity.budgetCategoryID, memberUID: activity.budgetMemberUID),
+                                amount: (activity.cost ?? 0).formattedCurrency(code: activity.costCurrency ?? trip.currency),
+                                converted: convertedText(currency: activity.costCurrency, converted: activity.costAndRate(inTripCurrency: trip.currency)?.cost),
+                                showsChevron: true
+                            )
                         }
+                        .moneyRow()
                     }
+                } header: {
+                    header("Activities", "map")
                 }
             }
 
             if !costedAccommodations.isEmpty {
-                Section("Accommodations") {
+                Section {
                     ForEach(costedAccommodations) { accommodation in
                         Button {
                             editingAccommodation = accommodation
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(accommodation.name)
-                                    if let label = attachmentLabel(categoryID: accommodation.budgetCategoryID, memberUID: accommodation.budgetMemberUID) {
-                                        Text(label)
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                Text(accommodation.totalCost.formattedCurrency(code: trip.currency))
-                                    .foregroundStyle(.secondary)
-                            }
+                            itemCard(
+                                icon: "bed.double",
+                                title: accommodation.name,
+                                attachment: attachmentLabel(categoryID: accommodation.budgetCategoryID, memberUID: accommodation.budgetMemberUID),
+                                amount: accommodation.totalCost.formattedCurrency(code: trip.currency),
+                                converted: nil
+                            )
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                     }
+                } header: {
+                    header("Stays", "bed.double")
                 }
             }
 
             if !costedSegments.isEmpty {
-                Section("Transport") {
+                Section {
                     ForEach(costedSegments) { segment in
                         Button {
                             editingSegment = segment
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(segment.departureLocation) → \(segment.arrivalLocation)")
-                                    if let label = attachmentLabel(categoryID: segment.budgetCategoryID, memberUID: segment.budgetMemberUID) {
-                                        Text(label)
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 1) {
-                                    Text(segment.cost.formattedCurrency(code: segment.currency))
-                                        .foregroundStyle(.secondary)
-                                    if segment.currency != trip.currency,
-                                       let converted = segment.costAndRate(inTripCurrency: trip.currency)?.cost {
-                                        Text("≈ \(converted.formattedCurrency(code: trip.currency))")
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary.opacity(0.7))
-                                    }
-                                }
-                            }
+                            itemCard(
+                                icon: "airplane",
+                                title: "\(segment.departureLocation) → \(segment.arrivalLocation)",
+                                attachment: attachmentLabel(categoryID: segment.budgetCategoryID, memberUID: segment.budgetMemberUID),
+                                amount: segment.cost.formattedCurrency(code: segment.currency),
+                                converted: convertedText(currency: segment.currency, converted: segment.costAndRate(inTripCurrency: trip.currency)?.cost)
+                            )
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                     }
+                } header: {
+                    header("Transport", "airplane")
                 }
             }
 
             if !sortedExpenses.isEmpty {
-                Section("Other Expenses") {
+                Section {
                     ForEach(sortedExpenses) { expense in
                         Button {
                             editingExpense = expense
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(expense.name)
-                                    if let label = attachmentLabel(categoryID: expense.budgetCategoryID, memberUID: expense.budgetMemberUID) {
-                                        Text(label)
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 1) {
-                                    Text(expense.cost.formattedCurrency(code: expense.costCurrency ?? trip.currency))
-                                        .foregroundStyle(.secondary)
-                                    if let costCurrency = expense.costCurrency, costCurrency != trip.currency,
-                                       let converted = expense.costAndRate(inTripCurrency: trip.currency)?.cost {
-                                        Text("≈ \(converted.formattedCurrency(code: trip.currency))")
-                                            .font(AppFont.outfit(11, relativeTo: .caption2))
-                                            .foregroundStyle(.secondary.opacity(0.7))
-                                    }
-                                }
-                            }
+                            itemCard(
+                                icon: "cart",
+                                title: expense.name,
+                                attachment: attachmentLabel(categoryID: expense.budgetCategoryID, memberUID: expense.budgetMemberUID),
+                                amount: expense.cost.formattedCurrency(code: expense.costCurrency ?? trip.currency),
+                                converted: convertedText(currency: expense.costCurrency, converted: expense.costAndRate(inTripCurrency: trip.currency)?.cost)
+                            )
                         }
                         .buttonStyle(.plain)
+                        .moneyRow()
                     }
                     .onDelete(perform: deleteExpenses)
+                } header: {
+                    header("Other Expenses", "cart")
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .navigationTitle("Budget")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -352,6 +484,14 @@ struct BudgetOverviewView: View {
         }
         .sheet(item: $editingSegment) { segment in
             TransportSegmentEditSheet(trip: trip, editingSegment: segment, memberProfiles: memberProfiles)
+        }
+    }
+
+    private func emptyNote(_ text: String) -> some View {
+        MoneyCard {
+            Text(text)
+                .font(AppFont.outfit(14, relativeTo: .subheadline))
+                .foregroundStyle(.secondary)
         }
     }
 

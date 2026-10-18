@@ -21,6 +21,8 @@ struct BalancesView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var syncErrorMessage: String?
+    /// The payment waiting on "Mark as Paid?" confirmation.
+    @State private var settlementToConfirm: ExpenseSettlement?
 
     init(trip: Trip, memberProfiles: [AppUserProfile]) {
         self.trip = trip
@@ -58,72 +60,174 @@ struct BalancesView: View {
         memberProfiles.first { $0.uid == uid }
     }
 
+    // MARK: Design
+
+    private var accent: Color { trip.theme.accentColor }
+
+    private var hasSharedExpenses: Bool {
+        !balances.allSatisfy { abs($0.amount) < 0.01 } || !paymentHistory.isEmpty
+    }
+
+    private var outstanding: Double {
+        settlements.reduce(0) { $0 + $1.amount }
+    }
+
+    /// The summary at the top: what's left to settle, or that everything is.
+    private var heroCard: some View {
+        let settled = settlements.isEmpty
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(settled ? "Balances" : "To settle")
+                    .trackedLabel(11, color: settled && hasSharedExpenses ? BrandPalette.mintText : BrandPalette.maroon.opacity(0.75))
+                Spacer()
+                if settled && hasSharedExpenses {
+                    PillTag(text: "All settled", background: BrandPalette.mint, foreground: BrandPalette.mintText, icon: "checkmark")
+                }
+            }
+
+            if !hasSharedExpenses {
+                Text("No shared expenses yet")
+                    .font(AppFont.barlowCondensed(30, weight: .semibold))
+                    .foregroundStyle(BrandPalette.maroon)
+                Text("Add a paid-by and split to an activity, stay, transport segment or expense to start tracking who owes whom.")
+                    .font(AppFont.outfit(13, relativeTo: .footnote))
+                    .foregroundStyle(BrandPalette.maroon.opacity(0.85))
+            } else if settled {
+                Text("Everyone is square")
+                    .font(AppFont.barlowCondensed(40, weight: .semibold))
+                    .foregroundStyle(BrandPalette.mintText)
+                Text("\(paymentHistory.count) payment\(paymentHistory.count == 1 ? "" : "s") recorded.")
+                    .font(AppFont.outfit(13, relativeTo: .footnote))
+                    .foregroundStyle(BrandPalette.mintText.opacity(0.85))
+            } else {
+                MoneyAmount(text: outstanding.formattedCurrency(code: trip.currency), size: 52, color: BrandPalette.maroon)
+                Text("\(settlements.count) payment\(settlements.count == 1 ? "" : "s") to settle up")
+                    .font(AppFont.outfit(13, relativeTo: .footnote))
+                    .foregroundStyle(BrandPalette.maroon.opacity(0.85))
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            (settled && hasSharedExpenses ? BrandPalette.mint.opacity(0.55) : BrandPalette.blush),
+            in: RoundedRectangle(cornerRadius: AppRadius.card)
+        )
+    }
+
+    private func header(_ title: String, _ icon: String) -> some View {
+        MoneySectionHeader(title: title, iconName: icon, accentColor: accent)
+    }
+
+    /// Who paid whom, stacked so a long name gets its own line instead of
+    /// being truncated beside the other one.
+    private func payment(from fromUID: String, to toUID: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(profile(for: fromUID)?.displayName ?? "Someone")
+                .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "arrow.turn.down.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(accent)
+                Text(profile(for: toUID)?.displayName ?? "someone")
+                    .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     var body: some View {
         List {
-            Section("Balances") {
-                if balances.allSatisfy({ abs($0.amount) < 0.01 }) {
-                    Text("No shared expenses yet. Add a paid-by and split to an Activity, Accommodation, Transport segment, or custom Expense to start tracking balances.")
-                        .foregroundStyle(.secondary)
-                } else {
+            Section {
+                heroCard.moneyRow()
+            }
+
+            if hasSharedExpenses {
+                Section {
                     ForEach(balances, id: \.profile.uid) { entry in
-                        BalanceRow(profile: entry.profile, amount: entry.amount, currency: trip.currency, accentColor: trip.theme.accentColor)
+                        BalanceRow(profile: entry.profile, amount: entry.amount, currency: trip.currency, accentColor: accent)
+                            .moneyRow()
                     }
+                } header: {
+                    header("Balances", "person.2")
                 }
             }
 
             if !settlements.isEmpty {
                 Section {
                     ForEach(settlements) { settlement in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    Text(profile(for: settlement.fromUID)?.displayName ?? "Someone")
-                                    Image(systemName: "arrow.right")
-                                        .foregroundStyle(.secondary)
-                                    Text(profile(for: settlement.toUID)?.displayName ?? "someone")
+                        MoneyCard {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    payment(from: settlement.fromUID, to: settlement.toUID)
+                                    MoneyAmount(text: settlement.amount.formattedCurrency(code: trip.currency), size: 26, color: BrandPalette.maroon)
                                 }
-                                Text(settlement.amount.formattedCurrency(code: trip.currency))
-                                    .foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                Button {
+                                    settlementToConfirm = settlement
+                                } label: {
+                                    Text("Mark paid")
+                                        .font(AppFont.outfit(13, weight: .bold, relativeTo: .footnote))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .foregroundStyle(.white)
+                                        .background(accent, in: Capsule())
+                                }
+                                .buttonStyle(.plain)
                             }
-                            Spacer()
-                            Button("Mark as Paid") {
-                                markAsPaid(settlement)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(trip.theme.accentColor)
                         }
+                        .moneyRow()
                     }
                 } header: {
-                    Text("Settle Up")
+                    header("Settle Up", "arrow.left.arrow.right")
                 }
             }
 
             if !paymentHistory.isEmpty {
-                Section("Payment History") {
+                Section {
                     ForEach(paymentHistory) { settlement in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 4) {
-                                    Text(profile(for: settlement.fromUID)?.displayName ?? "Someone")
-                                    Image(systemName: "arrow.right")
+                        MoneyCard {
+                            HStack(spacing: 12) {
+                                MoneyIconBadge(systemName: "checkmark", accentColor: BrandPalette.mintText)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    payment(from: settlement.fromUID, to: settlement.toUID)
+                                    Text(settlement.date, style: .date)
+                                        .font(AppFont.outfit(12, relativeTo: .caption))
                                         .foregroundStyle(.secondary)
-                                    Text(profile(for: settlement.toUID)?.displayName ?? "someone")
                                 }
-                                Text(settlement.date, style: .date)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                MoneyAmount(text: settlement.amount.formattedCurrency(code: trip.currency), size: 20)
                             }
-                            Spacer()
-                            Text(settlement.amount.formattedCurrency(code: trip.currency))
-                                .foregroundStyle(.secondary)
                         }
+                        .moneyRow()
                     }
                     .onDelete(perform: deletePayments)
+                } header: {
+                    header("Payment History", "clock.arrow.circlepath")
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(BrandPalette.canvas.ignoresSafeArea())
         .navigationTitle("Balances")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Mark as paid?",
+            isPresented: Binding(
+                get: { settlementToConfirm != nil },
+                set: { if !$0 { settlementToConfirm = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: settlementToConfirm
+        ) { settlement in
+            Button("Mark as Paid") {
+                markAsPaid(settlement)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { settlement in
+            Text("\(profile(for: settlement.fromUID)?.displayName ?? "Someone") paid \(profile(for: settlement.toUID)?.displayName ?? "someone") \(settlement.amount.formattedCurrency(code: trip.currency)). This is recorded for everyone on the trip.")
+        }
         .alert("Couldn't Sync", isPresented: syncErrorMessageBinding) {
             Button("OK") {}
         } message: {
@@ -186,29 +290,42 @@ private struct BalanceRow: View {
     private var isSettled: Bool { abs(amount) < 0.01 }
 
     private var statusText: String {
-        if isSettled { return "Settled up" }
+        if isSettled { return "Settled" }
         return amount > 0 ? "Gets back" : "Owes"
     }
 
-    private var statusColor: Color {
+    private var pillBackground: Color {
+        if isSettled { return BrandPalette.cardSurface }
+        return amount > 0 ? BrandPalette.mint : BrandPalette.blush
+    }
+
+    private var pillForeground: Color {
         if isSettled { return .secondary }
-        return amount > 0 ? .green : .red
+        return amount > 0 ? BrandPalette.mintText : BrandPalette.maroon
+    }
+
+    private var amountColor: Color {
+        if isSettled { return .secondary }
+        return amount > 0 ? BrandPalette.mintText : BrandPalette.maroon
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            MemberAvatarView(profile: profile, diameter: 36, tintColor: accentColor)
-            Text(profile.displayName)
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(abs(amount).formattedCurrency(code: currency))
-                    .foregroundStyle(statusColor)
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        MoneyCard {
+            HStack(spacing: 12) {
+                MemberAvatarView(profile: profile, diameter: 44, tintColor: accentColor)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(profile.displayName)
+                        .font(AppFont.outfit(16, weight: .semibold, relativeTo: .body))
+                    PillTag(text: statusText, background: pillBackground, foreground: pillForeground)
+                }
+                Spacer(minLength: 8)
+                MoneyAmount(
+                    text: abs(amount).formattedCurrency(code: currency),
+                    size: 28,
+                    color: amountColor
+                )
             }
         }
-        .padding(.vertical, 2)
     }
 }
 

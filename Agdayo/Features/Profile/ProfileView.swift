@@ -3,10 +3,10 @@ import SwiftUI
 import SwiftData
 import FirebaseAuth
 
-/// The local preferences form (fullName/homeRegion/vacation types) is
-/// unrelated to the account below — it stays local-only regardless of
-/// sign-in state. A singleton UserProfile row is lazily created on first
-/// appear if none exists yet.
+/// The About You form is a local SwiftData `UserProfile`, with one exception:
+/// when signed in, Full Name is also saved to the account (Firebase Auth and
+/// `users/{uid}`), because that is the name other travelers see. A singleton
+/// UserProfile row is lazily created on first appear if none exists yet.
 struct ProfileView: View {
     @Query private var profiles: [UserProfile]
     @Environment(\.modelContext) private var modelContext
@@ -43,12 +43,22 @@ private struct ProfileForm: View {
     @State private var isDeletingAccount = false
     @State private var isShowingDeleteError = false
     @State private var deleteAccountErrorMessage = ""
+    @State private var nameSyncState: NameSyncState = .idle
     @AppStorage(NotificationScheduler.remindersEnabledKey) private var remindersEnabled = true
 
     var body: some View {
         Form {
             Section("Account") {
                 accountSectionContent
+            }
+
+            // Finished trips, as poster cards.
+            Section {
+                TripShowcaseSection(trips: trips)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            } header: {
+                MoneySectionHeader(title: "Trips with Agdayo", iconName: "airplane.departure", accentColor: .appPrimary)
             }
 
             Section {
@@ -65,34 +75,13 @@ private struct ProfileForm: View {
                 }
             }
 
-            Section("About You") {
-                TextField("Full Name", text: $profile.fullName)
-                TextField("Home Region", text: $profile.homeRegion)
-                Toggle("I have travel experience", isOn: $profile.hasTravelExperience)
-            }
-
-            Section("Preferred Vacation Types") {
-                ForEach(VacationType.allCases) { type in
-                    Button {
-                        toggle(type)
-                    } label: {
-                        HStack {
-                            Text(type.displayName)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if profile.preferredVacationTypes.contains(type) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.appPrimary)
-                            }
-                        }
-                    }
-                }
-            }
-
             Section {
-                Text("Stored only on this device. Used to personalize AI trip suggestions.")
-                    .font(AppFont.outfit(12, relativeTo: .caption))
-                    .foregroundStyle(.secondary)
+                TextField("Full Name", text: $profile.fullName)
+                    .textContentType(.name)
+            } header: {
+                Text("About You")
+            } footer: {
+                nameFooter
             }
 
             Section {
@@ -152,6 +141,62 @@ private struct ProfileForm: View {
                 return
             }
             appUserProfile = try? await UserDirectoryService.fetchProfile(uid: uid)
+
+            // First time here: start from the name the account already has,
+            // unless that's just an email or the "Traveler" fallback.
+            if profile.fullName.trimmingCharacters(in: .whitespaces).isEmpty,
+               let name = appUserProfile?.displayName ?? authService.firebaseUser?.displayName,
+               !name.contains("@"), name != "Traveler" {
+                profile.fullName = name
+            }
+        }
+        // Typing a name saves it to the account a moment after you stop, so it
+        // becomes the name your travel companions see.
+        .task(id: profile.fullName) {
+            await syncNameIfNeeded()
+        }
+    }
+
+    private enum NameSyncState: Equatable {
+        case idle, saving, saved, failed(String)
+    }
+
+    @ViewBuilder
+    private var nameFooter: some View {
+        switch nameSyncState {
+        case .saving:
+            Text("Saving your name…")
+        case .saved:
+            Text("Saved. This is the name your travel companions see.")
+        case .failed(let message):
+            Text("Couldn't update your name: \(message)")
+                .foregroundStyle(.red)
+        case .idle:
+            Text(authService.isSignedIn
+                 ? "This is the name your travel companions see."
+                 : "Sign in to share your name with the people you travel with.")
+        }
+    }
+
+    private func syncNameIfNeeded() async {
+        guard authService.isSignedIn, let user = authService.firebaseUser else {
+            nameSyncState = .idle
+            return
+        }
+        let name = profile.fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != (appUserProfile?.displayName ?? user.displayName) else { return }
+
+        // Wait for a pause in typing; the next keystroke cancels this task.
+        try? await Task.sleep(for: .seconds(1))
+        guard !Task.isCancelled else { return }
+
+        nameSyncState = .saving
+        do {
+            try await UserDirectoryService.updateDisplayName(name, for: user)
+            appUserProfile = try? await UserDirectoryService.fetchProfile(uid: user.uid)
+            nameSyncState = .saved
+        } catch {
+            nameSyncState = .failed(error.localizedDescription)
         }
     }
 
@@ -188,14 +233,6 @@ private struct ProfileForm: View {
                 }
             }
             .foregroundStyle(.primary)
-        }
-    }
-
-    private func toggle(_ type: VacationType) {
-        if let index = profile.preferredVacationTypes.firstIndex(of: type) {
-            profile.preferredVacationTypes.remove(at: index)
-        } else {
-            profile.preferredVacationTypes.append(type)
         }
     }
 

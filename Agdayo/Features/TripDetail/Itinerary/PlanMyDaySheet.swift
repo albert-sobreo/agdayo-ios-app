@@ -296,6 +296,13 @@ struct PlanMyDaySheet: View {
 
             kindFilter
 
+            Label("Suggestions come from Apple Maps. Always verify a place is open and still exists before you go.", systemImage: "exclamationmark.circle")
+                .font(AppFont.outfit(12, relativeTo: .caption))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+
             List {
                 ForEach(Array(model.cityGroups.enumerated()), id: \.element.id) { index, group in
                     let isSearch = group.id == "search"
@@ -459,15 +466,15 @@ struct PlanMyDaySheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(candidate.name)
                         .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.black)
                     if let translated = english(for: candidate.name) {
                         Label(translated, systemImage: "globe")
                             .font(AppFont.outfit(12, relativeTo: .caption))
-                            .foregroundStyle(trip.theme.accentColor)
+                            .foregroundStyle(.black)
                     }
                     Text(subtitle(for: candidate))
                         .font(AppFont.outfit(12, relativeTo: .caption))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.black)
                 }
                 Spacer(minLength: 0)
                 }
@@ -698,7 +705,7 @@ struct PlanMyDaySheet: View {
                 } header: {
                     Text("Your day")
                 } footer: {
-                    Text("Tap a stop to change its place or time.")
+                    Text("Tap a stop to change its place or time. Always verify your selected locations (hours, location and availability) before you go.")
                 }
             }
         }

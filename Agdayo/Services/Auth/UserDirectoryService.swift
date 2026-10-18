@@ -29,6 +29,15 @@ enum UserDirectoryService {
         }
 
         if snapshot.exists {
+            // An account first saved before a real name was known only has the
+            // email or "Traveler" as its display name; replace that fallback
+            // as soon as the account has an actual name.
+            let stored = (snapshot.data()?["displayName"] as? String) ?? ""
+            let storedEmail = (snapshot.data()?["email"] as? String) ?? ""
+            let isFallback = stored.isEmpty || stored == "Traveler" || stored == storedEmail || stored.contains("@")
+            if isFallback, let name = user.displayName, !name.isEmpty, name != stored {
+                data["displayName"] = name
+            }
             try await documentRef.updateData(data)
         } else {
             data["uid"] = user.uid
@@ -37,6 +46,23 @@ enum UserDirectoryService {
             data["createdAt"] = FieldValue.serverTimestamp()
             try await documentRef.setData(data)
         }
+    }
+
+    /// Makes `name` the account's name everywhere: the Firebase Auth profile
+    /// and the `users/{uid}` document that trip members' names are read from.
+    static func updateDisplayName(_ name: String, for user: FirebaseAuth.User) async throws {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        if user.displayName != trimmed {
+            let change = user.createProfileChangeRequest()
+            change.displayName = trimmed
+            try await change.commitChanges()
+        }
+        try await usersCollection.document(user.uid).setData(
+            ["displayName": trimmed, "updatedAt": FieldValue.serverTimestamp()],
+            merge: true
+        )
     }
 
     /// Part of account deletion (see `AuthService.deleteAccount()`).

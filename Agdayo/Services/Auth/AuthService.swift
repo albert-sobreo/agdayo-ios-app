@@ -69,6 +69,19 @@ final class AuthService {
         }
         let firebaseCredential = OAuthProvider.credential(providerID: .apple, idToken: idTokenString, rawNonce: rawNonce)
         let authResult = try await Auth.auth().signIn(with: firebaseCredential)
+
+        // Apple only sends the person's name on the very first authorization,
+        // and Firebase doesn't copy it over, so it has to be saved here or it's
+        // lost (the account would show as its email, or "Traveler").
+        if (authResult.user.displayName ?? "").isEmpty, let components = credential.fullName {
+            let name = PersonNameComponentsFormatter().string(from: components)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                let change = authResult.user.createProfileChangeRequest()
+                change.displayName = name
+                try? await change.commitChanges()
+            }
+        }
         try await UserDirectoryService.ensureUserDocument(for: authResult.user)
     }
 

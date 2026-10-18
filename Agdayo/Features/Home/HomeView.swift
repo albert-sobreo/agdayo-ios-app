@@ -22,6 +22,7 @@ struct HomeView: View {
     /// card's text back down below that area while its background bleeds
     /// all the way to the top of the screen.
     @State private var topSafeAreaInset: CGFloat = 0
+    @State private var showsAllPastTrips = false
 
     /// An in-progress trip takes priority over a future one for the
     /// showcase slot — "what's happening right now" is more relevant than
@@ -34,6 +35,9 @@ struct HomeView: View {
     private var otherUpcoming: [Trip] {
         trips.filter { ($0.status == .upcoming || $0.status == .active) && $0.id != showcasedTrip?.id }
     }
+
+    /// How many past trips Home shows before "Show all".
+    private let pastTripLimit = 3
 
     private var pastTrips: [Trip] {
         trips.filter { $0.status == .completed }.sorted { $0.endDate > $1.endDate }
@@ -351,11 +355,26 @@ struct HomeView: View {
                 .padding(.horizontal)
                 .tracking(2)
             VStack(spacing: 10) {
-                ForEach(pastTrips) { trip in
+                ForEach(showsAllPastTrips ? pastTrips : Array(pastTrips.prefix(pastTripLimit))) { trip in
                     Button {
                         path.append(trip)
                     } label: {
                         PastTripRow(trip: trip, onShare: { share(trip) })
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Only the most recent few are shown; the rest are one tap away.
+                if pastTrips.count > pastTripLimit {
+                    Button {
+                        withAnimation { showsAllPastTrips.toggle() }
+                    } label: {
+                        Text(showsAllPastTrips ? "Show less" : "Show all \(pastTrips.count) past trips")
+                            .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .foregroundStyle(.primary)
+                            .modifier(GlassOrStickerCard(cornerRadius: AppRadius.denseCard))
                     }
                     .buttonStyle(.plain)
                 }
