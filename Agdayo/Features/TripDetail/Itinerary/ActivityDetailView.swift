@@ -84,9 +84,16 @@ struct ActivityDetailView: View {
         .navigationTitle(activity.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            // Edit is one tap away; only the destructive action stays in the menu.
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    isEditing = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .accessibilityLabel("Edit")
+
                 Menu {
-                    Button("Edit", systemImage: "pencil") { isEditing = true }
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         isShowingDeleteConfirmation = true
                     }

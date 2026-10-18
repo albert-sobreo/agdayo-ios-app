@@ -45,12 +45,7 @@ struct ItineraryTimelineView: View {
         let grouped = Dictionary(grouping: activities) { calendar.startOfDay(for: $0.date) }
         let days = Set(trip.calendarDays).union(grouped.keys)
         return days.sorted().map { day in
-            let dayActivities = (grouped[day] ?? []).sorted { $0.date < $1.date }
-            let buckets = TimeOfDayBucket.allCases.compactMap { bucket -> BucketGroup? in
-                let matches = dayActivities.filter { bucket.contains(hour: calendar.component(.hour, from: $0.date)) }
-                return matches.isEmpty ? nil : BucketGroup(bucket: bucket, activities: matches)
-            }
-            return DayGroup(day: day, buckets: buckets)
+            DayGroup(day: day, activities: (grouped[day] ?? []).sorted { $0.date < $1.date })
         }
     }
 
@@ -71,13 +66,14 @@ struct ItineraryTimelineView: View {
             }
         } else {
             if isEmbedded {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
                         DaySection(
                             dayIndex: index + 1,
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
+                            isEmbedded: true,
                             onPlanDay: { planRequest = PlanRequest(day: group.day) }
                         )
                     }
@@ -93,12 +89,14 @@ struct ItineraryTimelineView: View {
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
+                            isEmbedded: false,
                             onPlanDay: { planRequest = PlanRequest(day: group.day) }
                         )
                     }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .background(BrandPalette.canvas.ignoresSafeArea())
             }
         }
     }
@@ -140,93 +138,149 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
+    /// Inline in the trip screen's own scroll view (a card), or a section of
+    /// the full-screen list.
+    let isEmbedded: Bool
     var onPlanDay: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
 
-    /// Flattened across bucket boundaries so travel time is computed between
-    /// actual consecutive stops (e.g. last Morning stop → first Noon stop),
-    /// not reset at each time-of-day divider.
-    private var orderedActivities: [Activity] {
-        group.buckets.flatMap(\.activities)
+    /// Corner radius of a day's card, in both the inline and full-screen lists.
+    private let cardRadius: CGFloat = 20
+
+    /// A day's card is drawn row by row in the full-screen list: only its first
+    /// row rounds the top corners and only its last rounds the bottom ones.
+    private func cardBackground(isTop: Bool, isBottom: Bool) -> some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: isTop ? cardRadius : 0,
+            bottomLeadingRadius: isBottom ? cardRadius : 0,
+            bottomTrailingRadius: isBottom ? cardRadius : 0,
+            topTrailingRadius: isTop ? cardRadius : 0
+        )
+        .fill(Color(.secondarySystemGroupedBackground))
+        .padding(.horizontal, 16)
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Day \(dayIndex)")
-                .font(AppFont.barlowCondensed(36, weight: .regular))
-                .textCase(.uppercase)
-            Text(group.day.formatted(
-                .dateTime
-                    .weekday(.abbreviated)
-                    .month(.abbreviated)
-                    .day()
-            ))
-            .font(AppFont.barlowCondensed(16, weight: .regular))
-            .textCase(.uppercase)
-            .tracking(2)
+        if isEmbedded {
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                    .padding(.horizontal, 4)
+                VStack(spacing: 0) {
+                    rows
+                }
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: cardRadius))
+            }
+        } else {
+            Section {
+                rows
+            } header: {
+                header
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .listRowModifiers(top: 14, bottom: 6)
+    }
 
-        if group.buckets.isEmpty {
+    /// "DAY 1" in the trip's color with the date and stop count beside it,
+    /// like a Plan My Day step header.
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("Day \(dayIndex)")
+                .font(AppFont.barlowCondensed(26, weight: .semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(trip.theme.accentColor)
+            Text(group.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if !group.activities.isEmpty {
+                Text(group.activities.count == 1 ? "1 stop" : "\(group.activities.count) stops")
+                    .font(AppFont.outfit(12, relativeTo: .caption))
+                    .textCase(nil)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .textCase(nil)
+    }
+
+    @ViewBuilder
+    private var rows: some View {
+        if group.activities.isEmpty {
             Button(action: onPlanDay) {
-                Label("Nothing planned yet. Plan my day", systemImage: "wand.and.stars")
-                    .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .foregroundStyle(trip.theme.accentColor)
-                    .background(trip.theme.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                HStack(spacing: 10) {
+                    Image(systemName: "wand.and.stars")
+                    Text("Nothing planned yet. Plan my day")
+                        .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                }
+                .foregroundStyle(trip.theme.accentColor)
+                .padding(.vertical, isEmbedded ? 14 : 4)
+                .padding(.horizontal, isEmbedded ? 16 : 0)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .listRowModifiers()
-        }
-
-        ForEach(group.buckets) { bucket in
-            TimeOfDayDivider(label: bucket.bucket.label)
-                .listRowModifiers()
-
-            ForEach(bucket.activities, id: \.id) { activity in
-                // Hidden `NavigationLink` so `List` doesn't append its
-                // disclosure chevron (same trick as the trips list).
-                ZStack {
-                    NavigationLink {
-                        ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
-                    } label: {
-                        EmptyView()
-                    }
-                    .opacity(0)
-
-                    ActivityRowView(
-                        title: activity.title,
-                        location: activity.location,
-                        cost: activity.cost,
-                        costCurrency: activity.costCurrency,
-                        costNote: activity.costNote,
-                        iconName: activity.iconName,
-                        time: activity.date,
-                        // Whether there's a next activity *that day*, not
-                        // just in this time-of-day bucket — otherwise the
-                        // connecting line stopped short at every bucket
-                        // boundary.
-                        isLast: nextActivity(after: activity) == nil,
-                        englishTitle: Self.englishName(in: activity.activityDescription)
-                    )
+            .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: true, isBottom: true)))
+        } else {
+            ForEach(Array(group.activities.enumerated()), id: \.element.id) { index, activity in
+                if isEmbedded && index > 0 {
+                    Divider().padding(.leading, ItineraryRail.contentInset)
                 }
-                .listRowModifiers()
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        delete(activity)
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                }
-
+                row(for: activity, isFirst: index == 0, isLast: index == group.activities.count - 1)
                 if let next = nextActivity(after: activity),
                    let fromCoordinate = activity.coordinate,
                    let toCoordinate = next.coordinate {
-                    TravelConnectorView(fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
-                        .listRowModifiers(top: 0, bottom: 0)
+                    TravelConnectorView(isEmbedded: isEmbedded, fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
+                        .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func row(for activity: Activity, isFirst: Bool, isLast: Bool) -> some View {
+        let content = ActivityRowView(
+            title: activity.title,
+            location: activity.location,
+            cost: activity.cost,
+            costCurrency: activity.costCurrency,
+            costNote: activity.costNote,
+            iconName: activity.iconName,
+            time: activity.date,
+            englishTitle: Self.englishName(in: activity.activityDescription),
+            accentColor: trip.theme.accentColor,
+            isFirst: isFirst,
+            isLast: isLast
+        )
+        if isEmbedded {
+            NavigationLink {
+                ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
+            } label: {
+                content
+                    .padding(.horizontal, 16)
+            }
+            .buttonStyle(.plain)
+        } else {
+            // The row draws its own chevron, so the link is hidden behind it
+            // (otherwise `List` adds a second disclosure indicator).
+            ZStack {
+                NavigationLink {
+                    ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
+                } label: {
+                    EmptyView()
+                }
+                .opacity(0)
+                content
+            }
+            // No vertical insets or separators, so the connecting line runs
+            // unbroken from one stop to the next.
+            .modifier(CardRow(isEmbedded: false, background: cardBackground(isTop: isFirst, isBottom: isLast)))
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    delete(activity)
+                } label: {
+                    Label("Delete", systemImage: "trash")
                 }
             }
         }
@@ -256,13 +310,14 @@ private struct DaySection: View {
     }
 
     private func nextActivity(after activity: Activity) -> Activity? {
-        guard let index = orderedActivities.firstIndex(where: { $0.id == activity.id }) else { return nil }
+        guard let index = group.activities.firstIndex(where: { $0.id == activity.id }) else { return nil }
         let nextIndex = index + 1
-        return nextIndex < orderedActivities.count ? orderedActivities[nextIndex] : nil
+        return nextIndex < group.activities.count ? group.activities[nextIndex] : nil
     }
 }
 
 private struct TravelConnectorView: View {
+    var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
     let accentColor: Color
@@ -273,12 +328,29 @@ private struct TravelConnectorView: View {
     @State private var estimatesByMode: [UInt: TravelEstimate] = [:]
     @State private var isLoading = false
     @State private var loadFailed = false
+    /// The last figure shown. It stays on screen while another mode loads, so
+    /// switching modes never swaps the text for a spinner and shifts the row.
+    @State private var shownEstimate: TravelEstimate?
 
     private static let modes: [MKDirectionsTransportType] = [.automobile, .walking, .transit, .cycling]
 
     private var currentEstimate: TravelEstimate? { estimatesByMode[selectedMode.rawValue] }
 
     var body: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: ItineraryRail.timeWidth)
+            ItineraryRailLine(accentColor: accentColor)
+            controls
+                .padding(.vertical, 4)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, isEmbedded ? 16 : 0)
+        .task(id: selectedMode.rawValue) {
+            await loadEstimateIfNeeded()
+        }
+    }
+
+    private var controls: some View {
         HStack(spacing: 8) {
             ForEach(Self.modes, id: \.rawValue) { mode in
                 Button {
@@ -295,22 +367,21 @@ private struct TravelConnectorView: View {
             }
 
             Group {
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                } else if let estimate = currentEstimate {
+                if let estimate = currentEstimate ?? (loadFailed ? nil : shownEstimate) {
                     Text("\(formattedDistance(estimate.distance)) · \(formattedDuration(estimate.duration))")
+                        // Dimmed, not replaced, while the new mode's figure loads.
+                        .opacity(currentEstimate == nil && isLoading ? 0.45 : 1)
                 } else if loadFailed {
                     Text("Unavailable")
+                } else if isLoading {
+                    // Only the very first load has nothing to show yet.
+                    ProgressView()
+                        .controlSize(.small)
                 }
             }
             .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(.secondary)
-        }
-        .padding(.leading, 34)
-        .padding(.vertical, 2)
-        .task(id: selectedMode.rawValue) {
-            await loadEstimateIfNeeded()
+            .fixedSize()
         }
     }
 
@@ -320,7 +391,9 @@ private struct TravelConnectorView: View {
         loadFailed = false
         defer { isLoading = false }
         do {
-            estimatesByMode[selectedMode.rawValue] = try await TravelEstimateService.estimate(from: fromCoordinate, to: toCoordinate, transportType: selectedMode)
+            let estimate = try await TravelEstimateService.estimate(from: fromCoordinate, to: toCoordinate, transportType: selectedMode)
+            estimatesByMode[selectedMode.rawValue] = estimate
+            shownEstimate = estimate
         } catch {
             loadFailed = true
         }
@@ -341,62 +414,26 @@ private struct TravelConnectorView: View {
     }
 }
 
-private struct TimeOfDayDivider: View {
-    let label: String
-
-    var body: some View {
-        ZStack {
-            Divider()
-            Text(label)
-                .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.horizontal, 8)
-                .background(Color(.systemBackground))
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 private struct DayGroup {
     let day: Date
-    let buckets: [BucketGroup]
-}
-
-private struct BucketGroup: Identifiable {
-    let bucket: TimeOfDayBucket
     let activities: [Activity]
-    var id: String { bucket.label }
 }
 
-private enum TimeOfDayBucket: CaseIterable {
-    case morning, noon, afternoon, evening
+/// Row chrome for the full-screen list, where a day's card is drawn row by row:
+/// our own background, inset to the card's edges, and no separators. Inline rows
+/// sit inside a card that is already drawn, so they need nothing.
+private struct CardRow<Background: View>: ViewModifier {
+    let isEmbedded: Bool
+    let background: Background
 
-    var label: String {
-        switch self {
-        case .morning: return "Morning"
-        case .noon: return "Noon"
-        case .afternoon: return "Afternoon"
-        case .evening: return "Evening"
+    func body(content: Content) -> some View {
+        if isEmbedded {
+            content
+        } else {
+            content
+                .listRowBackground(background)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32))
         }
-    }
-
-    func contains(hour: Int) -> Bool {
-        switch self {
-        case .morning: return hour < 12
-        case .noon: return hour == 12
-        case .afternoon: return hour > 12 && hour < 18
-        case .evening: return hour >= 18
-        }
-    }
-}
-
-private extension View {
-    /// Strips `List`'s chrome so rows look like the old stacked layout.
-    func listRowModifiers(top: CGFloat = 6, bottom: CGFloat = 6) -> some View {
-        self
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: top, leading: 16, bottom: bottom, trailing: 16))
     }
 }
