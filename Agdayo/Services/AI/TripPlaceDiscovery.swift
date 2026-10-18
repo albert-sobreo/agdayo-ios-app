@@ -20,6 +20,11 @@ enum TripPlaceDiscovery {
         /// model can anchor descriptions to a real part of town instead of
         /// guessing.
         let locality: String?
+        /// Apple Maps' stable id for the place, so a full place card can be
+        /// loaded later. `nil` when MapKit didn't provide one.
+        var mapItemIdentifier: String? = nil
+        /// The city/town MapKit reports for the place.
+        var city: String? = nil
     }
 
     static let defaultRadius: CLLocationDistance = 5_000
@@ -136,7 +141,9 @@ enum TripPlaceDiscovery {
                     name: name,
                     category: displayCategory,
                     coordinate: coordinate,
-                    locality: locality.isEmpty ? nil : locality
+                    locality: locality.isEmpty ? nil : locality,
+                    mapItemIdentifier: item.identifier?.rawValue,
+                    city: item.placemark.locality
                 )
 
                 return (candidate, distance)

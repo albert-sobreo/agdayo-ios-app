@@ -11,12 +11,15 @@ struct ActivityRowView: View {
     let iconName: String
     let time: Date
     let isLast: Bool
+    /// English translation of `title`, when the place name is in another language.
+    var englishTitle: String? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             TimelineRail(time: time, isLast: isLast)
             ActivityCardContent(
                 title: title,
+                englishTitle: englishTitle,
                 location: location,
                 cost: cost,
                 costCurrency: costCurrency,
@@ -55,6 +58,7 @@ private struct TimelineRail: View {
 
 private struct ActivityCardContent: View {
     let title: String
+    let englishTitle: String?
     let location: String
     let cost: Double?
     let costCurrency: String?
@@ -68,6 +72,11 @@ private struct ActivityCardContent: View {
                     .foregroundStyle(Color(hex: 0xF0A693))
                 Text(title)
                     .font(AppFont.outfit(17, weight: .semibold, relativeTo: .body))
+            }
+            if let englishTitle {
+                Label(englishTitle, systemImage: "globe")
+                    .font(AppFont.outfit(12, relativeTo: .caption))
+                    .foregroundStyle(.secondary)
             }
             if !location.isEmpty {
                 Label(location, systemImage: "mappin.and.ellipse")

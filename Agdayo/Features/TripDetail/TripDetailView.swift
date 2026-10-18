@@ -101,7 +101,7 @@ struct TripDetailView: View {
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
-                ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
+                ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
             }
             .padding(.bottom, 24)
         }

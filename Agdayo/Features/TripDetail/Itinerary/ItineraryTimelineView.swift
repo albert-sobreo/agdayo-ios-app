@@ -6,6 +6,10 @@ import SwiftData
 struct ItineraryTimelineView: View {
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
+    /// True when inlined in `TripDetailView`'s own ScrollView. A `List` has no
+    /// intrinsic height there and collapses to nothing, so the embedded copy
+    /// uses a plain stack; swipe-to-delete lives on the pushed full screen.
+    var isEmbedded = false
 
     /// A live query scoped to this trip, not a `trip.activities` traversal —
     /// SwiftData's Observation tracking for to-many relationships doesn't
@@ -19,7 +23,7 @@ struct ItineraryTimelineView: View {
 
     @State private var isAddingActivity = false
     @State private var isGeneratingWithAI = false
-    /// Non-nil while the Plan My Day sheet is up; `.some(nil)` means "pick a day for me".
+    /// Non-nil while the Plan My Day sheet is up; a nil `day` means "pick one for me".
     @State private var planRequest: PlanRequest?
 
     private struct PlanRequest: Identifiable {
@@ -27,15 +31,15 @@ struct ItineraryTimelineView: View {
         let day: Date?
     }
 
-    init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
+    init(trip: Trip, memberProfiles: [AppUserProfile] = [], isEmbedded: Bool = false) {
         self.trip = trip
         self.memberProfiles = memberProfiles
+        self.isEmbedded = isEmbedded
         let tripID = trip.id
         _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID }, sort: \Activity.date)
     }
 
-    /// Every day of the trip (plus any stray day that has activities outside
-    /// the trip's range), so empty days can host a "Plan my day" row.
+    /// Every trip day is listed; empty days get a "Plan my day" row.
     private var dayGroups: [DayGroup] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: activities) { calendar.startOfDay(for: $0.date) }
@@ -50,9 +54,10 @@ struct ItineraryTimelineView: View {
         }
     }
 
-    var body: some View {
-        ScrollView {
-            if activities.isEmpty {
+    @ViewBuilder
+    private var content: some View {
+        if activities.isEmpty {
+            ScrollView {
                 EmptyStateView(
                     iconName: "note.text",
                     title: "No Activities Yet",
@@ -63,8 +68,10 @@ struct ItineraryTimelineView: View {
                     secondaryAction: { planRequest = PlanRequest(day: nil) }
                 )
                 .padding(.top, 60)
-            } else {
-                LazyVStack(alignment: .leading, spacing: 20) {
+            }
+        } else {
+            if isEmbedded {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
                         DaySection(
                             dayIndex: index + 1,
@@ -75,9 +82,29 @@ struct ItineraryTimelineView: View {
                         )
                     }
                 }
-                .padding()
+                .padding(.horizontal, 16)
+            } else {
+                // A `List` (not a ScrollView + LazyVStack) so rows get native
+                // swipe-to-delete, like the trips list.
+                List {
+                    ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
+                        DaySection(
+                            dayIndex: index + 1,
+                            group: group,
+                            trip: trip,
+                            memberProfiles: memberProfiles,
+                            onPlanDay: { planRequest = PlanRequest(day: group.day) }
+                        )
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
+    }
+
+    var body: some View {
+        content
         .navigationTitle("Itinerary")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -115,6 +142,8 @@ private struct DaySection: View {
     var memberProfiles: [AppUserProfile] = []
     var onPlanDay: () -> Void = {}
 
+    @Environment(\.modelContext) private var modelContext
+
     /// Flattened across bucket boundaries so travel time is computed between
     /// actual consecutive stops (e.g. last Morning stop → first Noon stop),
     /// not reset at each time-of-day divider.
@@ -123,66 +152,107 @@ private struct DaySection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Day \(dayIndex)")
-                    .font(AppFont.barlowCondensed(36, weight: .regular))
-                    .textCase(.uppercase)
-                Text(group.day.formatted(
-                    .dateTime
-                        .weekday(.abbreviated)
-                        .month(.abbreviated)
-                        .day()
-                ))
-                .font(AppFont.barlowCondensed(16, weight: .regular))
+        HStack(alignment: .firstTextBaseline) {
+            Text("Day \(dayIndex)")
+                .font(AppFont.barlowCondensed(36, weight: .regular))
                 .textCase(.uppercase)
-                .tracking(2)
-            }
+            Text(group.day.formatted(
+                .dateTime
+                    .weekday(.abbreviated)
+                    .month(.abbreviated)
+                    .day()
+            ))
+            .font(AppFont.barlowCondensed(16, weight: .regular))
+            .textCase(.uppercase)
+            .tracking(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .listRowModifiers(top: 14, bottom: 6)
 
-            if group.buckets.isEmpty {
-                Button(action: onPlanDay) {
-                    Label("Nothing planned — Plan my day", systemImage: "wand.and.stars")
-                        .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .foregroundStyle(trip.theme.accentColor)
-                        .background(trip.theme.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
+        if group.buckets.isEmpty {
+            Button(action: onPlanDay) {
+                Label("Nothing planned yet. Plan my day", systemImage: "wand.and.stars")
+                    .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .foregroundStyle(trip.theme.accentColor)
+                    .background(trip.theme.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
             }
+            .buttonStyle(.plain)
+            .listRowModifiers()
+        }
 
-            ForEach(group.buckets) { bucket in
-                TimeOfDayDivider(label: bucket.bucket.label)
-                ForEach(bucket.activities, id: \.id) { activity in
+        ForEach(group.buckets) { bucket in
+            TimeOfDayDivider(label: bucket.bucket.label)
+                .listRowModifiers()
+
+            ForEach(bucket.activities, id: \.id) { activity in
+                // Hidden `NavigationLink` so `List` doesn't append its
+                // disclosure chevron (same trick as the trips list).
+                ZStack {
                     NavigationLink {
                         ActivityDetailView(trip: trip, activity: activity, accentColor: trip.theme.accentColor, memberProfiles: memberProfiles)
                     } label: {
-                        ActivityRowView(
-                            title: activity.title,
-                            location: activity.location,
-                            cost: activity.cost,
-                            costCurrency: activity.costCurrency,
-                            costNote: activity.costNote,
-                            iconName: activity.iconName,
-                            time: activity.date,
-                            // Whether there's a next activity *that day*, not
-                            // just in this time-of-day bucket — otherwise the
-                            // connecting line stopped short at every bucket
-                            // boundary (e.g. a lone Afternoon activity before
-                            // an Evening one).
-                            isLast: nextActivity(after: activity) == nil
-                        )
+                        EmptyView()
                     }
-                    .buttonStyle(.plain)
+                    .opacity(0)
 
-                    if let next = nextActivity(after: activity),
-                       let fromCoordinate = activity.coordinate,
-                       let toCoordinate = next.coordinate {
-                        TravelConnectorView(fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
+                    ActivityRowView(
+                        title: activity.title,
+                        location: activity.location,
+                        cost: activity.cost,
+                        costCurrency: activity.costCurrency,
+                        costNote: activity.costNote,
+                        iconName: activity.iconName,
+                        time: activity.date,
+                        // Whether there's a next activity *that day*, not
+                        // just in this time-of-day bucket — otherwise the
+                        // connecting line stopped short at every bucket
+                        // boundary.
+                        isLast: nextActivity(after: activity) == nil,
+                        englishTitle: Self.englishName(in: activity.activityDescription)
+                    )
+                }
+                .listRowModifiers()
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        delete(activity)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
+                }
+
+                if let next = nextActivity(after: activity),
+                   let fromCoordinate = activity.coordinate,
+                   let toCoordinate = next.coordinate {
+                    TravelConnectorView(fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
+                        .listRowModifiers(top: 0, bottom: 0)
                 }
             }
         }
+    }
+
+    /// Plan My Day saves the English name of a foreign-language place as
+    /// "English: <name>" in the description; show it under the title.
+    private static func englishName(in description: String) -> String? {
+        let prefix = "English: "
+        guard description.hasPrefix(prefix) else { return nil }
+        let name = description.dropFirst(prefix.count).split(separator: "\n").first.map(String.init) ?? ""
+        return name.isEmpty ? nil : name
+    }
+
+    /// Mirrors `ActivityDetailView`'s delete: remote first (for synced
+    /// trips), then the reminder, then the local object.
+    private func delete(_ activity: Activity) {
+        if trip.ownerUID != nil {
+            let tripID = trip.id
+            let activityID = activity.id
+            Task {
+                try? await FirestoreCollectionSync.pushDelete(tripID: tripID, collection: "activities", docID: activityID)
+            }
+        }
+        NotificationScheduler.cancelReminder(forActivityID: activity.id)
+        modelContext.delete(activity)
     }
 
     private func nextActivity(after activity: Activity) -> Activity? {
@@ -318,5 +388,15 @@ private enum TimeOfDayBucket: CaseIterable {
         case .afternoon: return hour > 12 && hour < 18
         case .evening: return hour >= 18
         }
+    }
+}
+
+private extension View {
+    /// Strips `List`'s chrome so rows look like the old stacked layout.
+    func listRowModifiers(top: CGFloat = 6, bottom: CGFloat = 6) -> some View {
+        self
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: top, leading: 16, bottom: bottom, trailing: 16))
     }
 }
