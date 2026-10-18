@@ -44,6 +44,10 @@ private struct ProfileForm: View {
     @State private var isShowingDeleteError = false
     @State private var deleteAccountErrorMessage = ""
     @State private var nameSyncState: NameSyncState = .idle
+    /// The account the Full Name field currently belongs to. The field is only
+    /// ever saved to that account, so a name left over from someone else can't
+    /// overwrite the account you just signed in to.
+    @State private var nameOwnerUID: String?
     @AppStorage(NotificationScheduler.remindersEnabledKey) private var remindersEnabled = true
 
     var body: some View {
@@ -135,20 +139,22 @@ private struct ProfileForm: View {
                 NotificationScheduler.cancelAllReminders()
             }
         }
-        .task(id: authService.isSignedIn) {
-            guard authService.isSignedIn, let uid = authService.firebaseUser?.uid else {
+        .task(id: authService.firebaseUser?.uid) {
+            guard let uid = authService.firebaseUser?.uid else {
+                // Signed out: a name typed here stays on this device. Signing out
+                // itself clears it (see the Sign Out button).
                 appUserProfile = nil
+                nameOwnerUID = nil
                 return
             }
             appUserProfile = try? await UserDirectoryService.fetchProfile(uid: uid)
 
-            // First time here: start from the name the account already has,
-            // unless that's just an email or the "Traveler" fallback.
-            if profile.fullName.trimmingCharacters(in: .whitespaces).isEmpty,
-               let name = appUserProfile?.displayName ?? authService.firebaseUser?.displayName,
-               !name.contains("@"), name != "Traveler" {
-                profile.fullName = name
-            }
+            // The field always shows this account's name, so switching accounts
+            // never carries the previous one over. An email or the "Traveler"
+            // fallback isn't a real name, so it starts empty.
+            let name = appUserProfile?.displayName ?? authService.firebaseUser?.displayName ?? ""
+            profile.fullName = (name.contains("@") || name == "Traveler") ? "" : name
+            nameOwnerUID = uid
         }
         // Typing a name saves it to the account a moment after you stop, so it
         // becomes the name your travel companions see.
@@ -183,6 +189,8 @@ private struct ProfileForm: View {
             nameSyncState = .idle
             return
         }
+        // Not loaded for this account yet, so the field may still hold someone else's name.
+        guard nameOwnerUID == user.uid else { return }
         let name = profile.fullName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name != (appUserProfile?.displayName ?? user.displayName) else { return }
 
@@ -215,6 +223,9 @@ private struct ProfileForm: View {
             Button("Sign Out", role: .destructive) {
                 try? authService.signOut()
                 appUserProfile = nil
+                nameOwnerUID = nil
+                profile.fullName = ""
+                nameSyncState = .idle
             }
             Button("Delete Account", role: .destructive) {
                 isShowingDeleteConfirmation = true
@@ -250,6 +261,8 @@ private struct ProfileForm: View {
                 modelContext.delete(trip)
             }
             appUserProfile = nil
+            nameOwnerUID = nil
+            profile.fullName = ""
         } catch AuthServiceError.requiresRecentLogin {
             switch authService.signInProviderID {
             case "google.com":
