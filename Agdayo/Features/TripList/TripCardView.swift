@@ -64,6 +64,8 @@ struct MapBackgroundDecoration: View {
     private static let oversizeFactor: CGFloat = 1.6
     private static let cityBaseSpanMeters: CLLocationDistance = 60000
     private static let countryFallbackSpanMeters: CLLocationDistance = 1_500_000
+    private static let maxCountrySpanMeters: CLLocationDistance = 4_000_000
+    private static let maxCitySpanMeters: CLLocationDistance = 150_000
     private var oversizeFactor: CGFloat { Self.oversizeFactor }
 
     private var isCountryLevel: Bool {
@@ -108,10 +110,24 @@ struct MapBackgroundDecoration: View {
             guard isCountryLevel else { return }
             let geocoder = CLGeocoder()
             guard let placemark = try? await geocoder.geocodeAddressString(locationQuery).first else { return }
+            // A name with no comma is either a country or a single city/region.
+            // Geocoder regions include outlying territory ("Tokyo" reaches the
+            // Ogasawara islands, over 1,000 km out), so a city or prefecture is
+            // centered on the place itself and capped, while a country keeps
+            // its full extent but is capped too (e.g. the US with Hawaii).
+            let isCountry = placemark.name == placemark.country
             if let region = placemark.region as? CLCircularRegion {
-                cameraPosition = .region(Self.region(center: region.center, spanMeters: region.radius * 2))
+                if isCountry {
+                    let span = min(region.radius * 2, Self.maxCountrySpanMeters)
+                    cameraPosition = .region(Self.region(center: region.center, spanMeters: span))
+                } else {
+                    let span = min(max(region.radius * 2, Self.cityBaseSpanMeters), Self.maxCitySpanMeters)
+                    let center = placemark.location?.coordinate ?? region.center
+                    cameraPosition = .region(Self.region(center: center, spanMeters: span))
+                }
             } else if let center = placemark.location?.coordinate {
-                cameraPosition = .region(Self.region(center: center, spanMeters: Self.countryFallbackSpanMeters))
+                let span = isCountry ? Self.countryFallbackSpanMeters : Self.cityBaseSpanMeters
+                cameraPosition = .region(Self.region(center: center, spanMeters: span))
             }
         }
     }
