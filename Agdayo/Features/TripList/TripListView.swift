@@ -212,6 +212,7 @@ struct TripListView: View {
                 try? await TripMembershipService.deleteTripRecord(tripID: tripID)
             }
         }
+        NotificationScheduler.cancelReminders(for: trip)
         modelContext.delete(trip)
     }
 

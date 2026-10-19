@@ -258,6 +258,7 @@ private struct ProfileForm: View {
         do {
             try await authService.deleteAccount()
             for trip in trips where trip.ownerUID == uid {
+                NotificationScheduler.cancelReminders(for: trip)
                 modelContext.delete(trip)
             }
             appUserProfile = nil

@@ -266,6 +266,7 @@ struct MembersListView: View {
         Task {
             try? await TripMembershipService.removeMember(tripID: tripID, uid: currentUID)
         }
+        NotificationScheduler.cancelReminders(for: trip)
         modelContext.delete(trip)
         // Pops all the way back to the trip list instead of `dismiss()`,
         // which would only pop one level back to the (now-deleted) trip's

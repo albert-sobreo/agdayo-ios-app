@@ -279,6 +279,7 @@ final class TripContentSyncCoordinator {
     /// mirror too rather than leaving a dangling trip behind.
     private func applyTripFields(_ dto: TripFieldsDTO?, trip: Trip, modelContext: ModelContext) {
         guard let dto else {
+            NotificationScheduler.cancelReminders(for: trip)
             modelContext.delete(trip)
             return
         }

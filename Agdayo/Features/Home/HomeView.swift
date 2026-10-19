@@ -384,8 +384,7 @@ struct HomeView: View {
     }
 
     /// A themed recap card, rendered off-screen to a flat PNG via
-    /// `ImageRenderer` — simpler than `GlobalMapView`'s manual pin-drawing
-    /// since there's no MapKit snapshot involved, just a styled SwiftUI view.
+    /// `ImageRenderer`: no MapKit snapshot involved, just a styled SwiftUI view.
     private func share(_ trip: Trip) {
         let renderer = ImageRenderer(content: TripRecapCardView(trip: trip))
         renderer.scale = 3

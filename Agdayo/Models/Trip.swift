@@ -44,8 +44,7 @@ final class Trip {
     var longitude: Double?
 
     /// Reverse-geocoded from `coordinate`, self-healing the same way
-    /// `latitude`/`longitude` are (see `GlobalMapView.geocodeMissingTrips()`
-    /// and `VisitedPlacesMapView`'s equivalent backfill) — used to group
+    /// `latitude`/`longitude` are (see `VisitedPlacesMapView`'s backfill) — used to group
     /// completed trips by place for the visited-places map.
     var visitedCountry: String?
     var visitedProvince: String?

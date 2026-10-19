@@ -5,7 +5,6 @@ import FirebaseAuth
 private enum RootTab: Hashable {
     case home
     case trips
-    case map
     case profile
 }
 
@@ -30,14 +29,6 @@ struct RootTabView: View {
             Tab("Trips", systemImage: "suitcase.fill", value: .trips) {
                 TripListView(pendingJoinedTrip: $pendingJoinedTrip)
             }
-            Tab("Map", systemImage: "map.fill", value: .map) {
-                NavigationStack {
-                    // Leaving a trip from here should land on the trips
-                    // list, not just this tab's own map root.
-                    GlobalMapView(onLeftTrip: { selectedTab = .trips })
-                        .background(BackgroundImageModifier())
-                }
-            }
             Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
                 NavigationStack {
                     ProfileView()
@@ -48,7 +39,7 @@ struct RootTabView: View {
         .tint(.appPrimary)
         // Sits above the TabView (and whatever's pushed inside any tab's own
         // NavigationStack) so the indicator stays visible while browsing a
-        // trip's Itinerary/Budget/etc, not just its Map screen.
+        // trip's Itinerary/Budget/etc.
         .overlay(alignment: .bottom) {
             if locationSharing.isSharing {
                 LiveSharingBanner(
@@ -78,6 +69,9 @@ struct RootTabView: View {
         }
         .task {
             NotificationScheduler.requestAuthorizationIfNeeded()
+            // Clears reminders left behind by trips deleted before they were
+            // cancelled together with the trip.
+            NotificationScheduler.pruneOrphanedReminders(trips: trips)
         }
         .task(id: authService.isSignedIn) {
             // The full field-by-field refresh (1 read per owned trip) only

@@ -34,6 +34,33 @@ enum NotificationScheduler {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
+    /// Cancels the reminders for everything in a trip. Call before deleting
+    /// the trip: deleting it removes its activities and transport segments
+    /// from the store, but their pending notifications live in the system and
+    /// would still fire.
+    static func cancelReminders(for trip: Trip) {
+        let identifiers = trip.activities.map { activityIdentifier($0.id) }
+            + trip.transportSegments.map { transportIdentifier($0.id) }
+        cancel(identifiers: identifiers)
+    }
+
+    /// Removes pending reminders whose activity or transport segment no longer
+    /// exists, e.g. from a trip deleted before reminders were cancelled with it.
+    static func pruneOrphanedReminders(trips: [Trip]) {
+        let liveIdentifiers = Set(
+            trips.flatMap { $0.activities.map { activityIdentifier($0.id) } }
+                + trips.flatMap { $0.transportSegments.map { transportIdentifier($0.id) } }
+        )
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let orphans = requests.map(\.identifier).filter {
+                ($0.hasPrefix("activity-") || $0.hasPrefix("transport-")) && !liveIdentifiers.contains($0)
+            }
+            if !orphans.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: orphans)
+            }
+        }
+    }
+
     /// Re-schedules a reminder for every upcoming activity/transport segment
     /// across every trip — called when the toggle is switched back on, since
     /// nothing was tracked individually while it was off.

@@ -22,9 +22,8 @@ private struct VisitedPlace: Identifiable {
 /// upcoming/planned ones), by country/province/city. `Trip.location` is a
 /// flat string with no structured breakdown, so `visitedCountry`/
 /// `visitedProvince`/`visitedCity` are reverse-geocoded here the same
-/// self-healing way `GlobalMapView.geocodeMissingTrips()` backfills
-/// coordinates, just via `CLGeocoder.reverseGeocodeLocation` instead of
-/// forward-geocoding.
+/// self-healing way missing trip coordinates are backfilled, just via
+/// `CLGeocoder.reverseGeocodeLocation` instead of forward-geocoding.
 struct VisitedPlacesMapView: View {
     @Query(sort: \Trip.startDate) private var trips: [Trip]
 
@@ -112,6 +111,7 @@ struct VisitedPlacesMapView: View {
             }
         }
         .task {
+            await geocodeMissingCoordinates()
             await geocodeMissingVisitedPlaces()
         }
         .sheet(item: $shareItem) { item in
@@ -127,6 +127,42 @@ struct VisitedPlacesMapView: View {
             return partial.union(MKMapRect(x: point.x, y: point.y, width: 0, height: 0))
         }
         cameraPosition = .rect(rect.insetBy(dx: -rect.width * 0.2 - 500, dy: -rect.height * 0.2 - 500))
+    }
+
+    /// Older trips (or ones whose location was typed by hand) can have no
+    /// coordinate yet, which would leave them off this map. Forward-geocodes
+    /// the location text once and saves it, locally and to Firestore for
+    /// shared trips, so it never has to run again for that trip.
+    private func geocodeMissingCoordinates() async {
+        let geocoder = CLGeocoder()
+        for trip in completedTrips where trip.coordinate == nil {
+            let query = trip.location.trimmingCharacters(in: .whitespaces)
+            guard !query.isEmpty,
+                  let placemark = try? await geocoder.geocodeAddressString(query).first,
+                  let coordinate = placemark.location?.coordinate else { continue }
+
+            trip.latitude = coordinate.latitude
+            trip.longitude = coordinate.longitude
+
+            guard trip.ownerUID != nil else { continue }
+            let tripID = trip.id
+            let name = trip.name
+            let location = trip.location
+            let theme = trip.theme.rawValue
+            let startDate = trip.startDate
+            let endDate = trip.endDate
+            let overallBudget = trip.overallBudget
+            let currency = trip.currency
+            let tripDescription = trip.tripDescription
+            Task {
+                try? await TripMembershipService.updateTripRecord(
+                    tripID: tripID, name: name, location: location, theme: theme,
+                    startDate: startDate, endDate: endDate, overallBudget: overallBudget,
+                    currency: currency, tripDescription: tripDescription,
+                    latitude: coordinate.latitude, longitude: coordinate.longitude
+                )
+            }
+        }
     }
 
     /// Runs once per launch per trip that hasn't been reverse-geocoded yet —
@@ -220,8 +256,8 @@ struct VisitedPlacesMapView: View {
         }
     }
 
-    /// `MKMapSnapshotter` never includes annotations — mirrors
-    /// `GlobalMapView.drawPin` but labels a grouped place (with its trip
+    /// `MKMapSnapshotter` never includes annotations — draws
+    /// pins by hand and labels a grouped place (with its trip
     /// count) instead of a single trip.
     private func composeShareImage(snapshot: MKMapSnapshotter.Snapshot, places: [VisitedPlace]) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: snapshot.image.size)
