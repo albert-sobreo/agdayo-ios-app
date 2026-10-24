@@ -105,6 +105,7 @@ struct TripDetailView: View {
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     openPollCount: polls.filter { !$0.isClosed }.count,
                     ideaCount: ideas.count,
+                    hasPhotoAlbum: trip.albumURL != nil,
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
@@ -184,6 +185,8 @@ struct TripDetailView: View {
             TransportSegmentListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .notes:
             DayNoteListView(trip: trip)
+        case .photos:
+            TripPhotosView(trip: trip)
         case .polls:
             PollListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .members:

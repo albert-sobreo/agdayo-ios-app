@@ -26,6 +26,8 @@ struct TripFieldsDTO: Codable {
     /// Optional so older trip documents (written before this field existed)
     /// still decode cleanly.
     var memberBudgets: [String: Double]?
+    /// Optional so older trip documents (written before shared albums) still decode cleanly.
+    var albumURL: String?
 }
 
 struct TripMemberRecord: Identifiable {
@@ -340,5 +342,6 @@ final class TripContentSyncCoordinator {
         if let visitedCountry = dto.visitedCountry { trip.visitedCountry = visitedCountry }
         if let visitedProvince = dto.visitedProvince { trip.visitedProvince = visitedProvince }
         if let visitedCity = dto.visitedCity { trip.visitedCity = visitedCity }
+        if let albumURL = dto.albumURL { trip.albumURL = albumURL }
     }
 }

@@ -10,6 +10,7 @@ enum TripSectionRoute: Hashable {
     case preparation
     case transport
     case notes
+    case photos
     case polls
     case members
 }
@@ -27,6 +28,7 @@ struct TripSectionsRow: View {
     var memberCount: Int = 1
     var openPollCount: Int = 0
     var ideaCount: Int = 0
+    var hasPhotoAlbum: Bool = false
     var showsBalances: Bool = false
 
     var body: some View {
@@ -57,6 +59,9 @@ struct TripSectionsRow: View {
                 }
                 NavigationLink(value: TripSectionRoute.notes) {
                     SquareNavCard(iconName: "note.text", subtitle: "\(noteCount) Notes", title: "Day Notes", accentColor: accentColor)
+                }
+                NavigationLink(value: TripSectionRoute.photos) {
+                    SquareNavCard(iconName: "photo.on.rectangle", subtitle: hasPhotoAlbum ? "Shared Album" : "Set Up", title: "Photos", accentColor: accentColor)
                 }
                 NavigationLink(value: TripSectionRoute.polls) {
                     SquareNavCard(iconName: "chart.bar", subtitle: openPollCount > 0 ? "\(openPollCount) Open" : "Vote", title: "Polls", accentColor: accentColor)

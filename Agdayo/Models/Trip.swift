@@ -50,6 +50,11 @@ final class Trip {
     var visitedProvince: String?
     var visitedCity: String?
 
+    /// Link to the trip's iCloud Shared Album, if someone has created one.
+    /// Synced to everyone on the trip so they can join it; the photos
+    /// themselves live in Apple's Photos, not in Agdayo.
+    var albumURL: String?
+
     /// Firebase UID of the signed-in user who created this trip, if any.
     /// `nil` for trips created while signed out — those stay local-only until
     /// backfilled on a later sign-in. `Trip.id` doubles as the Firestore

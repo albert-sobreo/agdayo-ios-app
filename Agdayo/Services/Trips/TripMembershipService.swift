@@ -168,6 +168,19 @@ enum TripMembershipService {
         }
     }
 
+    /// Saves the trip's shared-album link for everyone on the trip. A targeted
+    /// field update, so it can't overwrite anyone's other edits to the trip.
+    static func pushAlbumURL(trip: Trip) {
+        guard trip.ownerUID != nil, let albumURL = trip.albumURL else { return }
+        let tripID = trip.id
+        Task {
+            try? await tripsCollection.document(tripID.uuidString).updateData([
+                "albumURL": albumURL,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+        }
+    }
+
     /// The overall budget is no longer entered directly — it's always the
     /// sum of the trip's budget categories, recomputed here whenever one is
     /// added, edited, or deleted (see `BudgetCategoryEditSheet`,

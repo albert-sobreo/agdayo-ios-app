@@ -21,6 +21,7 @@ enum TripDiscoveryService {
                 if let memberBudgets = fields.memberBudgets { trip.memberBudgets = memberBudgets }
                 if let latitude = fields.latitude { trip.latitude = latitude }
                 if let longitude = fields.longitude { trip.longitude = longitude }
+                if let albumURL = fields.albumURL { trip.albumURL = albumURL }
             }
         }
 
@@ -49,6 +50,7 @@ enum TripDiscoveryService {
             memberBudgets: fields.memberBudgets ?? [:]
         )
         trip.ownerUID = fields.ownerUID
+        trip.albumURL = fields.albumURL
         modelContext.insert(trip)
 
         if let activities = try? await FirestoreCollectionSync.fetchAll(tripID: tripID, collection: "activities", as: ActivityDTO.self) {

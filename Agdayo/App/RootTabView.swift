@@ -173,6 +173,8 @@ struct RootTabView: View {
                     return // stays ownerUID == nil; retried next foreground/sign-in
                 }
                 trip.ownerUID = uid
+                // An album made before the trip was shared still needs to reach the group.
+                TripMembershipService.pushAlbumURL(trip: trip)
                 for (id, dto) in activityDTOs {
                     try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: id, data: dto)
                 }
