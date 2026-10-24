@@ -195,6 +195,37 @@ struct BudgetOverviewView: View {
         .background(BrandPalette.blush, in: RoundedRectangle(cornerRadius: AppRadius.card))
     }
 
+    /// Opens the day-by-day chart. The card draws its own chevron, so the link
+    /// is hidden behind it (otherwise the list adds a second one).
+    private var dailyReportLink: some View {
+        ZStack {
+            NavigationLink(value: TripSectionRoute.budgetReport) {
+                EmptyView()
+            }
+            .opacity(0)
+
+            MoneyCard {
+                HStack(spacing: 12) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.title3)
+                        .foregroundStyle(accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Daily report")
+                            .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                            .foregroundStyle(.primary)
+                        Text("Spending day by day, by category")
+                            .font(AppFont.outfit(12, relativeTo: .caption))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
     /// Where the spending went, as four tiles like the trip screen's section buttons.
     private var breakdownGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
@@ -308,6 +339,7 @@ struct BudgetOverviewView: View {
         List {
             Section {
                 heroCard.moneyRow()
+                dailyReportLink.moneyRow()
                 breakdownGrid.moneyRow()
             }
 

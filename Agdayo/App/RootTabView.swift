@@ -145,7 +145,20 @@ struct RootTabView: View {
             let transportSegmentDTOs = trip.transportSegments.map { ($0.id, $0.dto) }
             let dayNoteDTOs = trip.dayNotes.map { ($0.id, $0.dto) }
             let expenseDTOs = trip.expenses.map { ($0.id, $0.dto) }
+            // Polls and ideas made while signed out were stored under the
+            // placeholder "local"; now that there's an account, they're yours.
+            for poll in trip.polls {
+                if poll.createdByUID == "local" { poll.createdByUID = uid }
+                if let vote = poll.votes.removeValue(forKey: "local") { poll.votes[uid] = vote }
+            }
+            for idea in trip.ideas {
+                if idea.addedByUID == "local" { idea.addedByUID = uid }
+                if idea.likedBy.contains("local") {
+                    idea.likedBy = Array(Set(idea.likedBy.map { $0 == "local" ? uid : $0 }))
+                }
+            }
             let pollDTOs = trip.polls.map { ($0.id, $0.dto) }
+            let ideaDTOs = trip.ideas.map { ($0.id, $0.dto) }
 
             Task { @MainActor in
                 do {
@@ -183,6 +196,9 @@ struct RootTabView: View {
                 }
                 for (id, dto) in pollDTOs {
                     try? await FirestoreCollectionSync.push(tripID: tripID, collection: "polls", docID: id, data: dto)
+                }
+                for (id, dto) in ideaDTOs {
+                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "ideas", docID: id, data: dto)
                 }
             }
         }

@@ -17,6 +17,7 @@ struct TripDetailView: View {
     @Query private var transportSegments: [TransportSegment]
     @Query private var dayNotes: [DayNote]
     @Query private var polls: [TripPoll]
+    @Query private var ideas: [TripIdea]
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -38,6 +39,7 @@ struct TripDetailView: View {
         _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
         _dayNotes = Query(filter: #Predicate<DayNote> { $0.trip?.id == tripID })
         _polls = Query(filter: #Predicate<TripPoll> { $0.trip?.id == tripID })
+        _ideas = Query(filter: #Predicate<TripIdea> { $0.trip?.id == tripID })
     }
 
     /// Same conversion `Trip.activityCostsTotal` does, just against the
@@ -102,6 +104,7 @@ struct TripDetailView: View {
                     noteCount: dayNotes.count,
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
                     openPollCount: polls.filter { !$0.isClosed }.count,
+                    ideaCount: ideas.count,
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
@@ -163,12 +166,16 @@ struct TripDetailView: View {
     @ViewBuilder
     private func destination(for route: TripSectionRoute) -> some View {
         switch route {
+        case .ideas:
+            IdeaListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .itinerary:
             ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .accommodations:
             AccommodationListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .budget:
             BudgetOverviewView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
+        case .budgetReport:
+            DailyBudgetReportView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .balances:
             BalancesView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .preparation:

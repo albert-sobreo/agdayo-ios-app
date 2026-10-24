@@ -182,7 +182,7 @@ enum TripMembershipService {
     /// `TripContentSyncCoordinator.start(for:)` listens to plus `members`.
     private static let tripSubcollections = [
         "members", "liveLocations", "activities", "accommodations", "budgetCategories",
-        "preparationTasks", "transportSegments", "dayNotes", "settlements", "expenses", "polls"
+        "preparationTasks", "transportSegments", "dayNotes", "settlements", "expenses", "polls", "ideas"
     ]
 
     /// Each subcollection is cleaned up independently (`try?`) so one

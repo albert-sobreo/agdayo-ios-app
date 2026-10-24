@@ -1,9 +1,11 @@
 import SwiftUI
 
 enum TripSectionRoute: Hashable {
+    case ideas
     case itinerary
     case accommodations
     case budget
+    case budgetReport
     case balances
     case preparation
     case transport
@@ -24,11 +26,15 @@ struct TripSectionsRow: View {
     let noteCount: Int
     var memberCount: Int = 1
     var openPollCount: Int = 0
+    var ideaCount: Int = 0
     var showsBalances: Bool = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
+                NavigationLink(value: TripSectionRoute.ideas) {
+                    SquareNavCard(iconName: "lightbulb", subtitle: ideaCount == 1 ? "1 Idea" : "\(ideaCount) Ideas", title: "Ideas", accentColor: accentColor)
+                }
                 NavigationLink(value: TripSectionRoute.itinerary) {
                     SquareNavCard(iconName: "map", subtitle: "\(activityCount) Activities", title: "Itinerary", accentColor: accentColor)
                 }

@@ -41,6 +41,8 @@ struct ActivityEditSheet: View {
     @State private var mapSelection: MapSelection<UUID>?
     @State private var isResolvingPlace = false
     @State private var mapSearchText = ""
+    /// Counts map taps so a slow lookup can't overwrite a newer one.
+    @State private var pickGeneration = 0
     /// The title last filled in from a map pick, so picking another place can
     /// replace it without overwriting a title the person typed themselves.
     @State private var autoFilledTitle: String?
@@ -85,18 +87,9 @@ struct ActivityEditSheet: View {
         _splitAmounts = State(initialValue: editingActivity?.splitAmounts ?? [:])
     }
 
-    /// Gap between the previous activity's start and a new activity's default start.
-    private static let defaultGap: TimeInterval = 60 * 60
-
-    /// A new activity starts one hour after the trip's latest activity (passed
-    /// in by the caller from a live query), on the same day unless that pushes
-    /// past the trip's last day. Falls back to the trip's start date when there
-    /// are no activities yet.
+    /// `latest` comes from the caller's live query, not `trip.activities`.
     private static func defaultNewDate(for trip: Trip, after latest: Date?) -> Date {
-        guard let latest else { return trip.startDate }
-        let next = latest.addingTimeInterval(defaultGap)
-        let lastMoment = Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: trip.endDate) ?? trip.endDate
-        return min(next, lastMoment)
+        ActivitySaver.defaultDate(for: trip, after: latest)
     }
 
     private var dateRange: ClosedRange<Date> {
@@ -338,10 +331,19 @@ struct ActivityEditSheet: View {
 
     /// Fills in the form from a tapped map place.
     private func choose(_ feature: MapFeature) async {
+        pickGeneration += 1
+        let generation = pickGeneration
         isResolvingPlace = true
-        defer { isResolvingPlace = false }
+        defer {
+            isResolvingPlace = false
+            // The chosen place has its own marker; clearing the map's selection
+            // means tapping the same place again picks it again.
+            mapSelection = nil
+        }
         guard let item = try? await MKMapItemRequest(feature: feature).mapItem,
               let name = item.name, !name.isEmpty else { return }
+        // A newer tap started while this one was loading; let that one win.
+        guard generation == pickGeneration else { return }
         applyPlace(name: name, coordinate: item.placemark.coordinate)
         mapSearchText = name
     }

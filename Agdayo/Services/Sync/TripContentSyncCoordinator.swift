@@ -96,6 +96,10 @@ final class TripContentSyncCoordinator {
             Task { @MainActor in self?.applyPoll(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
         })
 
+        listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "ideas", as: TripIdeaDTO.self) { [weak self] type, docID, dto in
+            Task { @MainActor in self?.applyIdea(type: type, docID: docID, dto: dto, trip: trip, modelContext: modelContext) }
+        })
+
         // Listen for members subcollection changes
         listeners.append(FirestoreCollectionSync.listen(tripID: tripID, collection: "members", as: TripMemberDTO.self) { [weak self] type, docID, dto in
             Task { @MainActor in await self?.applyMember(type: type, docID: docID, dto: dto) }
@@ -272,6 +276,23 @@ final class TripContentSyncCoordinator {
             }
         case .removed:
             if let existing = trip.polls.first(where: { $0.id == id }) {
+                modelContext.delete(existing)
+            }
+        }
+    }
+
+    private func applyIdea(type: DocumentChangeType, docID: String, dto: TripIdeaDTO?, trip: Trip, modelContext: ModelContext) {
+        guard let id = UUID(uuidString: docID) else { return }
+        switch type {
+        case .added, .modified:
+            guard let dto else { return }
+            if let existing = trip.ideas.first(where: { $0.id == id }) {
+                existing.apply(dto)
+            } else {
+                modelContext.insert(TripIdea(id: id, dto: dto, trip: trip))
+            }
+        case .removed:
+            if let existing = trip.ideas.first(where: { $0.id == id }) {
                 modelContext.delete(existing)
             }
         }

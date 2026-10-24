@@ -55,6 +55,7 @@ struct AgdayoApp: App {
             UserProfile.self,
             Settlement.self,
             TripPoll.self,
+            TripIdea.self,
         ])
         // UI tests pass `-UITestReset` so each run starts from an empty
         // store instead of accumulating trips left by earlier runs.
