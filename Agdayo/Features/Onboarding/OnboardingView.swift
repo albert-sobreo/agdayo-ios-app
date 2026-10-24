@@ -75,13 +75,13 @@ struct OnboardingView: View {
         .background(Color.black)
     }
 
-    private var isLastPage: Bool { pageIndex == onboardingPages.count - 1 }
+    private var isLastPage: Bool { pageIndex >= onboardingPages.count - 1 }
 
     private func advance() {
         if isLastPage {
             onFinish()
         } else {
-            withAnimation { pageIndex += 1 }
+            withAnimation { pageIndex = min(pageIndex + 1, onboardingPages.count - 1) }
         }
     }
 }

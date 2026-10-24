@@ -53,6 +53,33 @@ struct ExpenseEditSheet: View {
         _splitAmounts = State(initialValue: editingExpense?.splitAmounts ?? [:])
     }
 
+    @State private var isConfirmingDiscard = false
+    /// Every input as one string, captured when the sheet appears, so Cancel
+    /// can tell whether anything changed.
+    @State private var initialSignature: String?
+
+    private var signature: String {
+        let parts: [String] = [
+            name,
+            "\(hasDate)",
+            "\(date.timeIntervalSince1970)",
+            "\(hasTime)",
+            "\(time.timeIntervalSince1970)",
+            costText,
+            costCurrency,
+            (budgetCategoryID?.uuidString ?? ""),
+            (budgetMemberUID ?? ""),
+            (paidByUID ?? ""),
+            splitUIDs.sorted().joined(separator: ","),
+            splitAmounts.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        ]
+        return parts.joined(separator: "|")
+    }
+
+    private var hasChanges: Bool {
+        initialSignature != nil && signature != initialSignature
+    }
+
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
             && (budgetCategoryID != nil || budgetMemberUID != nil)
@@ -129,7 +156,9 @@ struct ExpenseEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        if hasChanges { isConfirmingDiscard = true } else { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
@@ -137,10 +166,12 @@ struct ExpenseEditSheet: View {
                 }
             }
         }
+        .confirmsDiscard(isPresented: $isConfirmingDiscard, onDiscard: { dismiss() })
         .onAppear {
             if editingExpense == nil, paidByUID == nil {
                 paidByUID = authService.firebaseUser?.uid
             }
+            if initialSignature == nil { initialSignature = signature }
         }
     }
 

@@ -9,6 +9,8 @@ private enum CreateTripStep {
 
 struct ManualTripFormView: View {
     var onSaved: () -> Void = {}
+    /// Called when the person confirms closing without saving.
+    var onCancel: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
@@ -24,6 +26,15 @@ struct ManualTripFormView: View {
     @State private var endDate: Date?
     @State private var currency = "PHP"
     @State private var tripDescription = ""
+    @State private var isConfirmingDiscard = false
+
+    /// Anything typed or picked so far, i.e. something that closing would lose.
+    private var hasProgress: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+            || !location.trimmingCharacters(in: .whitespaces).isEmpty
+            || startDate != nil || endDate != nil
+            || !tripDescription.isEmpty
+    }
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
@@ -58,6 +69,26 @@ struct ManualTripFormView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        // Swiping the sheet down must not throw away a half-made trip; closing
+        // goes through Cancel, which asks first once there is something to lose.
+        .interactiveDismissDisabled()
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    if hasProgress {
+                        isConfirmingDiscard = true
+                    } else {
+                        onCancel()
+                    }
+                }
+            }
+        }
+        .confirmationDialog("Discard this trip?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
+            Button("Discard Trip", role: .destructive) { onCancel() }
+            Button("Keep Editing", role: .cancel) {}
+        } message: {
+            Text("The details you entered won't be saved.")
+        }
     }
 
     private func save() {

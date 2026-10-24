@@ -57,3 +57,18 @@ struct FormField<Content: View>: View {
         }
     }
 }
+
+extension View {
+    /// For sheets with a lot of input: swiping down can't close them, and the
+    /// Cancel button asks first (the sheet decides when, via `isPresented`).
+    func confirmsDiscard(isPresented: Binding<Bool>, onDiscard: @escaping () -> Void) -> some View {
+        self
+            .interactiveDismissDisabled()
+            .confirmationDialog("Discard changes?", isPresented: isPresented, titleVisibility: .visible) {
+                Button("Discard Changes", role: .destructive, action: onDiscard)
+                Button("Keep Editing", role: .cancel) {}
+            } message: {
+                Text("What you entered won't be saved.")
+            }
+    }
+}

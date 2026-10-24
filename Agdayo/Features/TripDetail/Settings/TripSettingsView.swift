@@ -18,6 +18,14 @@ struct TripSettingsView: View {
     @State private var currency: String
     @State private var tripDescription: String
     @State private var isShowingDeleteConfirmation = false
+    @State private var isConfirmingDiscard = false
+
+    /// Whether anything differs from the saved trip.
+    private var hasChanges: Bool {
+        name != trip.name || location != trip.location || theme != trip.theme
+            || startDate != trip.startDate || endDate != trip.endDate
+            || currency != trip.currency || tripDescription != trip.tripDescription
+    }
 
     init(trip: Trip, onDeleted: @escaping () -> Void) {
         self.trip = trip
@@ -124,7 +132,9 @@ struct TripSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        if hasChanges { isConfirmingDiscard = true } else { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
@@ -143,6 +153,7 @@ struct TripSettingsView: View {
                 Text("This removes all activities, accommodations, budget, preparation, transport, and notes for this trip. This can't be undone.")
             }
         }
+        .confirmsDiscard(isPresented: $isConfirmingDiscard, onDiscard: { dismiss() })
     }
 
     private func save() {

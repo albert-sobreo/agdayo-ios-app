@@ -37,6 +37,10 @@ struct PrivacyPolicyView: View {
                     Text("If you choose to add an activity or transport booking to your device's Calendar, Agdayo requests Calendar access for that one action. Reminders for upcoming activities are scheduled as local notifications on your device only. Agdayo does not use push notifications and has no server that knows your notification schedule.")
                 }
 
+                PolicySection(title: "Photos") {
+                    Text("When you share a trip recap, map, or stats image, Agdayo can save it to your photo library if you choose Save to Photos. Agdayo only adds images and never reads, scans, or uploads the photos in your library.")
+                }
+
                 PolicySection(title: "On-Device Translation") {
                     Text("When place names in Plan My Day are in a foreign language, Agdayo shows an English translation. This uses Apple's Translation framework, which translates on your device. The place names are not sent to Agdayo's servers.")
                 }
@@ -71,7 +75,7 @@ struct PrivacyPolicyView: View {
     private static let lastUpdated: String = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM d, yyyy"
-        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 10, day: 18)) ?? .now)
+        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 10, day: 21)) ?? .now)
     }()
 }
 

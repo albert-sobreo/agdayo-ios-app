@@ -60,6 +60,34 @@ struct ActivityEditSheet: View {
         return trip.startDate...end
     }
 
+    @State private var isConfirmingDiscard = false
+    /// Every input as one string, captured when the sheet appears, so Cancel
+    /// can tell whether anything changed.
+    @State private var initialSignature: String?
+
+    private var signature: String {
+        let parts: [String] = [
+            title,
+            location,
+            "\(date.timeIntervalSince1970)",
+            costText,
+            costCurrency,
+            costNote,
+            activityDescription,
+            iconName,
+            (budgetCategoryID?.uuidString ?? ""),
+            (budgetMemberUID ?? ""),
+            (paidByUID ?? ""),
+            splitUIDs.sorted().joined(separator: ","),
+            splitAmounts.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+        ]
+        return parts.joined(separator: "|")
+    }
+
+    private var hasChanges: Bool {
+        initialSignature != nil && signature != initialSignature
+    }
+
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
     }
@@ -147,7 +175,9 @@ struct ActivityEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        if hasChanges { isConfirmingDiscard = true } else { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
@@ -155,10 +185,12 @@ struct ActivityEditSheet: View {
                 }
             }
         }
+        .confirmsDiscard(isPresented: $isConfirmingDiscard, onDiscard: { dismiss() })
         .onAppear {
             if editingActivity == nil, paidByUID == nil {
                 paidByUID = authService.firebaseUser?.uid
             }
+            if initialSignature == nil { initialSignature = signature }
         }
     }
 

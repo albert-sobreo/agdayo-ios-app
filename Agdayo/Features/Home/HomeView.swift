@@ -125,12 +125,10 @@ struct HomeView: View {
             }
             .sheet(isPresented: $isPresentingCreateFlow) {
                 NavigationStack {
-                    ManualTripFormView(onSaved: { isPresentingCreateFlow = false })
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Cancel") { isPresentingCreateFlow = false }
-                            }
-                        }
+                    ManualTripFormView(
+                        onSaved: { isPresentingCreateFlow = false },
+                        onCancel: { isPresentingCreateFlow = false }
+                    )
                 }
             }
             .sheet(isPresented: $isPresentingJoinFlow) {
