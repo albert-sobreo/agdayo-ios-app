@@ -14,6 +14,14 @@ enum FirestoreCollectionSync {
         try await collection(tripID: tripID, name: name).document(docID.uuidString).setData(from: data)
     }
 
+    /// Updates only the given fields (keys are field names or `FieldPath`s),
+    /// leaving the rest of the document alone. Unlike `push`, this can't
+    /// overwrite a change someone else made to a different field meanwhile —
+    /// which is why votes use it rather than rewriting the whole poll.
+    static func updateFields(tripID: UUID, collection name: String, docID: UUID, fields: [AnyHashable: Any]) async throws {
+        try await collection(tripID: tripID, name: name).document(docID.uuidString).updateData(fields)
+    }
+
     static func pushDelete(tripID: UUID, collection name: String, docID: UUID) async throws {
         try await collection(tripID: tripID, name: name).document(docID.uuidString).delete()
     }

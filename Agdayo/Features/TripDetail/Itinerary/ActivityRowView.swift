@@ -42,6 +42,8 @@ struct ActivityRowView: View {
     /// First and last stop of the day: the line starts and ends at the dot.
     var isFirst = false
     var isLast = false
+    /// False for rows that don't open anything (transport, check-in/out).
+    var showsChevron = true
 
     private let verticalPadding: CGFloat = 12
     private let dotSize: CGFloat = 10
@@ -95,10 +97,12 @@ struct ActivityRowView: View {
 
             Spacer(minLength: 0)
 
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .padding(.vertical, verticalPadding)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, verticalPadding)
+            }
         }
         .contentShape(Rectangle())
     }

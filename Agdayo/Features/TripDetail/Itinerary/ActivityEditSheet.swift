@@ -36,7 +36,7 @@ struct ActivityEditSheet: View {
         _location = State(initialValue: editingActivity?.location ?? "")
         _latitude = State(initialValue: editingActivity?.latitude)
         _longitude = State(initialValue: editingActivity?.longitude)
-        _date = State(initialValue: editingActivity?.date ?? trip.startDate)
+        _date = State(initialValue: editingActivity?.date ?? Self.defaultNewDate(for: trip))
         _costText = State(initialValue: editingActivity?.cost.map { String($0) } ?? "")
         _costCurrency = State(initialValue: editingActivity?.costCurrency ?? trip.currency)
         _costNote = State(initialValue: editingActivity?.costNote ?? "")
@@ -52,6 +52,19 @@ struct ActivityEditSheet: View {
             _splitUIDs = State(initialValue: Set(memberProfiles.map(\.uid)))
         }
         _splitAmounts = State(initialValue: editingActivity?.splitAmounts ?? [:])
+    }
+
+    /// Gap between the previous activity's start and a new activity's default start.
+    private static let defaultGap: TimeInterval = 60 * 60
+
+    /// A new activity starts one hour after the trip's latest activity, on
+    /// the same day unless that pushes past the trip's last day. Falls back to
+    /// the trip's start date when there are no activities yet.
+    private static func defaultNewDate(for trip: Trip) -> Date {
+        guard let latest = trip.activities.map(\.date).max() else { return trip.startDate }
+        let next = latest.addingTimeInterval(defaultGap)
+        let lastMoment = Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: trip.endDate) ?? trip.endDate
+        return min(next, lastMoment)
     }
 
     private var dateRange: ClosedRange<Date> {

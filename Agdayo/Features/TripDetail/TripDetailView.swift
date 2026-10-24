@@ -16,6 +16,7 @@ struct TripDetailView: View {
     @Query private var preparationTasks: [PreparationTask]
     @Query private var transportSegments: [TransportSegment]
     @Query private var dayNotes: [DayNote]
+    @Query private var polls: [TripPoll]
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -36,6 +37,7 @@ struct TripDetailView: View {
         _preparationTasks = Query(filter: #Predicate<PreparationTask> { $0.trip?.id == tripID })
         _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
         _dayNotes = Query(filter: #Predicate<DayNote> { $0.trip?.id == tripID })
+        _polls = Query(filter: #Predicate<TripPoll> { $0.trip?.id == tripID })
     }
 
     /// Same conversion `Trip.activityCostsTotal` does, just against the
@@ -99,6 +101,7 @@ struct TripDetailView: View {
                     transportCount: transportSegments.count,
                     noteCount: dayNotes.count,
                     memberCount: max(1, syncCoordinator.memberProfiles.count),
+                    openPollCount: polls.filter { !$0.isClosed }.count,
                     showsBalances: syncCoordinator.memberProfiles.count > 1
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
@@ -174,6 +177,8 @@ struct TripDetailView: View {
             TransportSegmentListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .notes:
             DayNoteListView(trip: trip)
+        case .polls:
+            PollListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .members:
             MembersListView(trip: trip, syncCoordinator: syncCoordinator, onLeftTrip: onLeftTrip)
         }

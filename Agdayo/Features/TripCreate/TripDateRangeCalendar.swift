@@ -132,6 +132,8 @@ private struct DayCell: View {
         return calendar.isDate(day, inSameDayAs: endDate)
     }
 
+    private var isToday: Bool { calendar.isDateInToday(day) }
+
     /// Includes the endpoints themselves so the highlight bar runs behind
     /// their circles too, not just the days strictly between them.
     private var isWithinSelection: Bool {
@@ -178,10 +180,13 @@ private struct DayCell: View {
                     }
                     if isStart || isEnd {
                         Circle().fill(Color.appPrimary)
+                    } else if isToday {
+                        // Ring marks today without competing with the selection fill.
+                        Circle().strokeBorder(Color.appPrimary, lineWidth: 1.5)
                     }
                     Text("\(calendar.component(.day, from: day))")
-                        .font(AppFont.outfit(16, weight: isStart || isEnd ? .bold : .regular, relativeTo: .callout))
-                        .foregroundStyle(isStart || isEnd ? .white : .primary)
+                        .font(AppFont.outfit(16, weight: isStart || isEnd || isToday ? .bold : .regular, relativeTo: .callout))
+                        .foregroundStyle(isStart || isEnd ? .white : (isToday ? Color.appPrimary : .primary))
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
             }

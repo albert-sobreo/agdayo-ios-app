@@ -74,6 +74,9 @@ final class Trip {
     @Relationship(deleteRule: .cascade, inverse: \DayNote.trip)
     var dayNotes: [DayNote] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \TripPoll.trip)
+    var polls: [TripPoll] = []
+
     @Relationship(deleteRule: .cascade, inverse: \Settlement.trip)
     var settlements: [Settlement] = []
 

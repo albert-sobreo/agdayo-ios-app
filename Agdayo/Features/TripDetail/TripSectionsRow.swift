@@ -8,6 +8,7 @@ enum TripSectionRoute: Hashable {
     case preparation
     case transport
     case notes
+    case polls
     case members
 }
 
@@ -22,6 +23,7 @@ struct TripSectionsRow: View {
     let transportCount: Int
     let noteCount: Int
     var memberCount: Int = 1
+    var openPollCount: Int = 0
     var showsBalances: Bool = false
 
     var body: some View {
@@ -49,6 +51,9 @@ struct TripSectionsRow: View {
                 }
                 NavigationLink(value: TripSectionRoute.notes) {
                     SquareNavCard(iconName: "note.text", subtitle: "\(noteCount) Notes", title: "Day Notes", accentColor: accentColor)
+                }
+                NavigationLink(value: TripSectionRoute.polls) {
+                    SquareNavCard(iconName: "chart.bar", subtitle: openPollCount > 0 ? "\(openPollCount) Open" : "Vote", title: "Polls", accentColor: accentColor)
                 }
                 NavigationLink(value: TripSectionRoute.members) {
                     SquareNavCard(iconName: "person.2", subtitle: "\(memberCount) Member\(memberCount == 1 ? "" : "s")", title: "Members", accentColor: accentColor)

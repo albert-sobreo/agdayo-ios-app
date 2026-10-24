@@ -54,6 +54,7 @@ struct AgdayoApp: App {
             DayNote.self,
             UserProfile.self,
             Settlement.self,
+            TripPoll.self,
         ])
         // UI tests pass `-UITestReset` so each run starts from an empty
         // store instead of accumulating trips left by earlier runs.
