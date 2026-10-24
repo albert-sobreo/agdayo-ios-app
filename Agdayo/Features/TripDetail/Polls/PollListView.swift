@@ -13,6 +13,7 @@ struct PollListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
     @State private var isAdding = false
+    @State private var isShowingSignInAlert = false
 
     init(trip: Trip, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
@@ -29,6 +30,16 @@ struct PollListView: View {
         trip.ownerUID == nil || trip.ownerUID == authService.firebaseUser?.uid
     }
 
+    /// A shared trip's polls live in Firestore under your account, so voting
+    /// or starting one while signed out would only ever be saved on this device.
+    private var canParticipate: Bool {
+        trip.ownerUID == nil || authService.firebaseUser != nil
+    }
+
+    private func startPoll() {
+        if canParticipate { isAdding = true } else { isShowingSignInAlert = true }
+    }
+
     private var openPolls: [TripPoll] { polls.filter { !$0.isClosed } }
     private var closedPolls: [TripPoll] { polls.filter(\.isClosed) }
 
@@ -40,7 +51,7 @@ struct PollListView: View {
                     title: "No Polls Yet",
                     message: "Ask the group a question, or propose an activity for everyone to vote on.",
                     actionTitle: "Start a Poll",
-                    action: { isAdding = true }
+                    action: startPoll
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(BrandPalette.canvas.ignoresSafeArea())
@@ -70,13 +81,18 @@ struct PollListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { isAdding = true } label: {
+                Button(action: startPoll) {
                     Label("Start a Poll", systemImage: "plus")
                 }
             }
         }
         .sheet(isPresented: $isAdding) {
             PollEditSheet(trip: trip)
+        }
+        .alert("Sign In to Vote", isPresented: $isShowingSignInAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("This trip is shared, so you need to be signed in to start or vote on polls.")
         }
     }
 
@@ -85,11 +101,19 @@ struct PollListView: View {
             poll: poll,
             accentColor: trip.theme.accentColor,
             myVote: poll.votes[currentUID],
-            memberCount: max(1, memberProfiles.count),
+            // Unknown (nil) until the member list loads, and for unshared trips.
+            memberCount: memberProfiles.isEmpty ? nil : memberProfiles.count,
+            eligibleVoters: memberProfiles.isEmpty ? nil : Set(memberProfiles.map(\.uid)),
             creatorName: memberProfiles.first { $0.uid == poll.createdByUID }?.displayName,
             canManage: isOwner,
             canDelete: isOwner || poll.createdByUID == currentUID,
-            onVote: { TripPollService.vote(poll, option: $0, uid: currentUID, in: trip) },
+            onVote: { option in
+                guard canParticipate else {
+                    isShowingSignInAlert = true
+                    return
+                }
+                TripPollService.vote(poll, option: option, uid: currentUID, in: trip)
+            },
             onClose: { TripPollService.close(poll, in: trip) },
             onApprove: { TripPollService.approve(poll, in: trip, modelContext: modelContext) },
             onDelete: { TripPollService.delete(poll, in: trip, modelContext: modelContext) }
@@ -104,7 +128,9 @@ private struct PollCard: View {
     let poll: TripPoll
     let accentColor: Color
     let myVote: Int?
-    let memberCount: Int
+    let memberCount: Int?
+    /// Current trip members, so votes from people who left aren't counted.
+    let eligibleVoters: Set<String>?
     let creatorName: String?
     let canManage: Bool
     let canDelete: Bool
@@ -191,10 +217,11 @@ private struct PollCard: View {
     }
 
     private func optionRow(_ index: Int) -> some View {
-        let count = poll.voteCount(for: index)
-        let share = poll.totalVotes == 0 ? 0 : Double(count) / Double(poll.totalVotes)
+        let count = poll.voteCount(for: index, among: eligibleVoters)
+        let total = poll.totalVotes(among: eligibleVoters)
+        let share = total == 0 ? 0 : Double(count) / Double(total)
         let isMine = myVote == index
-        let isWinner = poll.isClosed && poll.leadingOptionIndices.contains(index)
+        let isWinner = poll.isClosed && poll.leadingOptionIndices(among: eligibleVoters).contains(index)
 
         return Button {
             onVote(index)
@@ -237,7 +264,11 @@ private struct PollCard: View {
 
     private var footer: some View {
         HStack(spacing: 6) {
-            Text("\(poll.totalVotes) of \(memberCount) voted")
+            if let memberCount {
+                Text("\(poll.totalVotes(among: eligibleVoters)) of \(memberCount) voted")
+            } else {
+                Text("\(poll.totalVotes()) voted")
+            }
             if let creatorName {
                 Text("·")
                 Text("by \(creatorName)")

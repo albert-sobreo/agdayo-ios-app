@@ -28,7 +28,7 @@ struct ActivityEditSheet: View {
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
 
-    init(trip: Trip, editingActivity: Activity? = nil, memberProfiles: [AppUserProfile] = []) {
+    init(trip: Trip, editingActivity: Activity? = nil, memberProfiles: [AppUserProfile] = [], latestActivityDate: Date? = nil) {
         self.trip = trip
         self.editingActivity = editingActivity
         self.memberProfiles = memberProfiles
@@ -36,7 +36,7 @@ struct ActivityEditSheet: View {
         _location = State(initialValue: editingActivity?.location ?? "")
         _latitude = State(initialValue: editingActivity?.latitude)
         _longitude = State(initialValue: editingActivity?.longitude)
-        _date = State(initialValue: editingActivity?.date ?? Self.defaultNewDate(for: trip))
+        _date = State(initialValue: editingActivity?.date ?? Self.defaultNewDate(for: trip, after: latestActivityDate))
         _costText = State(initialValue: editingActivity?.cost.map { String($0) } ?? "")
         _costCurrency = State(initialValue: editingActivity?.costCurrency ?? trip.currency)
         _costNote = State(initialValue: editingActivity?.costNote ?? "")
@@ -57,11 +57,12 @@ struct ActivityEditSheet: View {
     /// Gap between the previous activity's start and a new activity's default start.
     private static let defaultGap: TimeInterval = 60 * 60
 
-    /// A new activity starts one hour after the trip's latest activity, on
-    /// the same day unless that pushes past the trip's last day. Falls back to
-    /// the trip's start date when there are no activities yet.
-    private static func defaultNewDate(for trip: Trip) -> Date {
-        guard let latest = trip.activities.map(\.date).max() else { return trip.startDate }
+    /// A new activity starts one hour after the trip's latest activity (passed
+    /// in by the caller from a live query), on the same day unless that pushes
+    /// past the trip's last day. Falls back to the trip's start date when there
+    /// are no activities yet.
+    private static func defaultNewDate(for trip: Trip, after latest: Date?) -> Date {
+        guard let latest else { return trip.startDate }
         let next = latest.addingTimeInterval(defaultGap)
         let lastMoment = Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: trip.endDate) ?? trip.endDate
         return min(next, lastMoment)

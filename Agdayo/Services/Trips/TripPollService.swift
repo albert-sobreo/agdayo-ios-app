@@ -76,9 +76,20 @@ enum TripPollService {
         guard trip.ownerUID != nil else { return }
         let tripID = trip.id
         let pollID = poll.id
+        // Already includes the change just made locally, for the fallback below.
+        let fullDTO = poll.dto
         nonisolated(unsafe) let fields = fields
         Task {
-            try? await FirestoreCollectionSync.updateFields(tripID: tripID, collection: collection, docID: pollID, fields: fields)
+            do {
+                try await FirestoreCollectionSync.updateFields(tripID: tripID, collection: collection, docID: pollID, fields: fields)
+            } catch let error as NSError
+                where error.domain == FirestoreErrorDomain && error.code == FirestoreErrorCode.notFound.rawValue {
+                // The poll never reached Firestore (e.g. it was created while
+                // offline), so there's nothing to update — create it instead.
+                try? await FirestoreCollectionSync.push(tripID: tripID, collection: collection, docID: pollID, data: fullDTO)
+            } catch {
+                // Anything else (e.g. no permission) isn't something a retry would fix.
+            }
         }
     }
 }

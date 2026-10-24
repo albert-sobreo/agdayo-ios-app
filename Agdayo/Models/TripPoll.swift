@@ -70,15 +70,25 @@ final class TripPoll {
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-    var totalVotes: Int { votes.count }
+    /// Votes that count: only those from `eligible` voters (the trip's current
+    /// members), so someone who left doesn't skew the tally. `nil` when the
+    /// member list isn't known (unshared trip, or still loading) counts every vote.
+    private func countedVotes(among eligible: Set<String>?) -> [String: Int] {
+        guard let eligible else { return votes }
+        return votes.filter { eligible.contains($0.key) }
+    }
 
-    func voteCount(for optionIndex: Int) -> Int {
-        votes.values.filter { $0 == optionIndex }.count
+    func totalVotes(among eligible: Set<String>? = nil) -> Int {
+        countedVotes(among: eligible).count
+    }
+
+    func voteCount(for optionIndex: Int, among eligible: Set<String>? = nil) -> Int {
+        countedVotes(among: eligible).values.filter { $0 == optionIndex }.count
     }
 
     /// Options with the most votes — more than one on a tie, none before any vote.
-    var leadingOptionIndices: [Int] {
-        let counts = options.indices.map(voteCount(for:))
+    func leadingOptionIndices(among eligible: Set<String>? = nil) -> [Int] {
+        let counts = options.indices.map { voteCount(for: $0, among: eligible) }
         guard let top = counts.max(), top > 0 else { return [] }
         return options.indices.filter { counts[$0] == top }
     }

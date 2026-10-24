@@ -64,6 +64,17 @@ struct ItineraryTimelineView: View {
         }
     }
 
+    /// "Day N" counts from the trip's first day, so something booked outside the
+    /// trip's dates (a flight the evening before) is labelled as such instead
+    /// of becoming "Day 1" and shifting every real day along.
+    private func dayTitle(for day: Date) -> String {
+        let calendar = Calendar.current
+        let tripDays = trip.calendarDays.map { calendar.startOfDay(for: $0) }.sorted()
+        if let index = tripDays.firstIndex(of: day) { return "Day \(index + 1)" }
+        guard let first = tripDays.first else { return "Day 1" }
+        return day < first ? "Before trip" : "After trip"
+    }
+
     /// The time to mark on today's day, or nil when the trip isn't in progress.
     private var nowMarker: Date? {
         let calendar = Calendar.current
@@ -96,7 +107,7 @@ struct ItineraryTimelineView: View {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
                         DaySection(
-                            dayIndex: index + 1,
+                            dayTitle: dayTitle(for: group.day),
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
@@ -113,7 +124,7 @@ struct ItineraryTimelineView: View {
                 List {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
                         DaySection(
-                            dayIndex: index + 1,
+                            dayTitle: dayTitle(for: group.day),
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
@@ -156,13 +167,15 @@ struct ItineraryTimelineView: View {
             PlanMyDaySheet(trip: trip, initialDay: request.day)
         }
         .sheet(isPresented: $isAddingActivity) {
-            ActivityEditSheet(trip: trip, memberProfiles: memberProfiles)
+            // From the live query, not `trip.activities`, so an activity added a
+            // moment ago is always counted.
+            ActivityEditSheet(trip: trip, memberProfiles: memberProfiles, latestActivityDate: activities.map(\.date).max())
         }
     }
 }
 
 private struct DaySection: View {
-    let dayIndex: Int
+    let dayTitle: String
     let group: DayGroup
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
@@ -215,7 +228,7 @@ private struct DaySection: View {
     /// like a Plan My Day step header.
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("Day \(dayIndex)")
+            Text(dayTitle)
                 .font(AppFont.barlowCondensed(26, weight: .semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(trip.theme.accentColor)
