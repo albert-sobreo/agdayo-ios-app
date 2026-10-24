@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import FirebaseAuth
 
 struct ActivityEditSheet: View {
@@ -28,10 +29,40 @@ struct ActivityEditSheet: View {
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
 
+    /// How a new activity's place is chosen: typing a name, or tapping a place on a map.
+    private enum EntryMode: String, CaseIterable, Identifiable {
+        case type = "Type"
+        case map = "Map"
+        var id: String { rawValue }
+    }
+
+    @State private var entryMode: EntryMode = .type
+    @State private var camera: MapCameraPosition
+    @State private var mapSelection: MapSelection<UUID>?
+    @State private var isResolvingPlace = false
+    @State private var mapSearchText = ""
+    /// The title last filled in from a map pick, so picking another place can
+    /// replace it without overwriting a title the person typed themselves.
+    @State private var autoFilledTitle: String?
+    /// Activities added so far with "Add & Next" in this sitting.
+    @State private var addedCount = 0
+    @State private var scrollPosition = ScrollPosition(edge: .top)
+
+    /// Live query so the map's pins and the next default time include
+    /// activities added a moment ago (see `ItineraryTimelineView`'s `@Query`).
+    @Query private var tripActivities: [Activity]
+
     init(trip: Trip, editingActivity: Activity? = nil, memberProfiles: [AppUserProfile] = [], latestActivityDate: Date? = nil) {
         self.trip = trip
         self.editingActivity = editingActivity
         self.memberProfiles = memberProfiles
+        let tripID = trip.id
+        _tripActivities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID })
+        if let center = trip.coordinate {
+            _camera = State(initialValue: .region(MKCoordinateRegion(center: center, latitudinalMeters: 8000, longitudinalMeters: 8000)))
+        } else {
+            _camera = State(initialValue: .automatic)
+        }
         _title = State(initialValue: editingActivity?.title ?? "")
         _location = State(initialValue: editingActivity?.location ?? "")
         _latitude = State(initialValue: editingActivity?.latitude)
@@ -183,8 +214,21 @@ struct ActivityEditSheet: View {
                 }
                 .padding()
             }
+            .scrollPosition($scrollPosition)
             .scrollDismissesKeyboard(.interactively)
             .brandForm(accent: trip.theme.accentColor)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if isAdding {
+                    VStack(spacing: 0) {
+                        modePicker
+                        if isMapMode { mapPicker }
+                    }
+                    .background(BrandPalette.canvas)
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isMapMode { mapActionBar }
+            }
             .navigationTitle(editingActivity == nil ? "Add Activity" : "Edit Activity")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -193,10 +237,17 @@ struct ActivityEditSheet: View {
                         if hasChanges { isConfirmingDiscard = true } else { dismiss() }
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .disabled(!isValid)
+                // In map mode the bottom bar has the Add buttons instead.
+                if !isMapMode {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { save() }
+                            .disabled(!isValid)
+                    }
                 }
+            }
+            .onChange(of: mapSelection) { _, selection in
+                guard let feature = selection?.feature else { return }
+                Task { await choose(feature) }
             }
         }
         .confirmsDiscard(isPresented: $isConfirmingDiscard, onDiscard: { dismiss() })
@@ -208,7 +259,139 @@ struct ActivityEditSheet: View {
         }
     }
 
+    private var isAdding: Bool { editingActivity == nil }
+    private var isMapMode: Bool { isAdding && entryMode == .map }
+
+    private var modePicker: some View {
+        Picker("Choose place by", selection: $entryMode) {
+            ForEach(EntryMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+    }
+
+    /// A plain map: tap any named place on it (restaurant, landmark, beach…),
+    /// or search for one, to fill in the title, location and coordinates below.
+    /// Only the place you choose is marked.
+    private var mapPicker: some View {
+        Map(position: $camera, selection: $mapSelection) {
+            if let latitude, let longitude {
+                Marker(title.isEmpty ? location : title, systemImage: iconName, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                    .tint(trip.theme.accentColor)
+            }
+        }
+        .containerRelativeFrame(.vertical) { height, _ in height * 0.34 }
+        .overlay(alignment: .top) {
+            LocationSearchField(
+                placeholder: "Search or tap a place on the map",
+                text: $mapSearchText,
+                regionBiasCenter: trip.coordinate,
+                onSelect: { name, coordinate in
+                    applyPlace(name: name, coordinate: coordinate)
+                    if let coordinate {
+                        camera = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1500, longitudinalMeters: 1500))
+                    }
+                }
+            )
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .padding(8)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if isResolvingPlace {
+                ProgressView()
+                    .padding(10)
+                    .background(.regularMaterial, in: Circle())
+                    .padding(8)
+            }
+        }
+    }
+
+    /// Add & Next saves this activity and clears the form for the next one;
+    /// Add saves and closes. Once something has been added, Add becomes Done.
+    private var mapActionBar: some View {
+        VStack(spacing: 8) {
+            if addedCount > 0 {
+                Text(addedCount == 1 ? "1 activity added" : "\(addedCount) activities added")
+                    .font(AppFont.outfit(12, relativeTo: .caption))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 12) {
+                Button("Add & Next", action: addAndNext)
+                    .buttonStyle(.appSecondary)
+                    .disabled(!isValid)
+                Button(isValid || addedCount == 0 ? "Add" : "Done") {
+                    if isValid { save() } else { dismiss() }
+                }
+                .buttonStyle(.appPrimary)
+                .disabled(!isValid && addedCount == 0)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    /// Fills in the form from a tapped map place.
+    private func choose(_ feature: MapFeature) async {
+        isResolvingPlace = true
+        defer { isResolvingPlace = false }
+        guard let item = try? await MKMapItemRequest(feature: feature).mapItem,
+              let name = item.name, !name.isEmpty else { return }
+        applyPlace(name: name, coordinate: item.placemark.coordinate)
+        mapSearchText = name
+    }
+
+    /// Shared by tapping a place and picking a search result.
+    private func applyPlace(name: String, coordinate: CLLocationCoordinate2D?) {
+        location = name
+        latitude = coordinate?.latitude
+        longitude = coordinate?.longitude
+        if title.trimmingCharacters(in: .whitespaces).isEmpty || title == autoFilledTitle {
+            title = name
+            autoFilledTitle = name
+        }
+    }
+
+    private func addAndNext() {
+        guard isValid else { return }
+        let saved = persist()
+        addedCount += 1
+        // Start the next one an hour after whichever is latest, including the one just saved.
+        let latest = (tripActivities.map(\.date) + [saved.date]).max()
+        title = ""
+        autoFilledTitle = nil
+        location = ""
+        latitude = nil
+        longitude = nil
+        costText = ""
+        costNote = ""
+        exchangeRate = nil
+        activityDescription = ""
+        iconName = "mappin.and.ellipse"
+        budgetCategoryID = nil
+        budgetMemberUID = nil
+        splitAmounts = [:]
+        date = Self.defaultNewDate(for: trip, after: latest)
+        mapSelection = nil
+        mapSearchText = ""
+        scrollPosition.scrollTo(edge: .top)
+        // What's saved is no longer an unsaved change for Cancel's discard prompt.
+        initialSignature = signature
+    }
+
     private func save() {
+        _ = persist()
+        dismiss()
+    }
+
+    /// Inserts or updates the activity, syncs it and schedules its reminder.
+    @discardableResult
+    private func persist() -> Activity {
         let cost = Double(costText)
         let rate = costCurrency == trip.currency ? nil : exchangeRate
         let activity: Activity
@@ -254,7 +437,7 @@ struct ActivityEditSheet: View {
         }
         pushIfShared(activity)
         NotificationScheduler.scheduleReminder(for: activity)
-        dismiss()
+        return activity
     }
 
     private func pushIfShared(_ activity: Activity) {
