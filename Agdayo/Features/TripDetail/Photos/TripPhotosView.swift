@@ -147,7 +147,7 @@ struct TripPhotosView: View {
                 }
 
                 HStack(spacing: 12) {
-                    Button("Open in Photos") { openURL(url) }
+                    Button("View") { openURL(url) }
                         .buttonStyle(.appSecondary)
                     ShareLink(item: url, message: Text("Join our \(trip.name) photo album")) {
                         Label("Invite", systemImage: "square.and.arrow.up")
