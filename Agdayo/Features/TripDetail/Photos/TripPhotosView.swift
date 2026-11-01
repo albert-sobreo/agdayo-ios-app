@@ -12,6 +12,8 @@ struct TripPhotosView: View {
     let trip: Trip
 
     @Environment(\.openURL) private var openURL
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
 
     @State private var isCreatingAlbum = false
     @State private var isCustomizingAlbum = false
@@ -48,6 +50,12 @@ struct TripPhotosView: View {
     /// "signed out" when iCloud Drive is off but Shared Albums still work, so
     /// the person can always choose to try anyway.
     private func requiringICloud(_ action: @escaping () -> Void) {
+        // Making an album and adding to it are part of the full unlock; opening
+        // and sharing one that already exists stays free.
+        guard store.isUnlocked else {
+            lockedFeature = .photoAlbum
+            return
+        }
         if FileManager.default.ubiquityIdentityToken != nil {
             action()
         } else {
@@ -112,6 +120,7 @@ struct TripPhotosView: View {
             onPostingFinished: { pickedItems = [] },
             onError: { errorMessage = $0 }
         )
+        .paywall($lockedFeature)
         .alert("Couldn't Finish", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {

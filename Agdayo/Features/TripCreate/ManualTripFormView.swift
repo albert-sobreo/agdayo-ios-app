@@ -14,6 +14,7 @@ struct ManualTripFormView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
 
     @State private var step: CreateTripStep = .destination
 
@@ -110,13 +111,15 @@ struct ManualTripFormView: View {
             // succeeds — setting it optimistically beforehand would make a
             // failed (e.g. offline) upload look "already synced," so
             // `RootTabView`'s backfill would never retry it.
+            let ownerUnlocked = store.isUnlocked
             Task { @MainActor in
                 do {
                     try await TripMembershipService.createTripRecord(
                         tripID: trip.id, ownerUID: uid, name: trip.name, location: trip.location,
                         theme: trip.theme.rawValue, startDate: trip.startDate, endDate: trip.endDate,
                         overallBudget: trip.overallBudget, currency: trip.currency, tripDescription: trip.tripDescription,
-                        latitude: trip.latitude, longitude: trip.longitude
+                        latitude: trip.latitude, longitude: trip.longitude,
+                        ownerUnlocked: ownerUnlocked
                     )
                     trip.ownerUID = uid
                 } catch {

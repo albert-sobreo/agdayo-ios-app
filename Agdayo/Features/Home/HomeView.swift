@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 /// The app's default landing tab — a curated summary instead of the raw
 /// trip list (that's still the Trips tab, for full search/browse). Owns its
@@ -13,6 +14,9 @@ struct HomeView: View {
     /// elsewhere in the app without a round trip through navigation (see
     /// `TripDetailView`'s own `activities` query for the same workaround).
     @Query(sort: \Activity.date) private var allActivities: [Activity]
+    @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
     @State private var path = NavigationPath()
     @State private var shareItem: ShareItem?
     @State private var isPresentingCreateFlow = false
@@ -23,6 +27,15 @@ struct HomeView: View {
     /// all the way to the top of the screen.
     @State private var topSafeAreaInset: CGFloat = 0
     @State private var showsAllPastTrips = false
+
+    /// The free version holds a couple of trips; past that, show the unlock screen.
+    private func startCreatingTrip() {
+        if store.canCreateTrip(existing: trips, uid: authService.firebaseUser?.uid) {
+            isPresentingCreateFlow = true
+        } else {
+            lockedFeature = .moreTrips
+        }
+    }
 
     /// An in-progress trip takes priority over a future one for the
     /// showcase slot — "what's happening right now" is more relevant than
@@ -53,7 +66,7 @@ struct HomeView: View {
                             title: "No Trips Yet",
                             message: "Plan your first trip or join a friend's trip with an invite code.",
                             actionTitle: "Create a Trip",
-                            action: { isPresentingCreateFlow = true }
+                            action: { startCreatingTrip() }
                         )
 
                         Button {
@@ -105,7 +118,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            isPresentingCreateFlow = true
+                            startCreatingTrip()
                         } label: {
                             Label("Create Trip", systemImage: "plus")
                         }
@@ -123,6 +136,7 @@ struct HomeView: View {
             .sheet(item: $shareItem) { item in
                 ActivityShareSheet(activityItems: [item.url])
             }
+            .paywall($lockedFeature)
             .sheet(isPresented: $isPresentingCreateFlow) {
                 NavigationStack {
                     ManualTripFormView(
@@ -285,7 +299,7 @@ struct HomeView: View {
             title: "No Upcoming Trips",
             message: "Plan your next trip or join a friend's trip with an invite code.",
             actionTitle: "Create a Trip",
-            action: { isPresentingCreateFlow = true },
+            action: { startCreatingTrip() },
             secondaryActionTitle: "Join with Code",
             secondaryAction: { isPresentingJoinFlow = true }
         )
@@ -384,6 +398,10 @@ struct HomeView: View {
     /// A themed recap card, rendered off-screen to a flat PNG via
     /// `ImageRenderer`: no MapKit snapshot involved, just a styled SwiftUI view.
     private func share(_ trip: Trip) {
+        guard store.isUnlocked else {
+            lockedFeature = .recapExport
+            return
+        }
         let renderer = ImageRenderer(content: TripRecapCardView(trip: trip))
         renderer.scale = 3
         guard let uiImage = renderer.uiImage, let data = uiImage.pngData() else { return }

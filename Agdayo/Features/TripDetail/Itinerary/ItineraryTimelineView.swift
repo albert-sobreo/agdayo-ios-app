@@ -31,10 +31,21 @@ struct ItineraryTimelineView: View {
     @State private var now = Date.now
     /// Non-nil while the Plan My Day sheet is up; a nil `day` means "pick one for me".
     @State private var planRequest: PlanRequest?
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
 
     private struct PlanRequest: Identifiable {
         let id = UUID()
         let day: Date?
+    }
+
+    /// Plan My Day is part of the full unlock.
+    private func startPlanning(day: Date?) {
+        if store.isUnlocked {
+            planRequest = PlanRequest(day: day)
+        } else {
+            lockedFeature = .planMyDay
+        }
     }
 
     init(trip: Trip, memberProfiles: [AppUserProfile] = [], isEmbedded: Bool = false) {
@@ -94,7 +105,7 @@ struct ItineraryTimelineView: View {
                     actionTitle: "Add Activity",
                     action: { isAddingActivity = true },
                     secondaryActionTitle: "Plan My Day",
-                    secondaryAction: { planRequest = PlanRequest(day: nil) }
+                    secondaryAction: { startPlanning(day: nil) }
                 )
                 .padding(.top, 60)
             }
@@ -113,7 +124,7 @@ struct ItineraryTimelineView: View {
                             memberProfiles: memberProfiles,
                             now: nowMarker,
                             isEmbedded: true,
-                            onPlanDay: { planRequest = PlanRequest(day: group.day) }
+                            onPlanDay: { startPlanning(day: group.day) }
                         )
                     }
                 }
@@ -130,7 +141,7 @@ struct ItineraryTimelineView: View {
                             memberProfiles: memberProfiles,
                             now: nowMarker,
                             isEmbedded: false,
-                            onPlanDay: { planRequest = PlanRequest(day: group.day) }
+                            onPlanDay: { startPlanning(day: group.day) }
                         )
                     }
                 }
@@ -149,7 +160,7 @@ struct ItineraryTimelineView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button("Add Activity", systemImage: "plus") { isAddingActivity = true }
-                    Button("Plan My Day", systemImage: "wand.and.stars") { planRequest = PlanRequest(day: nil) }
+                    Button("Plan My Day", systemImage: "wand.and.stars") { startPlanning(day: nil) }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -166,6 +177,7 @@ struct ItineraryTimelineView: View {
         .sheet(item: $planRequest) { request in
             PlanMyDaySheet(trip: trip, initialDay: request.day)
         }
+        .paywall($lockedFeature)
         .sheet(isPresented: $isAddingActivity) {
             // From the live query, not `trip.activities`, so an activity added a
             // moment ago is always counted.

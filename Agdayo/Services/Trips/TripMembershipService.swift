@@ -5,9 +5,12 @@ enum TripJoinError: LocalizedError {
     case tripNotFound
     case alreadyMember
     case notSignedIn
+    case tripFull
 
     var errorDescription: String? {
         switch self {
+        case .tripFull:
+            return "This trip is full. Free trips hold up to \(StoreService.freeMemberLimit) people. Ask the trip owner to unlock Agdayo to add more."
         case .invalidCode:
             return "The invitation code is invalid or does not exist."
         case .tripNotFound:
@@ -63,7 +66,8 @@ enum TripMembershipService {
         visitedCountry: String? = nil,
         visitedProvince: String? = nil,
         visitedCity: String? = nil,
-        memberBudgets: [String: Double] = [:]
+        memberBudgets: [String: Double] = [:],
+        ownerUnlocked: Bool = true
     ) async throws {
         let joinCode = generateRandomCode()
         let tripRef = tripsCollection.document(tripID.uuidString)
@@ -78,6 +82,7 @@ enum TripMembershipService {
             "currency": currency,
             "tripDescription": tripDescription,
             "memberBudgets": memberBudgets,
+            "ownerUnlocked": ownerUnlocked,
             "joinCode": joinCode,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
@@ -165,6 +170,21 @@ enum TripMembershipService {
                 overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
                 latitude: latitude, longitude: longitude, memberBudgets: memberBudgets
             )
+        }
+    }
+
+    /// Records whether the trip's owner has the full version, which decides how
+    /// many people can join. Remembers what it last sent so it only writes on a change.
+    static func syncOwnerUnlocked(tripID: UUID, unlocked: Bool) {
+        let key = "ownerUnlockedSent.\(tripID.uuidString)"
+        if let sent = UserDefaults.standard.object(forKey: key) as? Bool, sent == unlocked { return }
+        Task {
+            do {
+                try await tripsCollection.document(tripID.uuidString).updateData(["ownerUnlocked": unlocked])
+                UserDefaults.standard.set(unlocked, forKey: key)
+            } catch {
+                // Not remembered, so the next foreground tries again.
+            }
         }
     }
 
@@ -258,6 +278,17 @@ enum TripMembershipService {
         let existingTripIDs = (try? await fetchMemberTripIDs(uid: uid)) ?? []
         if existingTripIDs.contains(tripID) {
             throw TripJoinError.alreadyMember
+        }
+
+        // A free trip holds a few people. A trip with no flag at all was made
+        // while the app was paid, so its owner is unlocked. Checked here on the
+        // joining device, since there's no server to enforce it.
+        let ownerUnlocked = tripDoc.data()?["ownerUnlocked"] as? Bool ?? true
+        if !ownerUnlocked {
+            let memberCount = try await tripRef.collection("members").count.getAggregation(source: .server).count.intValue
+            if memberCount >= StoreService.freeMemberLimit {
+                throw TripJoinError.tripFull
+            }
         }
 
         try await tripRef.collection("members").document(uid).setData([

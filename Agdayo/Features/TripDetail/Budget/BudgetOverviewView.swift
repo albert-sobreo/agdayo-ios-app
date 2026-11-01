@@ -17,6 +17,8 @@ struct BudgetOverviewView: View {
     @Query private var expenses: [Expense]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
     @State private var isAddingCategory = false
     @State private var editingCategory: BudgetCategory?
     @State private var editingAccommodation: Accommodation?
@@ -195,33 +197,48 @@ struct BudgetOverviewView: View {
         .background(BrandPalette.blush, in: RoundedRectangle(cornerRadius: AppRadius.card))
     }
 
-    /// Opens the day-by-day chart. The card draws its own chevron, so the link
-    /// is hidden behind it (otherwise the list adds a second one).
+    /// Opens the day-by-day chart, which is part of the full unlock. When it's
+    /// locked, tapping the card shows the unlock screen instead.
+    @ViewBuilder
     private var dailyReportLink: some View {
-        ZStack {
-            NavigationLink(value: TripSectionRoute.budgetReport) {
-                EmptyView()
-            }
-            .opacity(0)
-
-            MoneyCard {
-                HStack(spacing: 12) {
-                    Image(systemName: "chart.bar.xaxis")
-                        .font(.title3)
-                        .foregroundStyle(accent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Daily report")
-                            .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
-                            .foregroundStyle(.primary)
-                        Text("Spending day by day, by category")
-                            .font(AppFont.outfit(12, relativeTo: .caption))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+        if store.isUnlocked {
+            // The card draws its own chevron, so the link is hidden behind it
+            // (otherwise the list adds a second one).
+            ZStack {
+                NavigationLink(value: TripSectionRoute.budgetReport) {
+                    EmptyView()
                 }
+                .opacity(0)
+                dailyReportCard(isLocked: false)
+            }
+        } else {
+            Button {
+                lockedFeature = .dailyBudgetReport
+            } label: {
+                dailyReportCard(isLocked: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func dailyReportCard(isLocked: Bool) -> some View {
+        MoneyCard {
+            HStack(spacing: 12) {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.title3)
+                    .foregroundStyle(accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Daily report")
+                        .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                        .foregroundStyle(.primary)
+                    Text("Spending day by day, by category")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: isLocked ? "lock.fill" : "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -496,6 +513,7 @@ struct BudgetOverviewView: View {
                 .accessibilityLabel("Add")
             }
         }
+        .paywall($lockedFeature)
         .sheet(isPresented: $isAddingCategory) {
             BudgetCategoryEditSheet(trip: trip)
         }

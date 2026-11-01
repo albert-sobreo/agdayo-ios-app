@@ -14,6 +14,7 @@ struct RootTabView: View {
     @Environment(AuthService.self) private var authService
     @Environment(LiveLocationSharingCoordinator.self) private var locationSharing
     @Environment(TripLiveActivityCoordinator.self) private var liveActivity
+    @Environment(StoreService.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var deepLinkCode: String = ""
@@ -86,12 +87,17 @@ struct RootTabView: View {
                 await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
             }
         }
+        // Once what the person owns is known (and whenever it changes, e.g. right
+        // after buying), tell each of their trips so joiners know its size limit.
+        .onChange(of: store.hasLoadedEntitlements) { _, _ in syncOwnerUnlockedFlags() }
+        .onChange(of: store.isUnlocked) { _, _ in syncOwnerUnlockedFlags() }
         .onChange(of: scenePhase) { _, newPhase in
             // Only retries trips that failed to upload earlier (no network,
             // or created while signed out) — a no-op loop once everything
             // has synced, so it's cheap to run on every foreground.
             if newPhase == .active {
                 backfillOwnershipIfNeeded()
+                syncOwnerUnlockedFlags()
                 // Live Activities have no push server to refresh them in
                 // the background, so every foreground is the opportunity
                 // to bring the current/next-activity state up to date (and
@@ -112,6 +118,17 @@ struct RootTabView: View {
             if newPhase == .background {
                 locationSharing.stop()
             }
+        }
+    }
+
+    /// Writes whether the owner has the full version onto each trip they own
+    /// (only changes are sent). Waits until the purchase check has finished, so a
+    /// paying customer is never briefly recorded as free just because the app
+    /// hadn't asked the App Store yet.
+    private func syncOwnerUnlockedFlags() {
+        guard store.hasLoadedEntitlements, let uid = authService.firebaseUser?.uid else { return }
+        for trip in trips where trip.ownerUID == uid {
+            TripMembershipService.syncOwnerUnlocked(tripID: trip.id, unlocked: store.isUnlocked)
         }
     }
 
@@ -157,6 +174,7 @@ struct RootTabView: View {
                     idea.likedBy = Array(Set(idea.likedBy.map { $0 == "local" ? uid : $0 }))
                 }
             }
+            let ownerUnlocked = store.isUnlocked
             let pollDTOs = trip.polls.map { ($0.id, $0.dto) }
             let ideaDTOs = trip.ideas.map { ($0.id, $0.dto) }
 
@@ -167,7 +185,8 @@ struct RootTabView: View {
                         theme: theme, startDate: startDate, endDate: endDate,
                         overallBudget: overallBudget, currency: currency, tripDescription: tripDescription,
                         latitude: latitude, longitude: longitude,
-                        visitedCountry: visitedCountry, visitedProvince: visitedProvince, visitedCity: visitedCity
+                        visitedCountry: visitedCountry, visitedProvince: visitedProvince, visitedCity: visitedCity,
+                        ownerUnlocked: ownerUnlocked
                     )
                 } catch {
                     return // stays ownerUID == nil; retried next foreground/sign-in

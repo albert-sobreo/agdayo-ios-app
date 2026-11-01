@@ -12,6 +12,8 @@ struct IdeaListView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
     @State private var isAdding = false
     @State private var editingIdea: TripIdea?
     @State private var isShowingSignInAlert = false
@@ -55,7 +57,12 @@ struct IdeaListView: View {
     private var plannedIdeas: [TripIdea] { ideas.filter(\.isPlanned) }
 
     private func startAdding() {
-        if canParticipate { isAdding = true } else { isShowingSignInAlert = true }
+        guard canParticipate else {
+            isShowingSignInAlert = true
+            return
+        }
+        // Reacting to ideas is free; adding one is part of the full unlock.
+        if store.isUnlocked { isAdding = true } else { lockedFeature = .addIdeas }
     }
 
     var body: some View {
@@ -107,6 +114,7 @@ struct IdeaListView: View {
         .sheet(item: $editingIdea) { idea in
             IdeaEditSheet(trip: trip, editingIdea: idea)
         }
+        .paywall($lockedFeature)
         .alert("Sign In to Add Ideas", isPresented: $isShowingSignInAlert) {
             Button("OK", role: .cancel) {}
         } message: {

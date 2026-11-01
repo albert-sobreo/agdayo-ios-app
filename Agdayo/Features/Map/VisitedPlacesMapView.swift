@@ -32,6 +32,8 @@ struct VisitedPlacesMapView: View {
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var isGeneratingSnapshot = false
     @State private var shareItem: ShareItem?
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
 
     private var completedTrips: [Trip] {
         trips.filter { $0.status == .completed }
@@ -117,6 +119,7 @@ struct VisitedPlacesMapView: View {
         .sheet(item: $shareItem) { item in
             ActivityShareSheet(activityItems: [item.url])
         }
+        .paywall($lockedFeature)
     }
 
     private func fitAllPlaces() {
@@ -220,6 +223,10 @@ struct VisitedPlacesMapView: View {
     /// channel, so the exported image is a genuine sticker — no background
     /// rectangle — that overlays cleanly onto any photo.
     private func shareStats() {
+        guard store.isUnlocked else {
+            lockedFeature = .recapExport
+            return
+        }
         let renderer = ImageRenderer(content: TravelStats.compute(from: trips))
         renderer.isOpaque = false
         renderer.scale = 3
@@ -235,6 +242,10 @@ struct VisitedPlacesMapView: View {
 
     private func shareSnapshot() {
         guard !groupedPlaces.isEmpty else { return }
+        guard store.isUnlocked else {
+            lockedFeature = .recapExport
+            return
+        }
         isGeneratingSnapshot = true
 
         let options = MKMapSnapshotter.Options()

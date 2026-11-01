@@ -1,6 +1,7 @@
 import AuthenticationServices
 import SwiftUI
 import SwiftData
+import StoreKit
 import FirebaseAuth
 
 /// The About You form is a local SwiftData `UserProfile`, with one exception:
@@ -33,8 +34,10 @@ struct ProfileView: View {
 private struct ProfileForm: View {
     @Bindable var profile: UserProfile
     @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
     @Environment(\.modelContext) private var modelContext
     @Query private var trips: [Trip]
+    @State private var lockedFeature: PaidFeature?
     @State private var appUserProfile: AppUserProfile?
     @State private var isPresentingSignIn = false
     @State private var isShowingDeleteConfirmation = false
@@ -54,6 +57,47 @@ private struct ProfileForm: View {
         Form {
             Section("Account") {
                 accountSectionContent
+            }
+
+            Section {
+                // Demo/testing switch: shown in debug builds and TestFlight only,
+                // never in the App Store release.
+                if store.allowsDemoMode {
+                    @Bindable var store = store
+                    Picker("Demo mode", selection: $store.demoMode) {
+                        ForEach(StoreService.DemoMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                if store.isUnlocked {
+                    Label("Agdayo is fully unlocked", systemImage: "checkmark.seal.fill")
+                } else {
+                    Button {
+                        lockedFeature = .moreTrips
+                    } label: {
+                        HStack {
+                            Label("Unlock Agdayo", systemImage: "lock.open")
+                            Spacer()
+                            if let product = store.product {
+                                Text(product.displayPrice)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                    Button("Restore Purchases") {
+                        Task { await store.restore() }
+                    }
+                    .foregroundStyle(.primary)
+                }
+            } header: {
+                Text("Full Version")
+            } footer: {
+                if !store.isUnlocked {
+                    Text("A one-time purchase. Unlimited trips and groups, the daily budget report, polls, ideas, photo album, Plan My Day, live location and recap exports.")
+                }
             }
 
             // Finished trips, as poster cards.
@@ -96,6 +140,7 @@ private struct ProfileForm: View {
         }
         .scrollContentBackground(.hidden)
         .background(BrandPalette.canvas.ignoresSafeArea())
+        .paywall($lockedFeature)
         .sheet(isPresented: $isPresentingSignIn) {
             SignInView()
         }

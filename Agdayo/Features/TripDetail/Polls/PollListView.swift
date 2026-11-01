@@ -12,6 +12,8 @@ struct PollListView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
     @State private var isAdding = false
     @State private var isShowingSignInAlert = false
 
@@ -37,7 +39,12 @@ struct PollListView: View {
     }
 
     private func startPoll() {
-        if canParticipate { isAdding = true } else { isShowingSignInAlert = true }
+        guard canParticipate else {
+            isShowingSignInAlert = true
+            return
+        }
+        // Voting in a poll is free; starting one is part of the full unlock.
+        if store.isUnlocked { isAdding = true } else { lockedFeature = .startPolls }
     }
 
     private var openPolls: [TripPoll] { polls.filter { !$0.isClosed } }
@@ -89,6 +96,7 @@ struct PollListView: View {
         .sheet(isPresented: $isAdding) {
             PollEditSheet(trip: trip)
         }
+        .paywall($lockedFeature)
         .alert("Sign In to Vote", isPresented: $isShowingSignInAlert) {
             Button("OK", role: .cancel) {}
         } message: {

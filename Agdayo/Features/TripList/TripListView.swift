@@ -11,6 +11,8 @@ struct TripListView: View {
     @Query(sort: \Trip.startDate) private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
     @State private var isPresentingCreateFlow = false
     @State private var isPresentingJoinFlow = false
     @State private var searchText = ""
@@ -19,6 +21,15 @@ struct TripListView: View {
     // this list instead of just one level, no matter how deep the leave
     // action happened (e.g. from the Members screen).
     @State private var path = NavigationPath()
+
+    /// The free version holds a couple of trips; past that, show the unlock screen.
+    private func startCreatingTrip() {
+        if store.canCreateTrip(existing: trips, uid: authService.firebaseUser?.uid) {
+            isPresentingCreateFlow = true
+        } else {
+            lockedFeature = .moreTrips
+        }
+    }
 
     private var filteredTrips: [Trip] {
         guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return trips }
@@ -49,7 +60,7 @@ struct TripListView: View {
                             title: "No Trips Yet",
                             message: "Plan your first trip or join a friend's trip with an invite code.",
                             actionTitle: "Create a Trip",
-                            action: { isPresentingCreateFlow = true }
+                            action: { startCreatingTrip() }
                         )
 
                         Button {
@@ -108,7 +119,7 @@ struct TripListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            isPresentingCreateFlow = true
+                            startCreatingTrip()
                         } label: {
                             Label("Create Trip", systemImage: "plus")
                         }
@@ -134,6 +145,7 @@ struct TripListView: View {
             .sheet(isPresented: $isPresentingJoinFlow) {
                 JoinTripSheet(onJoined: { trip in path.append(trip) })
             }
+            .paywall($lockedFeature)
             .onChange(of: pendingJoinedTrip) { _, newValue in
                 guard let newValue else { return }
                 path.append(newValue)

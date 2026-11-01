@@ -17,6 +17,8 @@ struct TripMapView: View {
 
     @Environment(AuthService.self) private var authService
     @Environment(LiveLocationSharingCoordinator.self) private var locationSharing
+    @Environment(StoreService.self) private var store
+    @State private var lockedFeature: PaidFeature?
 
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var mapStyleOption: MapStyleOption = .standard
@@ -154,6 +156,7 @@ struct TripMapView: View {
                 MapStylePickerButton(selection: $mapStyleOption)
             }
         }
+        .paywall($lockedFeature)
     }
 
     private func fitAllActivities() {
@@ -224,6 +227,11 @@ struct TripMapView: View {
 
     private func toggleSharing() {
         guard let uid = currentUID else { return }
+        // Stopping is always allowed; starting to share is part of the full unlock.
+        if !locationSharing.isSharing(tripID: trip.id), !store.isUnlocked {
+            lockedFeature = .liveLocation
+            return
+        }
         locationSharing.toggleSharing(trip: trip, uid: uid)
     }
 
