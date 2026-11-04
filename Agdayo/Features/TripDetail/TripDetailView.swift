@@ -191,6 +191,8 @@ struct TripDetailView: View {
             PollListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .members:
             MembersListView(trip: trip, syncCoordinator: syncCoordinator, onLeftTrip: onLeftTrip)
+        case .guide:
+            TripGuideView(trip: trip)
         }
     }
 
