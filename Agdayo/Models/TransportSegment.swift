@@ -62,6 +62,12 @@ final class TransportSegment {
     /// added to Calendar — deliberately NOT part of `TransportSegmentDTO`/
     /// synced, same reasoning as `Activity.calendarEventID`.
     var calendarEventID: String?
+    /// Map pins for where it leaves from and arrives at (an airport, a
+    /// station), so the itinerary can show travel to and from your stay.
+    var departureLatitude: Double?
+    var departureLongitude: Double?
+    var arrivalLatitude: Double?
+    var arrivalLongitude: Double?
     var trip: Trip?
 
     init(
@@ -85,6 +91,10 @@ final class TransportSegment {
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
         calendarEventID: String? = nil,
+        departureLatitude: Double? = nil,
+        departureLongitude: Double? = nil,
+        arrivalLatitude: Double? = nil,
+        arrivalLongitude: Double? = nil,
         trip: Trip? = nil
     ) {
         self.id = id
@@ -107,6 +117,10 @@ final class TransportSegment {
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts
         self.calendarEventID = calendarEventID
+        self.departureLatitude = departureLatitude
+        self.departureLongitude = departureLongitude
+        self.arrivalLatitude = arrivalLatitude
+        self.arrivalLongitude = arrivalLongitude
         self.trip = trip
     }
 

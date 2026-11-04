@@ -158,6 +158,11 @@ describe("editing", () => {
       transportFields({ departure: "2026-11-11T08:30:00+08:00", arrival: "2026-11-11T07:00:00+08:00" }, true, "PHP"),
     ).toThrow(/before departure/);
     expect(transportFields({ seat: "2C" }, true, "")).toEqual({ seatNumber: "2C" });
+    expect(transportFields({ toLatitude: 1.3644, toLongitude: 103.9915 }, true, "")).toEqual({
+      arrivalLatitude: new FsDouble(1.3644),
+      arrivalLongitude: new FsDouble(103.9915),
+    });
+    expect(() => transportFields({ fromLatitude: 14.5 }, true, "")).toThrow(/latitude and longitude/);
   });
 
   it("stores a day note on local midnight", () => {

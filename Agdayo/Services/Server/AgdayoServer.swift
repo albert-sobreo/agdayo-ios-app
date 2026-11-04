@@ -27,7 +27,7 @@ enum AgdayoServer {
     /// A transit route from Google, or nil when Google has no route (often no
     /// transit data in that city). `arriveBy` asks for a route that gets
     /// there by that time.
-    static func transitRoute(from origin: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, arriveBy: Date?) async throws -> ServerRoute? {
+    static func transitRoute(from origin: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, arriveBy: Date?, departAt: Date? = nil) async throws -> ServerRoute? {
         var body: [String: Any] = [
             "origin": ["latitude": origin.latitude, "longitude": origin.longitude],
             "destination": ["latitude": destination.latitude, "longitude": destination.longitude],
@@ -35,7 +35,9 @@ enum AgdayoServer {
         ]
         // Google only has timetables for roughly the coming weeks; a past
         // time is meaningless, so plan for now in that case.
-        if let arriveBy, arriveBy > .now {
+        if let departAt, departAt > .now {
+            body["departureTime"] = ISO8601DateFormatter().string(from: departAt)
+        } else if let arriveBy, arriveBy > .now {
             body["arrivalTime"] = ISO8601DateFormatter().string(from: arriveBy)
         }
         let data = try await post("/v1/route", body: body)

@@ -54,6 +54,85 @@ enum TravelPlanning {
     }
 }
 
+// MARK: Arrival and departure
+
+extension TravelPlanning {
+    /// When you're ready to head on after arriving: bags and immigration
+    /// after a flight, a short walk out for anything else.
+    static func readyAfterArrival(mode: TransportMode, arrival: Date) -> Date {
+        arrival.addingTimeInterval(mode == .flight ? 45 * 60 : 15 * 60)
+    }
+
+    /// When to be at the departure point, or nil for modes that pick you up
+    /// where you are (car, taxi).
+    static func beThereBy(mode: TransportMode, departure: Date) -> Date? {
+        switch mode {
+        case .flight: return departure.addingTimeInterval(-2 * 60 * 60)
+        case .bus, .train, .ferry, .other: return departure.addingTimeInterval(-20 * 60)
+        case .car, .rideshare: return nil
+        }
+    }
+
+    /// Plain words for `beThereBy`, shown under the travel row.
+    static func beThereNote(mode: TransportMode) -> String? {
+        switch mode {
+        case .flight: return "Allows 2 h at the airport"
+        case .bus, .train, .ferry, .other: return "Allows 20 min before departure"
+        case .car, .rideshare: return nil
+        }
+    }
+
+    /// The pinned stay you head to after arriving: you're booked in that
+    /// night and haven't checked out before you land.
+    static func stay(afterArrivingAt arrival: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
+        stays
+            .filter { stay in
+                stay.coordinate != nil
+                    && calendar.startOfDay(for: stay.startDate) <= calendar.startOfDay(for: arrival)
+                    && checkOut(of: stay, calendar: calendar) > arrival
+            }
+            .min { $0.startDate < $1.startDate }
+    }
+
+    /// The pinned stay you leave from for a departure: checked in before it
+    /// leaves, and checking out that day or later.
+    static func stay(beforeDepartingAt departure: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
+        stays
+            .filter { stay in
+                stay.coordinate != nil
+                    && checkIn(of: stay, calendar: calendar) < departure
+                    && calendar.startOfDay(for: stay.endDate) >= calendar.startOfDay(for: departure)
+            }
+            .max { $0.startDate < $1.startDate }
+    }
+
+    static func checkIn(of stay: Accommodation, calendar: Calendar = .current) -> Date {
+        combine(stay.startDate, time: stay.checkInTime, calendar: calendar)
+    }
+
+    static func checkOut(of stay: Accommodation, calendar: Calendar = .current) -> Date {
+        combine(stay.endDate, time: stay.checkOutTime, calendar: calendar)
+    }
+
+    private static func combine(_ day: Date, time: String, calendar: Calendar) -> Date {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return day }
+        return calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day) ?? day
+    }
+}
+
+extension TransportSegment {
+    var departureCoordinate: CLLocationCoordinate2D? {
+        guard let departureLatitude, let departureLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: departureLatitude, longitude: departureLongitude)
+    }
+
+    var arrivalCoordinate: CLLocationCoordinate2D? {
+        guard let arrivalLatitude, let arrivalLongitude else { return nil }
+        return CLLocationCoordinate2D(latitude: arrivalLatitude, longitude: arrivalLongitude)
+    }
+}
+
 extension Accommodation {
     var coordinate: CLLocationCoordinate2D? {
         guard let latitude, let longitude else { return nil }
