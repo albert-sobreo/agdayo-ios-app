@@ -57,6 +57,12 @@ You need a Cloudflare account, and a Google Cloud project with billing on.
    ```sh
    npm run db:migrate
    ```
+   Also create the storage for connector sign-ins. Wrangler refuses to
+   deploy or set secrets until it exists:
+   ```sh
+   npx wrangler kv namespace create OAUTH_KV
+   ```
+   Copy the printed `id` into `kv_namespaces` in `wrangler.jsonc`.
 4. **Your user ID.** In the Firebase console, open Authentication › Users and
    copy your User UID into `ALLOWED_UIDS` in `wrangler.jsonc`.
 5. **Secret.**
@@ -72,12 +78,7 @@ You need a Cloudflare account, and a Google Cloud project with billing on.
 
 ### Connect Claude
 
-7. **Storage for sign-ins.**
-   ```sh
-   npx wrangler kv namespace create OAUTH_KV
-   ```
-   Copy the printed `id` into `kv_namespaces` in `wrangler.jsonc`.
-8. **Google sign-in client.** In Google Cloud › APIs & Services › Credentials,
+7. **Google sign-in client.** In Google Cloud › APIs & Services › Credentials,
    create an **OAuth client ID** of type **Web application** with the
    authorized redirect URI `https://agdayo.<you>.workers.dev/callback`. (If
    asked, set up the consent screen as External, in Testing, with yourself as
@@ -86,7 +87,7 @@ You need a Cloudflare account, and a Google Cloud project with billing on.
    ```sh
    npx wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET
    ```
-9. **Access to trips.** In the Firebase console › Project settings › Service
+8. **Access to trips.** In the Firebase console › Project settings › Service
    accounts, click **Generate new private key**. Then store the whole file as
    a secret and delete the download:
    ```sh
@@ -94,8 +95,8 @@ You need a Cloudflare account, and a Google Cloud project with billing on.
    ```
    This key can read and write all of Agdayo's data, so never commit it or
    paste it into a chat.
-10. **Deploy** again (`npm run deploy`).
-11. **Add the connector.** On claude.ai (web or desktop): Settings ›
+9. **Deploy** again (`npm run deploy`).
+10. **Add the connector.** On claude.ai (web or desktop): Settings ›
     Connectors › Add custom connector, name it Agdayo, URL
     `https://agdayo.<you>.workers.dev/mcp`. Click Connect and sign in with
     Google. It then works on the Claude phone app too.
