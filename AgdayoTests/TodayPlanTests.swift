@@ -51,9 +51,13 @@ struct TodayPlanTests {
 
     @Test func leaveText() {
         let now = at(0, 14)
-        #expect(TodayPlan.leaveText(leaveBy: at(0, 14, 12), now: now) == ("Leave in 12 min", false))
-        #expect(TodayPlan.leaveText(leaveBy: now.addingTimeInterval(20), now: now) == ("Leave now", false))
-        #expect(TodayPlan.leaveText(leaveBy: at(0, 13, 52), now: now) == ("8 min late", true))
+        let soon = TodayPlan.leaveText(leaveBy: at(0, 14, 12), now: now)
+        #expect(soon.text == "Leave in 12 min")
+        #expect(!soon.isLate)
+        #expect(TodayPlan.leaveText(leaveBy: now.addingTimeInterval(20), now: now).text == "Leave now")
+        let late = TodayPlan.leaveText(leaveBy: at(0, 13, 52), now: now)
+        #expect(late.text == "8 min late")
+        #expect(late.isLate)
         #expect(TodayPlan.leaveText(leaveBy: at(0, 17), now: now).text.hasPrefix("Leave by"))
     }
 
