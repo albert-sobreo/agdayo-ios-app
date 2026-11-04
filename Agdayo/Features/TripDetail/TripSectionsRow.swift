@@ -13,6 +13,7 @@ enum TripSectionRoute: Hashable {
     case photos
     case polls
     case members
+    case guide
 }
 
 struct TripSectionsRow: View {
@@ -47,6 +48,9 @@ struct TripSectionsRow: View {
                     NavigationLink(value: TripSectionRoute.balances) {
                         SquareNavCard(iconName: "arrow.left.arrow.right", subtitle: "Settle Up", title: "Balances", accentColor: accentColor)
                     }
+                }
+                NavigationLink(value: TripSectionRoute.guide) {
+                    SquareNavCard(iconName: "book.pages", subtitle: "Know before you go", title: "Guide", accentColor: accentColor)
                 }
                 NavigationLink(value: TripSectionRoute.accommodations) {
                     SquareNavCard(iconName: "bed.double", subtitle: "\(accommodationCount) Stays", title: "Accommodations", accentColor: accentColor)

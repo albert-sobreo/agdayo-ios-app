@@ -11,12 +11,14 @@ enum AgdayoServer {
     enum ServerError: LocalizedError {
         case signedOut
         case notAllowed
+        case notFound
         case server(String)
 
         var errorDescription: String? {
             switch self {
             case .signedOut: return "Sign in to see transit steps."
             case .notAllowed: return "This account can't use the Agdayo server."
+            case .notFound: return "Not found on the Agdayo server."
             case .server(let message): return message
             }
         }
@@ -40,6 +42,24 @@ enum AgdayoServer {
         return try decoder.decode(RouteResponse.self, from: data).route
     }
 
+    /// Every saved country guide, by title.
+    static func guides() async throws -> [GuideSummary] {
+        struct Response: Decodable { let guides: [GuideSummary] }
+        let data = try await send("GET", "/v1/guides")
+        return try decoder.decode(Response.self, from: data).guides
+    }
+
+    /// The guide for a two-letter country code, or nil when there isn't one yet.
+    static func guide(countryCode: String) async throws -> CountryGuide? {
+        struct Response: Decodable { let guide: CountryGuide }
+        do {
+            let data = try await send("GET", "/v1/guides/\(countryCode.uppercased())")
+            return try decoder.decode(Response.self, from: data).guide
+        } catch ServerError.notFound {
+            return nil
+        }
+    }
+
     private struct RouteResponse: Decodable {
         let route: ServerRoute?
     }
@@ -49,18 +69,25 @@ enum AgdayoServer {
     }
 
     private static func post(_ path: String, body: [String: Any]) async throws -> Data {
+        try await send("POST", path, body: try JSONSerialization.data(withJSONObject: body))
+    }
+
+    private static func send(_ method: String, _ path: String, body: Data? = nil) async throws -> Data {
         guard let user = Auth.auth().currentUser else { throw ServerError.signedOut }
         let token = try await user.getIDToken()
         var request = URLRequest(url: baseURL.appending(path: path))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
         request.timeoutInterval = 20
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             if status == 403 { throw ServerError.notAllowed }
+            if status == 404 { throw ServerError.notFound }
             let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
             throw ServerError.server(message ?? "The Agdayo server answered \(status).")
         }
@@ -127,4 +154,38 @@ struct ServerRoute: Decodable {
 
     /// When the first train or bus leaves, for a "Leave by" headline.
     var firstDeparture: Date? { steps.lazy.compactMap { $0.transit?.departureTime }.first }
+}
+
+/// Mirrors the summaries from `GET /v1/guides`.
+struct GuideSummary: Decodable, Identifiable, Hashable {
+    let countryCode: String
+    let title: String
+    let checkedAt: Date
+    var id: String { countryCode }
+}
+
+/// Mirrors `Guide` in worker/src/guides.ts: a "Know before you go" guide,
+/// usually researched and saved by Claude through the connector.
+struct CountryGuide: Decodable {
+    let countryCode: String
+    let title: String
+    let sections: [Section]
+    let sources: [Source]
+    let checkedAt: Date
+
+    struct Section: Decodable, Identifiable {
+        let id: String
+        let title: String
+        let items: [Item]
+    }
+
+    struct Item: Decodable {
+        let text: String
+        let source: String?
+    }
+
+    struct Source: Decodable {
+        let title: String
+        let url: String
+    }
 }
