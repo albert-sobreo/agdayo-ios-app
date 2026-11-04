@@ -42,9 +42,13 @@ enum TravelPlanning {
     }
 
     /// When to set off to reach `arrival` after `travelTime`.
-    static func leaveBy(arrival: Date, travelTime: TimeInterval) -> Date {
-        arrival.addingTimeInterval(-travelTime)
+    static func leaveBy(arrival: Date, travelTime: TimeInterval, spare: TimeInterval = 0) -> Date {
+        arrival.addingTimeInterval(-travelTime - spare)
     }
+
+    /// Spare time added to every leave-by shown or notified, so "leave by"
+    /// doesn't mean "arrive exactly on the minute".
+    static let leaveBySpare: TimeInterval = 5 * 60
 
     /// True when getting to the next stop takes longer than the time between
     /// the two stops' start times. Activities have no end time, so this only
@@ -148,6 +152,16 @@ extension MKDirectionsTransportType {
         case .walking: return MKLaunchOptionsDirectionsModeWalking
         case .transit: return MKLaunchOptionsDirectionsModeTransit
         default: return MKLaunchOptionsDirectionsModeDriving
+        }
+    }
+
+    /// How the mode reads after a duration: "22 min by car", "8 min walk".
+    var travelPhrase: String {
+        switch self {
+        case .walking: return "walk"
+        case .transit: return "by transit"
+        case .cycling: return "by bike"
+        default: return "by car"
         }
     }
 

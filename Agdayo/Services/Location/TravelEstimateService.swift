@@ -4,6 +4,8 @@ import MapKit
 struct TravelEstimate {
     let distance: CLLocationDistance
     let duration: TimeInterval
+    /// How this figure gets there, for wording like "22 min by car".
+    var mode: MKDirectionsTransportType = .automobile
 }
 
 /// Point-to-point distance/duration between two coordinates, for the
@@ -17,7 +19,7 @@ enum TravelEstimateService {
         request.destination = MKMapItem(placemark: MKPlacemark(coordinate: to))
         request.transportType = transportType
         let response = try await MKDirections(request: request).calculateETA()
-        return TravelEstimate(distance: response.distance, duration: response.expectedTravelTime)
+        return TravelEstimate(distance: response.distance, duration: response.expectedTravelTime, mode: transportType)
     }
 
     /// The actual road/path geometry between two coordinates, for drawing a
