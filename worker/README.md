@@ -10,6 +10,7 @@ and lets Claude write trips straight into Agdayo.
 | Endpoint | What it returns |
 | --- | --- |
 | `GET /health` | `{ ok: true }`, no sign-in needed |
+| `GET /open/trip/:id?day=YYYY-MM-DD` | A page that opens the trip (and that day's itinerary) in the app via `agdayo://trip/...`. No sign-in; it only forwards the ID |
 | `POST /v1/route` | One route with steps (lines, stops, walking parts) and fare when Google has it. `{ route: null }` when there's no route, e.g. no transit data in that city |
 | `POST /v1/matrix` | Travel times and distances between 2–10 places |
 | `POST /v1/places/search` | Places matching a text query near a point, with opening hours |
@@ -32,7 +33,9 @@ and lets Claude write trips straight into Agdayo.
 Everything Claude writes is marked `createdBy: "claude"`. Claude is told to
 show you the plan and get your OK before any change, and the Claude app also
 asks before each write tool runs. Times are written with the destination's
-UTC offset so they land on the right hour.
+UTC offset so they land on the right hour. Trip tools return an `appLink`
+(the `/open/trip/...` page above), which Claude shares as an "Open in Agdayo"
+link.
 
 Transit comes only from Google, everywhere. Where Google has no transit data
 the route is `null`, and the app shows walking and driving instead.

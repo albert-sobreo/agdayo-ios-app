@@ -171,6 +171,8 @@ struct TripDetailView: View {
             IdeaListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .itinerary:
             ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
+        case .itineraryDay(let day):
+            ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, scrollToDay: day)
         case .accommodations:
             AccommodationListView(trip: trip, memberProfiles: syncCoordinator.memberProfiles)
         case .budget:

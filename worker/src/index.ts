@@ -22,6 +22,7 @@ import {
 } from "./http";
 import { handleMcp } from "./mcp";
 import { authorize, callback, type ConnectorProps } from "./oauth";
+import { openPage } from "./open";
 
 /**
  * Agdayo's server. Two front doors:
@@ -32,6 +33,7 @@ import { authorize, callback, type ConnectorProps } from "./oauth";
  *   and the .well-known metadata.
  *
  *   GET  /health                   no sign-in; for uptime checks
+ *   GET  /open/trip/:id?day=       no sign-in; opens the trip in the app (open.ts)
  *   POST /v1/route                 { origin, destination, mode?, departureTime?, arrivalTime? }
  *   POST /v1/matrix                { points: LatLng[] (2–10), mode? }
  *   POST /v1/places/search         { query, near?, radiusMeters?, limit? }
@@ -103,6 +105,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === "/health" && method === "GET") return json({ ok: true });
   if (path === "/authorize" && method === "GET") return authorize(request, env);
   if (path === "/callback" && method === "GET") return callback(request, env);
+  if (path.startsWith("/open/trip/") && method === "GET") return openPage(url);
   if (!path.startsWith("/v1/")) throw new HttpError(404, "Not found.");
 
   await requireUser(request, env);

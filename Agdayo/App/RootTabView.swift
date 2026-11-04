@@ -20,6 +20,7 @@ struct RootTabView: View {
     @State private var deepLinkCode: String = ""
     @State private var isPresentingDeepLinkJoin = false
     @State private var pendingJoinedTrip: Trip?
+    @State private var pendingTripLink: TripLinkTarget?
     @State private var selectedTab: RootTab = .home
 
     var body: some View {
@@ -28,7 +29,7 @@ struct RootTabView: View {
                 HomeView()
             }
             Tab("Trips", systemImage: "suitcase.fill", value: .trips) {
-                TripListView(pendingJoinedTrip: $pendingJoinedTrip)
+                TripListView(pendingJoinedTrip: $pendingJoinedTrip, pendingTripLink: $pendingTripLink)
             }
             Tab("Profile", systemImage: "person.crop.circle", value: .profile) {
                 NavigationStack {
@@ -51,12 +52,14 @@ struct RootTabView: View {
             }
         }
         .onOpenURL { url in
-            if url.scheme == "agdayo" && url.host == "join" {
-                if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                   let code = components.queryItems?.first(where: { $0.name.lowercased() == "code" })?.value {
-                    deepLinkCode = code
-                }
+            switch AppLink(url: url) {
+            case .join(let code):
+                if let code { deepLinkCode = code }
                 isPresentingDeepLinkJoin = true
+            case .trip(let id, let day):
+                Task { await openTrip(id: id, day: day) }
+            case nil:
+                break
             }
         }
         .sheet(isPresented: $isPresentingDeepLinkJoin) {
@@ -119,6 +122,19 @@ struct RootTabView: View {
                 locationSharing.stop()
             }
         }
+    }
+
+    /// Opens a trip from a link (e.g. one Claude shared after writing to it).
+    /// A trip Claude just created may not be on this phone yet, so it's
+    /// fetched once before giving up.
+    private func openTrip(id: UUID, day: Date?) async {
+        var trip = trips.first(where: { $0.id == id })
+        if trip == nil, authService.isSignedIn {
+            trip = await TripDiscoveryService.materializeTrip(tripID: id, modelContext: modelContext)
+        }
+        guard let trip else { return }
+        selectedTab = .trips
+        pendingTripLink = TripLinkTarget(trip: trip, day: day)
     }
 
     /// Writes whether the owner has the full version onto each trip they own
