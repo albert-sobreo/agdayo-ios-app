@@ -29,6 +29,8 @@ const supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const instructions = `Agdayo is the user's travel app. Use these tools to plan trips and write them into Agdayo; the user then follows the plan in the app.
 - Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, add_activities, add_stay, update_activity, delete_activity, save_guide).
+- Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
+- To change an existing plan, call get_trip first, then use update_activity, delete_activity and add_activities. Show what will change and get the user's OK first.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
 - Use search_places to get real coordinates before adding activities or stays, so travel times work in the app.
 - Transit directions and times come only from plan_route and travel_times (Google). If they return no transit route, say there's no transit data there and suggest walking or a car; never guess lines or times.
