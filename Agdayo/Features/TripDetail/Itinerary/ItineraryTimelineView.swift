@@ -310,6 +310,17 @@ private struct DaySection: View {
         { estimate in legEstimates[key] = estimate }
     }
 
+    /// Also turns the next stop's reminder into a leave-by one, now that the
+    /// travel time is known.
+    private func reportAndRemind(_ key: String, for activity: Activity) -> (TravelEstimate?) -> Void {
+        { estimate in
+            legEstimates[key] = estimate
+            if let estimate {
+                NotificationScheduler.scheduleLeaveBy(for: activity, travelTime: estimate.duration, mode: estimate.mode)
+            }
+        }
+    }
+
     /// Corner radius of a day's card, in both the inline and full-screen lists.
     private let cardRadius: CGFloat = 20
 
@@ -420,7 +431,7 @@ private struct DaySection: View {
                         nextStart: activity.date,
                         destinationName: activity.title,
                         accentColor: trip.theme.accentColor,
-                        onEstimate: report("stay-\(activity.id)")
+                        onEstimate: reportAndRemind("stay-\(activity.id)", for: activity)
                     )
                     .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
                 }
@@ -451,7 +462,7 @@ private struct DaySection: View {
                             nextStart: next.date,
                             destinationName: next.title,
                             accentColor: trip.theme.accentColor,
-                            onEstimate: report("leg-\(activity.id)-\(next.id)")
+                            onEstimate: reportAndRemind("leg-\(activity.id)-\(next.id)", for: next)
                         )
                         .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
                     } else {
@@ -836,7 +847,7 @@ private struct TravelConnectorView: View {
                     .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                     .foregroundStyle(.orange)
             } else {
-                Text("Leave by \(TravelPlanning.leaveBy(arrival: nextStart, travelTime: currentEstimate.duration).formatted(date: .omitted, time: .shortened))")
+                Text("Leave by \(TravelPlanning.leaveBy(arrival: nextStart, travelTime: currentEstimate.duration, spare: TravelPlanning.leaveBySpare).formatted(date: .omitted, time: .shortened))")
                     .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                     .foregroundStyle(accentColor)
             }

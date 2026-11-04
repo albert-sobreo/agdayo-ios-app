@@ -1,4 +1,5 @@
 import Foundation
+import MapKit
 import UserNotifications
 
 /// Local, on-device reminders for upcoming activities and transport
@@ -87,6 +88,22 @@ enum NotificationScheduler {
             : "Starting in 15 minutes, at \(activity.location)"
         content.sound = .default
         schedule(identifier: identifier, content: content, fireDate: fireDate)
+    }
+
+    /// Replaces an activity's "starting in 15 minutes" reminder with a
+    /// leave-by one once a travel time is known: "Leave by 2:35 for BenCab
+    /// Museum". Uses the same identifier, so there's only ever one per activity.
+    /// Does nothing once the leave-by time has passed (the old reminder stays).
+    static func scheduleLeaveBy(for activity: Activity, travelTime: TimeInterval, mode: MKDirectionsTransportType) {
+        guard remindersEnabled else { return }
+        let leaveBy = TravelPlanning.leaveBy(arrival: activity.date, travelTime: travelTime, spare: TravelPlanning.leaveBySpare)
+        guard leaveBy > .now else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Leave by \(leaveBy.formatted(date: .omitted, time: .shortened)) for \(activity.title)"
+        let minutes = max(1, Int((travelTime / 60).rounded()))
+        content.body = "About \(minutes) min \(mode.travelPhrase). Starts at \(activity.date.formatted(date: .omitted, time: .shortened))."
+        content.sound = .default
+        schedule(identifier: activityIdentifier(activity.id), content: content, fireDate: leaveBy)
     }
 
     static func cancelReminder(forActivityID id: UUID) {

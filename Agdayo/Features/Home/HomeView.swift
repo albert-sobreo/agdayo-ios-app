@@ -85,6 +85,11 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 28) {
                             if let showcasedTrip {
                                 showcaseSection(showcasedTrip, topInset: topSafeAreaInset)
+                                // During a trip, Today takes over from the showcase's "Next Up".
+                                if showcasedTrip.status == .active {
+                                    TodayCard(trip: showcasedTrip)
+                                        .padding(.horizontal)
+                                }
                             } else {
                                 showcaseEmptyState(topInset: topSafeAreaInset)
                             }
@@ -228,7 +233,7 @@ struct HomeView: View {
 
                 dashedDivider(color: trip.theme.accentColor)
 
-                let upcomingActivities = nextActivities(for: trip)
+                let upcomingActivities = trip.status == .active ? [] : nextActivities(for: trip)
                 if !upcomingActivities.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Next Up")

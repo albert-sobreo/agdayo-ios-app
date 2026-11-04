@@ -40,7 +40,8 @@ enum AgdayoServer {
         } else if let arriveBy, arriveBy > .now {
             body["arrivalTime"] = ISO8601DateFormatter().string(from: arriveBy)
         }
-        let data = try await post("/v1/route", body: body)
+        let key = String(format: "route-%.4f,%.4f-%.4f,%.4f", origin.latitude, origin.longitude, destination.latitude, destination.longitude)
+        let data = try await send("POST", "/v1/route", body: try JSONSerialization.data(withJSONObject: body), offlineKey: key)
         return try decoder.decode(RouteResponse.self, from: data).route
     }
 
@@ -62,7 +63,7 @@ enum AgdayoServer {
     /// Every saved country guide, by title.
     static func guides() async throws -> [GuideSummary] {
         struct Response: Decodable { let guides: [GuideSummary] }
-        let data = try await send("GET", "/v1/guides")
+        let data = try await send("GET", "/v1/guides", offlineKey: "guides")
         return try decoder.decode(Response.self, from: data).guides
     }
 
@@ -70,7 +71,7 @@ enum AgdayoServer {
     static func guide(countryCode: String) async throws -> CountryGuide? {
         struct Response: Decodable { let guide: CountryGuide }
         do {
-            let data = try await send("GET", "/v1/guides/\(countryCode.uppercased())")
+            let data = try await send("GET", "/v1/guides/\(countryCode.uppercased())", offlineKey: "guide-\(countryCode.uppercased())")
             return try decoder.decode(Response.self, from: data).guide
         } catch ServerError.notFound {
             return nil
@@ -85,11 +86,22 @@ enum AgdayoServer {
         let error: String
     }
 
-    private static func post(_ path: String, body: [String: Any]) async throws -> Data {
-        try await send("POST", path, body: try JSONSerialization.data(withJSONObject: body))
+    /// Sends a request. With an `offlineKey`, a good answer is also saved on
+    /// the phone, and handed back instead when there's no connection, so
+    /// steps and guides opened once still work underground or abroad without
+    /// data. Saved answers carry their own fetchedAt/checkedAt times.
+    private static func send(_ method: String, _ path: String, body: Data? = nil, offlineKey: String? = nil) async throws -> Data {
+        do {
+            let data = try await sendOnline(method, path, body: body)
+            if let offlineKey { OfflineAnswers.save(data, for: offlineKey) }
+            return data
+        } catch let error as URLError where offlineKey != nil {
+            if let offlineKey, let saved = OfflineAnswers.load(offlineKey) { return saved }
+            throw error
+        }
     }
 
-    private static func send(_ method: String, _ path: String, body: Data? = nil) async throws -> Data {
+    private static func sendOnline(_ method: String, _ path: String, body: Data? = nil) async throws -> Data {
         guard let user = Auth.auth().currentUser else { throw ServerError.signedOut }
         let token = try await user.getIDToken()
         var request = URLRequest(url: baseURL.appending(path: path))
@@ -204,5 +216,33 @@ struct CountryGuide: Decodable {
     struct Source: Decodable {
         let title: String
         let url: String
+    }
+}
+
+/// Server answers kept on the phone for offline use, one small file each in
+/// Application Support (not Caches, which iOS may empty while you travel).
+enum OfflineAnswers {
+    private static var folder: URL? {
+        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
+        let folder = base.appending(path: "offline-answers", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+
+    private static func file(for key: String) -> URL? {
+        let safe = Data(key.utf8).base64EncodedString()
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "+", with: "-")
+        return folder?.appending(path: "\(safe).json")
+    }
+
+    static func save(_ data: Data, for key: String) {
+        guard let url = file(for: key) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    static func load(_ key: String) -> Data? {
+        guard let url = file(for: key) else { return nil }
+        return try? Data(contentsOf: url)
     }
 }

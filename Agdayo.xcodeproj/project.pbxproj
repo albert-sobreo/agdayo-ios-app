@@ -603,7 +603,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to work out when to leave for your next stop, and to show trip members where you are when you choose to share it.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Agdayo saves your trip stats, maps and recap images to your photo library when you choose Save to Photos.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -647,7 +647,7 @@
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Agdayo can add your activities and transport bookings to Calendar so they show up alongside your other plans.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to show trip members where you are on the map when you choose to share it.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Agdayo uses your location to work out when to leave for your next stop, and to show trip members where you are when you choose to share it.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Agdayo saves your trip stats, maps and recap images to your photo library when you choose Save to Photos.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
