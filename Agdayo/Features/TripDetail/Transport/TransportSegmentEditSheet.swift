@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import SwiftData
 import FirebaseAuth
@@ -28,6 +29,16 @@ struct TransportSegmentEditSheet: View {
     @State private var paidByUID: String?
     @State private var splitUIDs: Set<String>
     @State private var splitAmounts: [String: Double]
+    /// Map pins for the two ends, and the text each belongs to: editing the
+    /// text after picking a result drops the pin, as on the stay sheet.
+    @State private var departurePin: Pin?
+    @State private var arrivalPin: Pin?
+
+    struct Pin: Equatable {
+        let name: String
+        let latitude: Double
+        let longitude: Double
+    }
 
     init(trip: Trip, editingSegment: TransportSegment? = nil, memberProfiles: [AppUserProfile] = []) {
         self.trip = trip
@@ -54,6 +65,20 @@ struct TransportSegmentEditSheet: View {
             _splitUIDs = State(initialValue: Set(memberProfiles.map(\.uid)))
         }
         _splitAmounts = State(initialValue: editingSegment?.splitAmounts ?? [:])
+        if let editingSegment, let lat = editingSegment.departureLatitude, let lng = editingSegment.departureLongitude {
+            _departurePin = State(initialValue: Pin(name: editingSegment.departureLocation, latitude: lat, longitude: lng))
+        }
+        if let editingSegment, let lat = editingSegment.arrivalLatitude, let lng = editingSegment.arrivalLongitude {
+            _arrivalPin = State(initialValue: Pin(name: editingSegment.arrivalLocation, latitude: lat, longitude: lng))
+        }
+    }
+
+    /// A pin only counts while the text still says what was picked.
+    private var currentDeparturePin: Pin? { departurePin?.name == departureLocation ? departurePin : nil }
+    private var currentArrivalPin: Pin? { arrivalPin?.name == arrivalLocation ? arrivalPin : nil }
+
+    private static func pin(_ name: String, _ coordinate: CLLocationCoordinate2D?) -> Pin? {
+        coordinate.map { Pin(name: name, latitude: $0.latitude, longitude: $0.longitude) }
     }
 
     @State private var isConfirmingDiscard = false
@@ -78,7 +103,9 @@ struct TransportSegmentEditSheet: View {
             (budgetMemberUID ?? ""),
             (paidByUID ?? ""),
             splitUIDs.sorted().joined(separator: ","),
-            splitAmounts.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
+            splitAmounts.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ","),
+            currentDeparturePin.map { "\($0.latitude),\($0.longitude)" } ?? "",
+            currentArrivalPin.map { "\($0.latitude),\($0.longitude)" } ?? ""
         ]
         return parts.joined(separator: "|")
     }
@@ -108,7 +135,13 @@ struct TransportSegmentEditSheet: View {
 
                     FormCard(title: "Departure", icon: "airplane.departure", accent: trip.theme.accentColor) {
                         FormField("Location") {
-                            LocationSearchField(placeholder: "Departure Location", text: $departureLocation, onSelect: { name, _ in departureLocation = name })
+                            VStack(alignment: .leading, spacing: 8) {
+                                LocationSearchField(placeholder: "Departure Location", text: $departureLocation, onSelect: { name, coordinate in
+                                    departureLocation = name
+                                    departurePin = Self.pin(name, coordinate)
+                                })
+                                pinHint(isPinned: currentDeparturePin != nil, pinned: "Pinned. Shows travel from your stay.")
+                            }
                         }
                         FormField {
                             DatePicker("Departure", selection: $departureDateTime, displayedComponents: [.date, .hourAndMinute])
@@ -117,7 +150,13 @@ struct TransportSegmentEditSheet: View {
 
                     FormCard(title: "Arrival", icon: "airplane.arrival", accent: trip.theme.accentColor) {
                         FormField("Location") {
-                            LocationSearchField(placeholder: "Arrival Location", text: $arrivalLocation, onSelect: { name, _ in arrivalLocation = name })
+                            VStack(alignment: .leading, spacing: 8) {
+                                LocationSearchField(placeholder: "Arrival Location", text: $arrivalLocation, onSelect: { name, coordinate in
+                                    arrivalLocation = name
+                                    arrivalPin = Self.pin(name, coordinate)
+                                })
+                                pinHint(isPinned: currentArrivalPin != nil, pinned: "Pinned. Shows travel to your stay.")
+                            }
                         }
                         FormField {
                             Toggle("Add arrival date/time", isOn: $hasArrivalDetails)
@@ -205,6 +244,19 @@ struct TransportSegmentEditSheet: View {
         }
     }
 
+    private func pinHint(isPinned: Bool, pinned: String) -> some View {
+        Group {
+            if isPinned {
+                Label(pinned, systemImage: "mappin.circle.fill")
+                    .foregroundStyle(trip.theme.accentColor)
+            } else {
+                Label("Pick a search result to pin it.", systemImage: "mappin.slash")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(AppFont.outfit(12, relativeTo: .footnote))
+    }
+
     private func save() {
         let calendar = Calendar.current
         let departureDate = calendar.startOfDay(for: departureDateTime)
@@ -235,6 +287,10 @@ struct TransportSegmentEditSheet: View {
             segment.paidByUID = paidByUID
             segment.splitUIDs = Array(splitUIDs)
             segment.splitAmounts = splitAmounts
+            segment.departureLatitude = currentDeparturePin?.latitude
+            segment.departureLongitude = currentDeparturePin?.longitude
+            segment.arrivalLatitude = currentArrivalPin?.latitude
+            segment.arrivalLongitude = currentArrivalPin?.longitude
         } else {
             segment = TransportSegment(
                 mode: mode,
@@ -255,6 +311,10 @@ struct TransportSegmentEditSheet: View {
                 paidByUID: paidByUID,
                 splitUIDs: Array(splitUIDs),
                 splitAmounts: splitAmounts,
+                departureLatitude: currentDeparturePin?.latitude,
+                departureLongitude: currentDeparturePin?.longitude,
+                arrivalLatitude: currentArrivalPin?.latitude,
+                arrivalLongitude: currentArrivalPin?.longitude,
                 trip: trip
             )
             modelContext.insert(segment)
