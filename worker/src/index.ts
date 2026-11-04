@@ -1,4 +1,5 @@
-import { requireUser } from "./auth";
+import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
+import { allowedUids, requireUser } from "./auth";
 import type { Env } from "./env";
 import {
   computeMatrix,
@@ -19,10 +20,16 @@ import {
   requireLatLng,
   requireString,
 } from "./http";
+import { handleMcp } from "./mcp";
+import { authorize, callback, type ConnectorProps } from "./oauth";
 
 /**
- * Agdayo's server. Every /v1 route needs a Firebase ID token from an allowed
- * account (see auth.ts). Routes:
+ * Agdayo's server. Two front doors:
+ *
+ * - The app calls /v1 with a Firebase ID token from an allowed account (auth.ts).
+ * - Claude calls /mcp as a custom connector, with a token from signing in at
+ *   /authorize (oauth.ts). The OAuth provider library serves /token, /register
+ *   and the .well-known metadata.
  *
  *   GET  /health                   no sign-in; for uptime checks
  *   POST /v1/route                 { origin, destination, mode?, departureTime?, arrivalTime? }
@@ -32,16 +39,61 @@ import {
  *   GET  /v1/guides
  *   GET  /v1/guides/:countryCode
  *   PUT  /v1/guides/:countryCode   Guide body (see guides.ts)
+ *   POST /mcp                      MCP JSON-RPC (see mcp.ts)
  */
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    try {
-      return await route(request, env);
-    } catch (error) {
-      return errorResponse(error);
-    }
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return providerFor(new URL(request.url).origin).fetch(request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * The OAuth provider wants the connector's public address up front. It's
+ * whatever address Claude was given (workers.dev or a custom domain), so build
+ * one provider per origin rather than hard-coding it.
+ */
+const providers = new Map<string, OAuthProvider<Env>>();
+
+function providerFor(origin: string): OAuthProvider<Env> {
+  let provider = providers.get(origin);
+  if (!provider) {
+    provider = createProvider(origin);
+    providers.set(origin, provider);
+  }
+  return provider;
+}
+
+function createProvider(origin: string): OAuthProvider<Env> {
+  return new OAuthProvider<Env>({
+    resourceMetadata: { resource: `${origin}/mcp`, resource_name: "Agdayo" },
+    apiRoute: "/mcp",
+    apiHandler: {
+      async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+        const { uid } = (ctx as ExecutionContext & { props: ConnectorProps }).props;
+        // Removing a UID from ALLOWED_UIDS cuts Claude off too, without revoking tokens.
+        if (!allowedUids(env).has(uid)) return json({ error: "This account isn't allowed to use this server." }, 403);
+        try {
+          return await handleMcp(request, env, uid);
+        } catch (error) {
+          return errorResponse(error);
+        }
+      },
+    },
+    defaultHandler: {
+      async fetch(request: Request, env: Env): Promise<Response> {
+        try {
+          return await route(request, env);
+        } catch (error) {
+          return errorResponse(error);
+        }
+      },
+    },
+    authorizeEndpoint: "/authorize",
+    tokenEndpoint: "/token",
+    clientRegistrationEndpoint: "/register",
+    scopesSupported: ["trips"],
+  });
+}
 
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -49,6 +101,8 @@ async function route(request: Request, env: Env): Promise<Response> {
   const method = request.method;
 
   if (path === "/health" && method === "GET") return json({ ok: true });
+  if (path === "/authorize" && method === "GET") return authorize(request, env);
+  if (path === "/callback" && method === "GET") return callback(request, env);
   if (!path.startsWith("/v1/")) throw new HttpError(404, "Not found.");
 
   await requireUser(request, env);
