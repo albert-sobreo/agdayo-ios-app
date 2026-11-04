@@ -69,3 +69,28 @@ describe("Firestore writes", () => {
     });
   });
 });
+
+describe("Firestore requests", () => {
+  it("calls fetch without binding it to the client (Workers reject that as Illegal invocation)", async () => {
+    const keys = await crypto.subtle.generateKey(
+      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true,
+      ["sign", "verify"],
+    );
+    const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", (keys as CryptoKeyPair).privateKey) as ArrayBuffer);
+    const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode(...der))}\n-----END PRIVATE KEY-----`;
+    const original = globalThis.fetch;
+    let receivedThis: unknown = "unset";
+    globalThis.fetch = function (this: unknown) {
+      receivedThis = this;
+      return Promise.resolve(new Response(null, { status: 404 }));
+    } as typeof fetch;
+    try {
+      const db = new Firestore({ ...account, private_key: pem });
+      expect(await db.get("users/u1")).toBeNull();
+      expect(receivedThis).not.toBeInstanceOf(Firestore);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});

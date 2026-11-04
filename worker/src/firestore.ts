@@ -170,7 +170,9 @@ export class Firestore {
 
   constructor(
     private readonly account: ServiceAccount,
-    private readonly fetcher: typeof fetch = fetch,
+    // Wrapped so fetch isn't called as a method of this class: Workers throw
+    // "Illegal invocation" when fetch runs with any other `this`.
+    private readonly fetcher: typeof fetch = (input, init) => fetch(input, init),
   ) {
     this.root = `projects/${account.project_id}/databases/(default)/documents`;
     this.documentsUrl = `https://firestore.googleapis.com/v1/${this.root}`;
