@@ -22,6 +22,11 @@ final class Accommodation {
     var name: String
     var type: AccommodationType
     var location: String
+    /// Where the stay is on the map, set from the location search (or a
+    /// one-time lookup for stays saved before this existed). Used to show
+    /// travel from the stay to each day's first stop.
+    var latitude: Double?
+    var longitude: Double?
     var numberOfRooms: Int
     var totalCost: Double
     var checkInTime: String
@@ -43,6 +48,8 @@ final class Accommodation {
         name: String,
         type: AccommodationType = .hotel,
         location: String = "",
+        latitude: Double? = nil,
+        longitude: Double? = nil,
         numberOfRooms: Int = 1,
         totalCost: Double = 0,
         checkInTime: String = "15:00",
@@ -60,6 +67,8 @@ final class Accommodation {
         self.name = name
         self.type = type
         self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.numberOfRooms = numberOfRooms
         self.totalCost = totalCost
         self.checkInTime = checkInTime

@@ -122,6 +122,7 @@ struct ItineraryTimelineView: View {
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
+                            stays: accommodations,
                             now: nowMarker,
                             isEmbedded: true,
                             onPlanDay: { startPlanning(day: group.day) }
@@ -139,6 +140,7 @@ struct ItineraryTimelineView: View {
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
+                            stays: accommodations,
                             now: nowMarker,
                             isEmbedded: false,
                             onPlanDay: { startPlanning(day: group.day) }
@@ -148,6 +150,29 @@ struct ItineraryTimelineView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(BrandPalette.canvas.ignoresSafeArea())
+            }
+        }
+    }
+
+    /// Stays saved before stays had map pins only have an address or name.
+    /// Look each one up once so travel from the stay works without the
+    /// traveler re-entering it. A wrong match can be fixed by picking the
+    /// right result in the stay's edit sheet.
+    private func pinStaysWithoutCoordinates() async {
+        for stay in accommodations where stay.coordinate == nil {
+            let query = stay.location.isEmpty ? stay.name : stay.location
+            guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
+                  let found = await DayBaseResolver.place(named: query, near: trip.coordinate),
+                  !found.isBroad else { continue }
+            stay.latitude = found.coordinate.latitude
+            stay.longitude = found.coordinate.longitude
+            if trip.ownerUID != nil {
+                let tripID = trip.id
+                let stayID = stay.id
+                let dto = stay.dto
+                Task {
+                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "accommodations", docID: stayID, data: dto)
+                }
             }
         }
     }
@@ -166,6 +191,9 @@ struct ItineraryTimelineView: View {
                 }
                 .accessibilityLabel("Add to Itinerary")
             }
+        }
+        .task {
+            await pinStaysWithoutCoordinates()
         }
         .task {
             // Re-read the clock each minute; ends when the screen goes away.
@@ -191,6 +219,8 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
+    /// Every stay on the trip; the one covering this day is where its travel starts.
+    var stays: [Accommodation] = []
     /// The current time while the trip is in progress, else nil. Only the
     /// day it falls on shows the "Now" marker.
     var now: Date?
@@ -200,6 +230,30 @@ private struct DaySection: View {
     var onPlanDay: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    /// The figure each travel row is showing, keyed by row, for the day's total.
+    @State private var legEstimates: [String: TravelEstimate] = [:]
+
+    /// Where this day starts: the pinned stay covering it.
+    private var stay: Accommodation? { TravelPlanning.stay(for: group.day, in: stays) }
+
+    /// The day's first stop with a map pin, which gets a travel row from the stay.
+    private var firstLocatedActivityID: UUID? {
+        for entry in group.entries {
+            if case .activity(let activity) = entry, activity.coordinate != nil { return activity.id }
+        }
+        return nil
+    }
+
+    private var travelTotal: (duration: TimeInterval, distance: CLLocationDistance)? {
+        guard !legEstimates.isEmpty else { return nil }
+        let duration = legEstimates.values.reduce(TimeInterval(0)) { $0 + $1.duration }
+        let distance = legEstimates.values.reduce(CLLocationDistance(0)) { $0 + $1.distance }
+        return (duration, distance)
+    }
+
+    private func report(_ key: String) -> (TravelEstimate?) -> Void {
+        { estimate in legEstimates[key] = estimate }
+    }
 
     /// Corner radius of a day's card, in both the inline and full-screen lists.
     private let cardRadius: CGFloat = 20
@@ -249,7 +303,13 @@ private struct DaySection: View {
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
             Spacer()
-            if group.activityCount > 0 {
+            if let travelTotal {
+                Label("\(TravelFormat.duration(travelTotal.duration)) · \(TravelFormat.distance(travelTotal.distance))", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    .font(AppFont.outfit(12, relativeTo: .caption))
+                    .textCase(nil)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Travel today: \(TravelFormat.duration(travelTotal.duration)), \(TravelFormat.distance(travelTotal.distance))")
+            } else if group.activityCount > 0 {
                 Text(group.activityCount == 1 ? "1 stop" : "\(group.activityCount) stops")
                     .font(AppFont.outfit(12, relativeTo: .caption))
                     .textCase(nil)
@@ -291,6 +351,24 @@ private struct DaySection: View {
                 // The marker row takes over the card's top/bottom edge when it sits there.
                 let isFirst = index == 0 && marker != 0
                 let isLast = index == count - 1 && marker != count
+                // Travel from the stay to the day's first pinned stop.
+                if case .activity(let activity) = entry,
+                   activity.id == firstLocatedActivityID,
+                   let stay, let stayCoordinate = stay.coordinate,
+                   let toCoordinate = activity.coordinate,
+                   !Self.isSamePlace(stayCoordinate, toCoordinate) {
+                    TravelConnectorView(
+                        isEmbedded: isEmbedded,
+                        fromCoordinate: stayCoordinate,
+                        toCoordinate: toCoordinate,
+                        fromLabel: "From \(stay.name)",
+                        nextStart: activity.date,
+                        destinationName: activity.title,
+                        accentColor: trip.theme.accentColor,
+                        onEstimate: report("stay-\(activity.id)")
+                    )
+                    .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
+                }
                 if case .activity(let activity) = entry {
                     row(for: activity, isFirst: isFirst, isLast: isLast)
                 } else {
@@ -299,17 +377,35 @@ private struct DaySection: View {
                 // Travel time is only estimated between two consecutive activities.
                 if case .activity(let activity) = entry,
                    index + 1 < count,
-                   case .activity(let next) = group.entries[index + 1],
-                   let fromCoordinate = activity.coordinate,
-                   let toCoordinate = next.coordinate {
-                    TravelConnectorView(isEmbedded: isEmbedded, fromCoordinate: fromCoordinate, toCoordinate: toCoordinate, accentColor: trip.theme.accentColor)
+                   case .activity(let next) = group.entries[index + 1] {
+                    if let fromCoordinate = activity.coordinate, let toCoordinate = next.coordinate {
+                        TravelConnectorView(
+                            isEmbedded: isEmbedded,
+                            fromCoordinate: fromCoordinate,
+                            toCoordinate: toCoordinate,
+                            previousStart: activity.date,
+                            nextStart: next.date,
+                            destinationName: next.title,
+                            accentColor: trip.theme.accentColor,
+                            onEstimate: report("leg-\(activity.id)-\(next.id)")
+                        )
                         .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
+                    } else {
+                        MissingPinRow(isEmbedded: isEmbedded, title: activity.coordinate == nil ? activity.title : next.title, accentColor: trip.theme.accentColor)
+                            .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
+                    }
                 }
             }
             if marker == count {
                 nowRow(isTop: false, isBottom: true)
             }
         }
+    }
+
+    /// Within about 50 m: the stop is the stay itself, so no travel row.
+    private static func isSamePlace(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Bool {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) < 50
     }
 
     /// Where "Now" falls among today's activities: the number that have
@@ -424,13 +520,29 @@ private struct DaySection: View {
 
 }
 
+/// The travel row between two stops (or from your stay to the day's first
+/// stop): distance and time for the chosen way of getting around, when to
+/// leave, a warning when the next stop starts before you could get there,
+/// and a button that opens the leg in Apple Maps.
 private struct TravelConnectorView: View {
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
+    /// "From Hotel Name" on the first row of a day; nil between stops.
+    var fromLabel: String?
+    /// Start of the stop you're leaving, for the tight-gap check. nil when
+    /// leaving your stay, which has no start time.
+    var previousStart: Date?
+    /// Start of the stop you're heading to, for the leave-by time.
+    let nextStart: Date
+    var destinationName: String = ""
     let accentColor: Color
+    /// Reports the figure currently shown, so the day can add up its travel.
+    var onEstimate: (TravelEstimate?) -> Void = { _ in }
 
-    @State private var selectedMode: MKDirectionsTransportType = .automobile
+    @State private var selectedMode: MKDirectionsTransportType
+    /// True once the traveler taps a mode, which stops automatic fallback.
+    @State private var userPickedMode = false
     // Keyed by `rawValue` rather than the mode itself — `MKDirectionsTransportType`
     // is an OptionSet without Hashable conformance.
     @State private var estimatesByMode: [UInt: TravelEstimate] = [:]
@@ -440,28 +552,60 @@ private struct TravelConnectorView: View {
     /// switching modes never swaps the text for a spinner and shifts the row.
     @State private var shownEstimate: TravelEstimate?
 
-    private static let modes: [MKDirectionsTransportType] = [.automobile, .walking, .transit, .cycling]
+    private static let modes: [MKDirectionsTransportType] = [.walking, .transit, .automobile, .cycling]
+
+    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, fromLabel: String? = nil, previousStart: Date? = nil, nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
+        self.isEmbedded = isEmbedded
+        self.fromCoordinate = fromCoordinate
+        self.toCoordinate = toCoordinate
+        self.fromLabel = fromLabel
+        self.previousStart = previousStart
+        self.nextStart = nextStart
+        self.destinationName = destinationName
+        self.accentColor = accentColor
+        self.onEstimate = onEstimate
+        _selectedMode = State(initialValue: TravelPlanning.initialMode(from: fromCoordinate, to: toCoordinate))
+    }
 
     private var currentEstimate: TravelEstimate? { estimatesByMode[selectedMode.rawValue] }
+
+    private var isTight: Bool {
+        guard let previousStart, let currentEstimate else { return false }
+        return TravelPlanning.isTight(previousStart: previousStart, nextStart: nextStart, travelTime: currentEstimate.duration)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: ItineraryRail.timeWidth)
             ItineraryRailLine(accentColor: accentColor)
-            controls
-                .padding(.vertical, 4)
+            VStack(alignment: .leading, spacing: 4) {
+                if let fromLabel {
+                    Label(fromLabel, systemImage: "bed.double")
+                        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                controls
+                details
+            }
+            .padding(.vertical, 6)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, isEmbedded ? 16 : 0)
         .task(id: selectedMode.rawValue) {
             await loadEstimateIfNeeded()
         }
+        .onChange(of: currentEstimate?.duration) {
+            onEstimate(currentEstimate)
+        }
+        .onDisappear { onEstimate(nil) }
     }
 
     private var controls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(Self.modes, id: \.rawValue) { mode in
                 Button {
+                    userPickedMode = true
                     selectedMode = mode
                 } label: {
                     Image(systemName: mode.sfSymbolName)
@@ -472,6 +616,8 @@ private struct TravelConnectorView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Self.modeName(mode))
+                .accessibilityAddTraits(selectedMode == mode ? .isSelected : [])
             }
 
             Group {
@@ -480,7 +626,7 @@ private struct TravelConnectorView: View {
                         // Dimmed, not replaced, while the new mode's figure loads.
                         .opacity(currentEstimate == nil && isLoading ? 0.45 : 1)
                 } else if loadFailed {
-                    Text("Unavailable")
+                    Text(selectedMode == .transit ? "No transit here" : "Unavailable")
                 } else if isLoading {
                     // Only the very first load has nothing to show yet.
                     ProgressView()
@@ -490,6 +636,34 @@ private struct TravelConnectorView: View {
             .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(.secondary)
             .fixedSize()
+
+            Spacer(minLength: 4)
+
+            Button(action: openInMaps) {
+                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(accentColor)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Directions in Apple Maps")
+        }
+    }
+
+    @ViewBuilder
+    private var details: some View {
+        if let currentEstimate {
+            if isTight, let previousStart {
+                let gap = nextStart.timeIntervalSince(previousStart)
+                Label("Tight: \(formattedDuration(currentEstimate.duration)) travel, \(formattedDuration(max(gap, 0))) between stops", systemImage: "exclamationmark.triangle.fill")
+                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+                    .foregroundStyle(.orange)
+            } else {
+                Text("Leave by \(TravelPlanning.leaveBy(arrival: nextStart, travelTime: currentEstimate.duration).formatted(date: .omitted, time: .shortened))")
+                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+                    .foregroundStyle(accentColor)
+            }
         }
     }
 
@@ -503,7 +677,31 @@ private struct TravelConnectorView: View {
             estimatesByMode[selectedMode.rawValue] = estimate
             shownEstimate = estimate
         } catch {
-            loadFailed = true
+            // The automatic pick had no route (usually no transit data in
+            // this city): quietly move on to the next mode instead of
+            // showing an error the traveler didn't ask for.
+            if !userPickedMode, let next = TravelPlanning.fallbackMode(after: selectedMode) {
+                selectedMode = next
+            } else {
+                loadFailed = true
+            }
+        }
+    }
+
+    private func openInMaps() {
+        let source = MKMapItem(placemark: MKPlacemark(coordinate: fromCoordinate))
+        let destination = MKMapItem(placemark: MKPlacemark(coordinate: toCoordinate))
+        if let fromLabel { source.name = fromLabel.replacingOccurrences(of: "From ", with: "") }
+        if !destinationName.isEmpty { destination.name = destinationName }
+        MKMapItem.openMaps(with: [source, destination], launchOptions: [MKLaunchOptionsDirectionsModeKey: selectedMode.mapsLaunchMode])
+    }
+
+    private static func modeName(_ mode: MKDirectionsTransportType) -> String {
+        switch mode {
+        case .walking: return "Walk"
+        case .transit: return "Transit"
+        case .cycling: return "Bike"
+        default: return "Car"
         }
     }
 
@@ -514,11 +712,46 @@ private struct TravelConnectorView: View {
     }
 
     private func formattedDuration(_ seconds: TimeInterval) -> String {
+        TravelFormat.duration(seconds)
+    }
+}
+
+/// Shared duration text for travel rows and the day's travel total.
+enum TravelFormat {
+    static func duration(_ seconds: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.unitsStyle = .abbreviated
         formatter.allowedUnits = [.hour, .minute]
         formatter.maximumUnitCount = 2
         return formatter.string(from: seconds) ?? "\(Int(seconds / 60)) min"
+    }
+
+    static func distance(_ meters: CLLocationDistance) -> String {
+        let formatter = MKDistanceFormatter()
+        formatter.unitStyle = .abbreviated
+        return formatter.string(fromDistance: meters)
+    }
+}
+
+/// Shown where a travel row would be when one of the two stops has no map
+/// pin, so travel info doesn't silently go missing.
+private struct MissingPinRow: View {
+    var isEmbedded = false
+    let title: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: ItineraryRail.timeWidth)
+            ItineraryRailLine(accentColor: accentColor)
+            Label("Pin \(title) on the map to see travel time", systemImage: "mappin.slash")
+                .font(AppFont.outfit(12, relativeTo: .caption))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .padding(.vertical, 6)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, isEmbedded ? 16 : 0)
     }
 }
 

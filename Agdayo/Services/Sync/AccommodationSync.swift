@@ -4,6 +4,9 @@ struct AccommodationDTO: Codable {
     var name: String
     var type: AccommodationType
     var location: String
+    /// Optional so documents written before stays had map pins still decode.
+    var latitude: Double?
+    var longitude: Double?
     var numberOfRooms: Int
     var totalCost: Double
     var checkInTime: String
@@ -23,6 +26,8 @@ extension Accommodation {
             name: name,
             type: type,
             location: location,
+            latitude: latitude,
+            longitude: longitude,
             numberOfRooms: numberOfRooms,
             totalCost: totalCost,
             checkInTime: checkInTime,
@@ -43,6 +48,8 @@ extension Accommodation {
             name: dto.name,
             type: dto.type,
             location: dto.location,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
             numberOfRooms: dto.numberOfRooms,
             totalCost: dto.totalCost,
             checkInTime: dto.checkInTime,
@@ -62,6 +69,8 @@ extension Accommodation {
         name = dto.name
         type = dto.type
         location = dto.location
+        latitude = dto.latitude
+        longitude = dto.longitude
         numberOfRooms = dto.numberOfRooms
         totalCost = dto.totalCost
         checkInTime = dto.checkInTime

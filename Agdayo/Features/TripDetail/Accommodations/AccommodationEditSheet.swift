@@ -14,6 +14,12 @@ struct AccommodationEditSheet: View {
     @State private var name: String
     @State private var type: AccommodationType
     @State private var location: String
+    @State private var latitude: Double?
+    @State private var longitude: Double?
+    /// The location text that `latitude`/`longitude` belong to. Typing a
+    /// different address without picking a result clears the pin on save,
+    /// so a stale pin never sticks to a new address.
+    @State private var pinnedLocation: String?
     @State private var numberOfRooms: Int
     @State private var totalCostText: String
     @State private var budgetCategoryID: UUID?
@@ -33,6 +39,9 @@ struct AccommodationEditSheet: View {
         _name = State(initialValue: editingAccommodation?.name ?? "")
         _type = State(initialValue: editingAccommodation?.type ?? .hotel)
         _location = State(initialValue: editingAccommodation?.location ?? "")
+        _latitude = State(initialValue: editingAccommodation?.latitude)
+        _longitude = State(initialValue: editingAccommodation?.longitude)
+        _pinnedLocation = State(initialValue: editingAccommodation?.latitude != nil ? editingAccommodation?.location : nil)
         _numberOfRooms = State(initialValue: editingAccommodation?.numberOfRooms ?? 1)
         _totalCostText = State(initialValue: editingAccommodation.map { String($0.totalCost) } ?? "")
         _budgetCategoryID = State(initialValue: editingAccommodation?.budgetCategoryID)
@@ -60,6 +69,7 @@ struct AccommodationEditSheet: View {
             name,
             type.rawValue,
             location,
+            "\(latitude ?? 0),\(longitude ?? 0)",
             "\(numberOfRooms)",
             totalCostText,
             "\(startDate.timeIntervalSince1970)",
@@ -99,7 +109,23 @@ struct AccommodationEditSheet: View {
                             }
                         }
                         FormField("Location") {
-                            LocationSearchField(placeholder: "Location", text: $location, onSelect: { name, _ in location = name })
+                            VStack(alignment: .leading, spacing: 8) {
+                                LocationSearchField(placeholder: "Search for your hotel or address", text: $location, regionBiasCenter: trip.coordinate, onSelect: { name, coordinate in
+                                    location = name
+                                    latitude = coordinate?.latitude
+                                    longitude = coordinate?.longitude
+                                    pinnedLocation = coordinate != nil ? name : nil
+                                })
+                                if pinIsCurrent {
+                                    Label("Pinned on the map. Travel times start here.", systemImage: "mappin.circle.fill")
+                                        .font(AppFont.outfit(12, relativeTo: .footnote))
+                                        .foregroundStyle(trip.theme.accentColor)
+                                } else {
+                                    Label("Pick a search result to pin it and see travel times from here.", systemImage: "mappin.slash")
+                                        .font(AppFont.outfit(12, relativeTo: .footnote))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
                         FormField {
                             Stepper("Rooms: \(numberOfRooms)", value: $numberOfRooms, in: 1...20)
@@ -168,7 +194,14 @@ struct AccommodationEditSheet: View {
         }
     }
 
+    /// True while the pin still matches the location text.
+    private var pinIsCurrent: Bool {
+        latitude != nil && longitude != nil && pinnedLocation == location
+    }
+
     private func save() {
+        let savedLatitude = pinIsCurrent ? latitude : nil
+        let savedLongitude = pinIsCurrent ? longitude : nil
         let checkIn = Self.timeString(from: checkInTime)
         let checkOut = Self.timeString(from: checkOutTime)
         let accommodation: Accommodation
@@ -177,6 +210,8 @@ struct AccommodationEditSheet: View {
             accommodation.name = name.trimmingCharacters(in: .whitespaces)
             accommodation.type = type
             accommodation.location = location
+            accommodation.latitude = savedLatitude
+            accommodation.longitude = savedLongitude
             accommodation.numberOfRooms = numberOfRooms
             accommodation.totalCost = Double(totalCostText) ?? 0
             accommodation.budgetCategoryID = budgetCategoryID
@@ -193,6 +228,8 @@ struct AccommodationEditSheet: View {
                 name: name.trimmingCharacters(in: .whitespaces),
                 type: type,
                 location: location,
+                latitude: savedLatitude,
+                longitude: savedLongitude,
                 numberOfRooms: numberOfRooms,
                 totalCost: Double(totalCostText) ?? 0,
                 checkInTime: checkIn,
