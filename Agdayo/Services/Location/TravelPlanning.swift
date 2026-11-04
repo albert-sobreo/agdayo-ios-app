@@ -71,4 +71,30 @@ extension MKDirectionsTransportType {
         default: return MKLaunchOptionsDirectionsModeDriving
         }
     }
+
+    /// Google Maps' `travelmode` for this mode.
+    var googleTravelMode: String {
+        switch self {
+        case .walking: return "walking"
+        case .transit: return "transit"
+        case .cycling: return "bicycling"
+        default: return "driving"
+        }
+    }
+}
+
+extension TravelPlanning {
+    /// Directions in Google Maps. This universal link opens the Google Maps
+    /// app when it's installed and the website otherwise, which is where to
+    /// see transit lines and steps for cities Apple Maps doesn't cover.
+    static func googleMapsURL(from origin: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, mode: MKDirectionsTransportType) -> URL? {
+        var components = URLComponents(string: "https://www.google.com/maps/dir/")
+        components?.queryItems = [
+            URLQueryItem(name: "api", value: "1"),
+            URLQueryItem(name: "origin", value: "\(origin.latitude),\(origin.longitude)"),
+            URLQueryItem(name: "destination", value: "\(destination.latitude),\(destination.longitude)"),
+            URLQueryItem(name: "travelmode", value: mode.googleTravelMode),
+        ]
+        return components?.url
+    }
 }

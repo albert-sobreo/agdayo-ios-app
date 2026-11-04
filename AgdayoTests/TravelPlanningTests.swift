@@ -65,4 +65,15 @@ struct TravelPlanningTests {
         #expect(TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 25 * 60))
         #expect(!TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 10 * 60))
     }
+
+    @Test func googleMapsLinkCarriesBothEndsAndTheMode() throws {
+        let url = try #require(TravelPlanning.googleMapsURL(
+            from: CLLocationCoordinate2D(latitude: 1.2834, longitude: 103.8607),
+            to: CLLocationCoordinate2D(latitude: 1.2816, longitude: 103.8636),
+            mode: .transit
+        ))
+        #expect(url.absoluteString == "https://www.google.com/maps/dir/?api=1&origin=1.2834,103.8607&destination=1.2816,103.8636&travelmode=transit")
+        #expect(MKDirectionsTransportType.cycling.googleTravelMode == "bicycling")
+        #expect(MKDirectionsTransportType.automobile.googleTravelMode == "driving")
+    }
 }
