@@ -3,7 +3,6 @@
 //  Agdayo
 //
 //  Created by Jan Albert Sobreo on 9/22/26.
-//  Xcode Cloud pipeline check.
 //
 
 import SwiftUI
