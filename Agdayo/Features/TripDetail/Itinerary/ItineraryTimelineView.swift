@@ -523,8 +523,9 @@ private struct DaySection: View {
 /// The travel row between two stops (or from your stay to the day's first
 /// stop): distance and time for the chosen way of getting around, when to
 /// leave, a warning when the next stop starts before you could get there,
-/// and a button that opens the leg in Apple Maps.
+/// and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
+    @Environment(\.openURL) private var openURL
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
@@ -639,7 +640,10 @@ private struct TravelConnectorView: View {
 
             Spacer(minLength: 4)
 
-            Button(action: openInMaps) {
+            Menu {
+                Button("Apple Maps", systemImage: "map", action: openInMaps)
+                Button("Google Maps", systemImage: "globe", action: openInGoogleMaps)
+            } label: {
                 Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
                     .font(.subheadline)
                     .foregroundStyle(accentColor)
@@ -647,7 +651,8 @@ private struct TravelConnectorView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Directions in Apple Maps")
+            .accessibilityLabel("Directions")
+            .accessibilityHint("Opens this leg in Apple Maps or Google Maps")
         }
     }
 
@@ -694,6 +699,11 @@ private struct TravelConnectorView: View {
         if let fromLabel { source.name = fromLabel.replacingOccurrences(of: "From ", with: "") }
         if !destinationName.isEmpty { destination.name = destinationName }
         MKMapItem.openMaps(with: [source, destination], launchOptions: [MKLaunchOptionsDirectionsModeKey: selectedMode.mapsLaunchMode])
+    }
+
+    private func openInGoogleMaps() {
+        guard let url = TravelPlanning.googleMapsURL(from: fromCoordinate, to: toCoordinate, mode: selectedMode) else { return }
+        openURL(url)
     }
 
     private static func modeName(_ mode: MKDirectionsTransportType) -> String {
