@@ -1,0 +1,27 @@
+{
+  // Agdayo's own server: holds API keys and gives the app (and later Claude,
+  // through the MCP connector) routes, travel times, places and guides.
+  "name": "agdayo",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    // Firebase project whose sign-in tokens are accepted.
+    "FIREBASE_PROJECT_ID": "agdayo-app",
+    // Comma-separated Firebase user IDs allowed to call this server.
+    // Fill in your own UID before deploying (see README).
+    "ALLOWED_UIDS": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agdayo",
+      // Replace with the ID printed by `npx wrangler d1 create agdayo`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+  // Secret, set with `npx wrangler secret put GOOGLE_MAPS_API_KEY`:
+  //   GOOGLE_MAPS_API_KEY  Google Cloud key with Routes API and Places API (New)
+}
