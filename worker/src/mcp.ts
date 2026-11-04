@@ -37,6 +37,7 @@ const instructions = `Agdayo is the user's travel app. Use these tools to plan t
 - Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
 - To change an existing plan, call get_trip first, then use the update_, delete_ and add_ tools. Show what will change and get the user's OK first.
 - When an activity's place came from search_places, pass its placeId so the app can warn when the place is closed at that time.
+- When adding transport, pin both ends with search_places (fromLatitude/toLatitude and so on) so the app can show travel between the airport or station and the stay.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
 - Use search_places to get real coordinates before adding activities or stays, so travel times work in the app.
 - Transit directions and times come only from plan_route and travel_times (Google). If they return no transit route, say there's no transit data there and suggest walking or a car; never guess lines or times.
@@ -123,6 +124,10 @@ const transportProperties = {
   to: { type: "string", description: "Where it arrives, e.g. Singapore Changi (SIN) Terminal 1." },
   departure: { ...zonedTime, description: "Departure, local time at the origin with offset." },
   arrival: { ...zonedTime, description: "Arrival, local time at the destination with offset." },
+  fromLatitude: { type: "number", description: "Pin for the departure point (airport, station), from search_places." },
+  fromLongitude: { type: "number" },
+  toLatitude: { type: "number", description: "Pin for the arrival point. With a stay pinned too, the app shows travel between them." },
+  toLongitude: { type: "number" },
   bookingRef: { type: "string" },
   seat: { type: "string" },
   cost: { type: "number" },

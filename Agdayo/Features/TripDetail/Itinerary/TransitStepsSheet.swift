@@ -13,6 +13,8 @@ struct TransitStepsSheet: View {
     let toCoordinate: CLLocationCoordinate2D
     /// When you want to arrive (the next stop's start time).
     let arriveBy: Date?
+    /// When you set off instead, e.g. once you're out of the airport. Wins over `arriveBy`.
+    var departAt: Date? = nil
     let accentColor: Color
 
     @Environment(\.dismiss) private var dismiss
@@ -114,7 +116,7 @@ struct TransitStepsSheet: View {
     private func load() async {
         if case .loaded = state {} else { state = .loading }
         do {
-            if let route = try await AgdayoServer.transitRoute(from: fromCoordinate, to: toCoordinate, arriveBy: arriveBy) {
+            if let route = try await AgdayoServer.transitRoute(from: fromCoordinate, to: toCoordinate, arriveBy: arriveBy, departAt: departAt) {
                 state = .loaded(route)
             } else {
                 state = .noRoute

@@ -19,6 +19,10 @@ struct TransportSegmentDTO: Codable {
     var paidByUID: String?
     var splitUIDs: [String]?
     var splitAmounts: [String: Double]?
+    var departureLatitude: Double?
+    var departureLongitude: Double?
+    var arrivalLatitude: Double?
+    var arrivalLongitude: Double?
 }
 
 extension TransportSegment {
@@ -41,7 +45,11 @@ extension TransportSegment {
             budgetMemberUID: budgetMemberUID,
             paidByUID: paidByUID,
             splitUIDs: splitUIDs,
-            splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts
+            splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts,
+            departureLatitude: departureLatitude,
+            departureLongitude: departureLongitude,
+            arrivalLatitude: arrivalLatitude,
+            arrivalLongitude: arrivalLongitude
         )
     }
 
@@ -66,6 +74,10 @@ extension TransportSegment {
             paidByUID: dto.paidByUID,
             splitUIDs: dto.splitUIDs ?? [],
             splitAmounts: dto.splitAmounts ?? [:],
+            departureLatitude: dto.departureLatitude,
+            departureLongitude: dto.departureLongitude,
+            arrivalLatitude: dto.arrivalLatitude,
+            arrivalLongitude: dto.arrivalLongitude,
             trip: trip
         )
     }
@@ -89,5 +101,9 @@ extension TransportSegment {
         paidByUID = dto.paidByUID
         splitUIDs = dto.splitUIDs ?? []
         splitAmounts = dto.splitAmounts ?? [:]
+        departureLatitude = dto.departureLatitude
+        departureLongitude = dto.departureLongitude
+        arrivalLatitude = dto.arrivalLatitude
+        arrivalLongitude = dto.arrivalLongitude
     }
 }

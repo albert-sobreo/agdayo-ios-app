@@ -321,6 +321,16 @@ export function transportFields(
       throw new HttpError(400, "arrival is before departure.");
     }
   }
+  if (has("fromLatitude") || has("fromLongitude")) {
+    const pin = optionalCoordinate(input.fromLatitude, input.fromLongitude, "from");
+    fields.departureLatitude = pin.latitude;
+    fields.departureLongitude = pin.longitude;
+  }
+  if (has("toLatitude") || has("toLongitude")) {
+    const pin = optionalCoordinate(input.toLatitude, input.toLongitude, "to");
+    fields.arrivalLatitude = pin.latitude;
+    fields.arrivalLongitude = pin.longitude;
+  }
   if (has("bookingRef")) fields.bookingRef = text(input.bookingRef, "bookingRef", "");
   if (has("seat")) fields.seatNumber = text(input.seat, "seat", "");
   if (has("notes")) fields.notes = text(input.notes, "notes", "");
