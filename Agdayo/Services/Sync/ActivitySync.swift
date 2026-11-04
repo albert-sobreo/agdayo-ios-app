@@ -17,6 +17,9 @@ struct ActivityDTO: Codable {
     var paidByUID: String?
     var splitUIDs: [String]?
     var splitAmounts: [String: Double]?
+    /// Written by Claude; kept here so saving from the app doesn't drop them.
+    var placeID: String?
+    var createdBy: String?
 }
 
 extension Activity {
@@ -37,7 +40,9 @@ extension Activity {
             budgetMemberUID: budgetMemberUID,
             paidByUID: paidByUID,
             splitUIDs: splitUIDs,
-            splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts
+            splitAmounts: splitAmounts.isEmpty ? nil : splitAmounts,
+            placeID: placeID,
+            createdBy: createdBy
         )
     }
 
@@ -60,6 +65,8 @@ extension Activity {
             paidByUID: dto.paidByUID,
             splitUIDs: dto.splitUIDs ?? [],
             splitAmounts: dto.splitAmounts ?? [:],
+            placeID: dto.placeID,
+            createdBy: dto.createdBy,
             trip: trip
         )
     }
@@ -81,5 +88,7 @@ extension Activity {
         paidByUID = dto.paidByUID
         splitUIDs = dto.splitUIDs ?? []
         splitAmounts = dto.splitAmounts ?? [:]
+        placeID = dto.placeID
+        createdBy = dto.createdBy
     }
 }

@@ -58,7 +58,25 @@ export interface Place {
   type?: string;
   /** Google's human-readable weekly hours, e.g. "Monday: 9:00 AM – 9:00 PM". */
   openingHours?: string[];
+  /**
+   * The same hours for checking a time. `day` is 0 (Sunday) to 6, in the
+   * place's local time. A period with no `close` means open around the clock.
+   */
+  openingPeriods?: OpeningPeriod[];
+  /** The place's current offset from UTC, for reading `openingPeriods`. */
+  utcOffsetMinutes?: number;
   mapsUrl?: string;
+}
+
+export interface OpeningTime {
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+export interface OpeningPeriod {
+  open: OpeningTime;
+  close?: OpeningTime;
 }
 
 export interface TravelMatrix {
@@ -337,6 +355,8 @@ const placeFields = [
   "priceLevel",
   "primaryTypeDisplayName",
   "regularOpeningHours.weekdayDescriptions",
+  "regularOpeningHours.periods",
+  "utcOffsetMinutes",
   "googleMapsUri",
 ];
 
@@ -349,8 +369,20 @@ export interface GooglePlace {
   userRatingCount?: number;
   priceLevel?: string;
   primaryTypeDisplayName?: { text?: string };
-  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  regularOpeningHours?: { weekdayDescriptions?: string[]; periods?: GooglePeriod[] };
+  utcOffsetMinutes?: number;
   googleMapsUri?: string;
+}
+
+interface GooglePeriodPoint {
+  day?: number;
+  hour?: number;
+  minute?: number;
+}
+
+interface GooglePeriod {
+  open?: GooglePeriodPoint;
+  close?: GooglePeriodPoint;
 }
 
 export function normalizePlace(place: GooglePlace): Place {
@@ -366,6 +398,16 @@ export function normalizePlace(place: GooglePlace): Place {
   if (place.regularOpeningHours?.weekdayDescriptions?.length) {
     result.openingHours = place.regularOpeningHours.weekdayDescriptions;
   }
+  const point = (p: GooglePeriodPoint | undefined): OpeningTime | undefined =>
+    typeof p?.day === "number" ? { day: p.day, hour: p.hour ?? 0, minute: p.minute ?? 0 } : undefined;
+  const periods = (place.regularOpeningHours?.periods ?? []).flatMap((period): OpeningPeriod[] => {
+    const open = point(period.open);
+    if (!open) return [];
+    const close = point(period.close);
+    return [close ? { open, close } : { open }];
+  });
+  if (periods.length) result.openingPeriods = periods;
+  if (typeof place.utcOffsetMinutes === "number") result.utcOffsetMinutes = place.utcOffsetMinutes;
   if (place.googleMapsUri) result.mapsUrl = place.googleMapsUri;
   return result;
 }

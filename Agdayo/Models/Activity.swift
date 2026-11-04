@@ -41,6 +41,11 @@ final class Activity {
     /// Each member's calendar is their own; adding it on one device
     /// shouldn't add it (or an unrelated identifier) on another's.
     var calendarEventID: String?
+    /// Google's place ID, when the place came from a Google search (Claude
+    /// sets it). Used to check opening hours.
+    var placeID: String?
+    /// "claude" for activities Claude added through the connector.
+    var createdBy: String?
     var trip: Trip?
 
     init(
@@ -62,6 +67,8 @@ final class Activity {
         splitUIDs: [String] = [],
         splitAmounts: [String: Double] = [:],
         calendarEventID: String? = nil,
+        placeID: String? = nil,
+        createdBy: String? = nil,
         trip: Trip? = nil
     ) {
         self.id = id
@@ -82,8 +89,12 @@ final class Activity {
         self.splitUIDs = splitUIDs
         self.splitAmounts = splitAmounts
         self.calendarEventID = calendarEventID
+        self.placeID = placeID
+        self.createdBy = createdBy
         self.trip = trip
     }
+
+    var isFromClaude: Bool { createdBy == "claude" }
 
     var coordinate: CLLocationCoordinate2D? {
         guard let latitude, let longitude else { return nil }

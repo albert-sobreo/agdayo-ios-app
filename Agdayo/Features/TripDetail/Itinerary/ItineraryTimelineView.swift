@@ -464,14 +464,8 @@ private struct DaySection: View {
 
     @ViewBuilder
     private func row(for activity: Activity, isFirst: Bool, isLast: Bool) -> some View {
-        let content = ActivityRowView(
-            title: activity.title,
-            location: activity.location,
-            cost: activity.cost,
-            costCurrency: activity.costCurrency,
-            costNote: activity.costNote,
-            iconName: activity.iconName,
-            time: activity.date,
+        let content = ActivityHoursRow(
+            activity: activity,
             englishTitle: Self.englishName(in: activity.activityDescription),
             accentColor: trip.theme.accentColor,
             isFirst: isFirst,
@@ -948,6 +942,44 @@ private struct CardRow<Background: View>: ViewModifier {
                 .listRowBackground(background)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32))
+        }
+    }
+}
+
+/// An activity's itinerary row that also checks Google's opening hours for
+/// its time, when the activity has a place ID, and says so if it's closed then.
+private struct ActivityHoursRow: View {
+    let activity: Activity
+    let englishTitle: String?
+    let accentColor: Color
+    let isFirst: Bool
+    let isLast: Bool
+
+    @State private var isClosed = false
+
+    var body: some View {
+        ActivityRowView(
+            title: activity.title,
+            location: activity.location,
+            cost: activity.cost,
+            costCurrency: activity.costCurrency,
+            costNote: activity.costNote,
+            iconName: activity.iconName,
+            time: activity.date,
+            englishTitle: englishTitle,
+            accentColor: accentColor,
+            isFirst: isFirst,
+            isLast: isLast,
+            notice: isClosed ? "Closed at this time" : nil,
+            addedByClaude: activity.isFromClaude
+        )
+        .task(id: "\(activity.placeID ?? "")|\(activity.date.timeIntervalSince1970)") {
+            guard let placeID = activity.placeID, !placeID.isEmpty else {
+                isClosed = false
+                return
+            }
+            let hours = await PlaceHoursStore.hours(for: placeID)
+            isClosed = hours?.isOpen(at: activity.date) == false
         }
     }
 }

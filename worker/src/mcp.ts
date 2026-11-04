@@ -1,5 +1,5 @@
 import type { Env } from "./env";
-import { Firestore, parseServiceAccount } from "./firestore";
+import { Firestore, type FsInput, parseServiceAccount } from "./firestore";
 import { computeMatrix, computeRoute, maxMatrixPoints, parseMode, placeDetails, searchPlaces } from "./google";
 import { getGuide, listGuides, parseCountryCode, parseGuide, putGuide } from "./guides";
 import { cached, HttpError, optionalTime, requireLatLng, requireString } from "./http";
@@ -8,14 +8,19 @@ import {
   activityFields,
   addActivitiesWrites,
   createTripWrites,
+  dayNoteFields,
   getTrip,
   listTrips,
   maxActivitiesPerCall,
   newId,
   requireTripAccess,
+  stayFields,
   stayTypes,
   stayWrite,
+  transportFields,
+  transportModes,
   tripThemes,
+  tripUpdateFields,
 } from "./trips";
 
 /**
@@ -28,9 +33,10 @@ export const serverInfo = { name: "agdayo", title: "Agdayo", version: "0.1.0" };
 const supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const instructions = `Agdayo is the user's travel app. Use these tools to plan trips and write them into Agdayo; the user then follows the plan in the app.
-- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, add_activities, add_stay, update_activity, delete_activity, save_guide).
+- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note, save_guide).
 - Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
-- To change an existing plan, call get_trip first, then use update_activity, delete_activity and add_activities. Show what will change and get the user's OK first.
+- To change an existing plan, call get_trip first, then use the update_, delete_ and add_ tools. Show what will change and get the user's OK first.
+- When an activity's place came from search_places, pass its placeId so the app can warn when the place is closed at that time.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
 - Use search_places to get real coordinates before adding activities or stays, so travel times work in the app.
 - Transit directions and times come only from plan_route and travel_times (Google). If they return no transit route, say there's no transit data there and suggest walking or a car; never guess lines or times.
@@ -79,7 +85,75 @@ const activityProperties = {
   cost: { type: "number" },
   costCurrency: { type: "string", description: "Three-letter code, e.g. SGD." },
   costNote: { type: "string" },
+  placeId: { type: "string", description: "Google place ID from search_places, so the app can check opening hours." },
 };
+
+const tripProperties = {
+  name: { type: "string" },
+  location: { type: "string", description: "e.g. Singapore" },
+  startDate: { ...zonedTime, description: "First day, local midnight with offset, e.g. 2026-12-10T00:00:00+08:00." },
+  endDate: { ...zonedTime, description: "Last day, local midnight with offset." },
+  currency: { type: "string", description: "Three-letter code for the trip budget, e.g. SGD." },
+  budget: { type: "number" },
+  description: { type: "string" },
+  theme: { type: "string", enum: [...tripThemes] },
+  latitude: { type: "number" },
+  longitude: { type: "number" },
+  country: { type: "string" },
+  city: { type: "string" },
+};
+
+const stayProperties = {
+  name: { type: "string" },
+  location: { type: "string", description: "Address." },
+  latitude: { type: "number" },
+  longitude: { type: "number" },
+  type: { type: "string", enum: [...stayTypes] },
+  checkIn: { ...zonedTime, description: "Check-in date and time with offset." },
+  checkOut: { ...zonedTime, description: "Check-out date and time with offset." },
+  checkInTime: { type: "string", description: "HH:mm, default 15:00." },
+  checkOutTime: { type: "string", description: "HH:mm, default 11:00." },
+  totalCost: { type: "number" },
+  rooms: { type: "number" },
+};
+
+const transportProperties = {
+  mode: { type: "string", enum: [...transportModes], description: "rideshare means taxi or ride-hailing." },
+  from: { type: "string", description: "Where it leaves from, e.g. Manila (MNL) Terminal 3." },
+  to: { type: "string", description: "Where it arrives, e.g. Singapore Changi (SIN) Terminal 1." },
+  departure: { ...zonedTime, description: "Departure, local time at the origin with offset." },
+  arrival: { ...zonedTime, description: "Arrival, local time at the destination with offset." },
+  bookingRef: { type: "string" },
+  seat: { type: "string" },
+  cost: { type: "number" },
+  currency: { type: "string", description: "Three-letter code. Defaults to the trip's currency." },
+  notes: { type: "string", description: "e.g. flight number, terminal, baggage." },
+};
+
+const recordId = (name: string) => ({ type: "string", description: `${name} from get_trip.` });
+
+/** Changes or deletes one record of a trip after checking the user can edit it. */
+async function changeRecord(
+  ctx: McpContext,
+  args: Args,
+  idField: string,
+  collection: string,
+  fields: Record<string, FsInput | undefined> | null,
+): Promise<{ tripId: string; recordId: string }> {
+  const id = requireString(args.tripId, "tripId");
+  const recordId = requireString(args[idField], idField);
+  if (!/^[0-9A-Fa-f-]{36}$/.test(recordId)) throw new HttpError(400, `${idField} must be an ID from get_trip.`);
+  const db = ctx.firestore();
+  await requireTripAccess(db, ctx.uid, id);
+  const path = `trips/${id}/${collection}/${recordId}`;
+  if (fields === null) {
+    await db.commit([{ kind: "delete", path }]);
+  } else {
+    if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass at least one field to change.");
+    await db.commit([{ kind: "update", path, fields }]);
+  }
+  return { tripId: id, recordId };
+}
 
 export const tools: Tool[] = [
   {
@@ -107,20 +181,7 @@ export const tools: Tool[] = [
     description: "Creates a new trip owned by the user. It shows up in Agdayo the next time the trip list refreshes.",
     inputSchema: {
       type: "object",
-      properties: {
-        name: { type: "string" },
-        location: { type: "string", description: "e.g. Singapore" },
-        startDate: { ...zonedTime, description: "First day, local midnight with offset, e.g. 2026-12-10T00:00:00+08:00." },
-        endDate: { ...zonedTime, description: "Last day, local midnight with offset." },
-        currency: { type: "string", description: "Three-letter code for the trip budget, e.g. SGD." },
-        budget: { type: "number" },
-        description: { type: "string" },
-        theme: { type: "string", enum: [...tripThemes] },
-        latitude: { type: "number" },
-        longitude: { type: "number" },
-        country: { type: "string" },
-        city: { type: "string" },
-      },
+      properties: tripProperties,
       required: ["name", "location", "startDate", "endDate", "currency"],
     },
     annotations: write,
@@ -136,20 +197,7 @@ export const tools: Tool[] = [
     description: "Adds a hotel or other stay to a trip. Include coordinates so the app can show travel times from it.",
     inputSchema: {
       type: "object",
-      properties: {
-        tripId,
-        name: { type: "string" },
-        location: { type: "string", description: "Address." },
-        latitude: { type: "number" },
-        longitude: { type: "number" },
-        type: { type: "string", enum: [...stayTypes] },
-        checkIn: { ...zonedTime, description: "Check-in date and time with offset." },
-        checkOut: { ...zonedTime, description: "Check-out date and time with offset." },
-        checkInTime: { type: "string", description: "HH:mm, default 15:00." },
-        checkOutTime: { type: "string", description: "HH:mm, default 11:00." },
-        totalCost: { type: "number" },
-        rooms: { type: "number" },
-      },
+      properties: { tripId, ...stayProperties },
       required: ["tripId", "name", "location", "latitude", "longitude", "checkIn", "checkOut"],
     },
     annotations: write,
@@ -223,6 +271,135 @@ export const tools: Tool[] = [
       await requireTripAccess(db, ctx.uid, id);
       await db.commit([{ kind: "delete", path: `trips/${id}/activities/${activityId}` }]);
       return { activityId, deleted: true };
+    },
+  },
+  {
+    name: "update_trip",
+    title: "Update trip",
+    description: "Changes a trip's details: name, dates, place, budget, currency, description or theme. Only the fields you pass change.",
+    inputSchema: { type: "object", properties: { tripId, ...tripProperties }, required: ["tripId"] },
+    annotations: { ...write, idempotentHint: true },
+    run: async (args, ctx) => {
+      const id = requireString(args.tripId, "tripId");
+      const db = ctx.firestore();
+      await requireTripAccess(db, ctx.uid, id);
+      const fields = tripUpdateFields(args);
+      if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass at least one field to change.");
+      await db.commit([{ kind: "update", path: `trips/${id}`, fields, serverTimestamps: ["updatedAt"] }]);
+      return { tripId: id, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.startDate)) };
+    },
+  },
+  {
+    name: "update_stay",
+    title: "Update stay",
+    description: "Changes some fields of a stay. Only the fields you pass change.",
+    inputSchema: { type: "object", properties: { tripId, stayId: recordId("stayId"), ...stayProperties }, required: ["tripId", "stayId"] },
+    annotations: { ...write, idempotentHint: true },
+    run: async (args, ctx) => {
+      const fields = stayFields(args, true);
+      const { tripId: id, recordId: stayId } = await changeRecord(ctx, args, "stayId", "accommodations", fields);
+      return { stayId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.checkIn)) };
+    },
+  },
+  {
+    name: "delete_stay",
+    title: "Delete stay",
+    description: "Deletes a stay from a trip. Ask the user first.",
+    inputSchema: { type: "object", properties: { tripId, stayId: recordId("stayId") }, required: ["tripId", "stayId"] },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (args, ctx) => {
+      const { tripId: id, recordId: stayId } = await changeRecord(ctx, args, "stayId", "accommodations", null);
+      return { stayId, deleted: true, appLink: appLink(ctx.origin, id) };
+    },
+  },
+  {
+    name: "add_transport",
+    title: "Add transport",
+    description: "Adds a flight, bus, train, ferry or other booked trip between places.",
+    inputSchema: {
+      type: "object",
+      properties: { tripId, ...transportProperties },
+      required: ["tripId", "mode", "from", "to", "departure"],
+    },
+    annotations: write,
+    run: async (args, ctx) => {
+      const id = requireString(args.tripId, "tripId");
+      const db = ctx.firestore();
+      const trip = await requireTripAccess(db, ctx.uid, id);
+      const fields = transportFields(args, false, String(trip.data.currency ?? "USD"));
+      const transportId = newId();
+      await db.commit([
+        { kind: "set", path: `trips/${id}/transportSegments/${transportId}`, fields: { ...fields, createdBy: "claude" }, mustNotExist: true },
+      ]);
+      return { transportId, added: true, appLink: appLink(ctx.origin, id, localDay(args.departure)) };
+    },
+  },
+  {
+    name: "update_transport",
+    title: "Update transport",
+    description: "Changes some fields of a transport booking. Only the fields you pass change.",
+    inputSchema: {
+      type: "object",
+      properties: { tripId, transportId: recordId("transportId"), ...transportProperties },
+      required: ["tripId", "transportId"],
+    },
+    annotations: { ...write, idempotentHint: true },
+    run: async (args, ctx) => {
+      const fields = transportFields(args, true, "");
+      const { tripId: id, recordId: transportId } = await changeRecord(ctx, args, "transportId", "transportSegments", fields);
+      return { transportId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.departure)) };
+    },
+  },
+  {
+    name: "delete_transport",
+    title: "Delete transport",
+    description: "Deletes a transport booking from a trip. Ask the user first.",
+    inputSchema: { type: "object", properties: { tripId, transportId: recordId("transportId") }, required: ["tripId", "transportId"] },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (args, ctx) => {
+      const { tripId: id, recordId: transportId } = await changeRecord(ctx, args, "transportId", "transportSegments", null);
+      return { transportId, deleted: true, appLink: appLink(ctx.origin, id) };
+    },
+  },
+  {
+    name: "set_day_note",
+    title: "Set day note",
+    description: "Adds a note to a day of the trip, or changes one when you pass its noteId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tripId,
+        noteId: { type: "string", description: "noteId from get_trip, to change an existing note. Leave out to add one." },
+        day: { ...zonedTime, description: "Any local time on that day, with offset, e.g. 2026-12-10T00:00:00+08:00." },
+        title: { type: "string" },
+        content: { type: "string" },
+      },
+      required: ["tripId"],
+    },
+    annotations: write,
+    run: async (args, ctx) => {
+      if (args.noteId !== undefined) {
+        const fields = dayNoteFields(args, true);
+        const { tripId: id, recordId: noteId } = await changeRecord(ctx, args, "noteId", "dayNotes", fields);
+        return { noteId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.day)) };
+      }
+      const id = requireString(args.tripId, "tripId");
+      const db = ctx.firestore();
+      await requireTripAccess(db, ctx.uid, id);
+      const noteId = newId();
+      await db.commit([{ kind: "set", path: `trips/${id}/dayNotes/${noteId}`, fields: dayNoteFields(args), mustNotExist: true }]);
+      return { noteId, added: true, appLink: appLink(ctx.origin, id, localDay(args.day)) };
+    },
+  },
+  {
+    name: "delete_day_note",
+    title: "Delete day note",
+    description: "Deletes a day note. Ask the user first.",
+    inputSchema: { type: "object", properties: { tripId, noteId: recordId("noteId") }, required: ["tripId", "noteId"] },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (args, ctx) => {
+      const { tripId: id, recordId: noteId } = await changeRecord(ctx, args, "noteId", "dayNotes", null);
+      return { noteId, deleted: true, appLink: appLink(ctx.origin, id) };
     },
   },
   {

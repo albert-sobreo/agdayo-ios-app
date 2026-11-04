@@ -44,6 +44,10 @@ struct ActivityRowView: View {
     var isLast = false
     /// False for rows that don't open anything (transport, check-in/out).
     var showsChevron = true
+    /// A warning under the place, e.g. that it's closed at this time.
+    var notice: String? = nil
+    /// Shows a small mark for activities Claude added.
+    var addedByClaude = false
 
     private let verticalPadding: CGFloat = 12
     private let dotSize: CGFloat = 10
@@ -65,6 +69,12 @@ struct ActivityRowView: View {
                     Text(title)
                         .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
                         .foregroundStyle(.primary)
+                    if addedByClaude {
+                        Image(systemName: "sparkle")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Added by Claude")
+                    }
                 }
 
                 if let englishTitle {
@@ -78,6 +88,12 @@ struct ActivityRowView: View {
                         .font(AppFont.outfit(12, relativeTo: .caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                }
+
+                if let notice {
+                    Label(notice, systemImage: "clock.badge.exclamationmark")
+                        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
+                        .foregroundStyle(.orange)
                 }
 
                 if let cost {

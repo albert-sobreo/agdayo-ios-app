@@ -11,6 +11,8 @@ import { HttpError } from "./http";
 
 export const tripThemes = ["peach", "blue", "amber", "emerald", "violet", "teal", "rose", "slate"] as const;
 export const stayTypes = ["hotel", "airbnb", "transient", "other"] as const;
+/** TransportMode raw values in the app. */
+export const transportModes = ["flight", "bus", "train", "car", "ferry", "rideshare", "other"] as const;
 export const maxActivitiesPerCall = 40;
 
 /** Matches TripMembershipService.generateRandomCode. */
@@ -36,6 +38,18 @@ export function requireZonedTime(value: unknown, field: string): FsTimestamp {
   const time = Date.parse(value.trim());
   if (Number.isNaN(time)) throw new HttpError(400, `${field} isn't a real date.`);
   return new FsTimestamp(new Date(time).toISOString());
+}
+
+/**
+ * Splits a local time with offset into the app's day + "HH:mm" pair, for
+ * records that store them apart (transport, day notes). The day is local
+ * midnight at the destination, which is how the app saves picked dates.
+ */
+export function splitZonedTime(value: unknown, field: string): { day: FsTimestamp; time: string } {
+  requireZonedTime(value, field);
+  const trimmed = String(value).trim();
+  const offset = /(Z|[+-]\d{2}:\d{2})$/.exec(trimmed)?.[1] ?? "Z";
+  return { day: requireZonedTime(`${trimmed.slice(0, 10)}T00:00:00${offset}`, field), time: trimmed.slice(11, 16) };
 }
 
 function text(value: unknown, field: string, fallback?: string): string {
@@ -192,6 +206,7 @@ export function activityFields(input: Record<string, unknown>, partial = false):
   }
   if (has("costCurrency")) fields.costCurrency = currency(input.costCurrency, "costCurrency");
   if (has("costNote")) fields.costNote = text(input.costNote, "costNote", "");
+  if (has("placeId")) fields.placeID = text(input.placeId, "placeId", "");
   return fields;
 }
 
@@ -215,28 +230,111 @@ export function addActivitiesWrites(tripId: string, items: unknown): { writes: F
   return { writes, ids };
 }
 
+/** AccommodationDTO fields from Claude's input. `partial` allows leaving required fields out (for updates). */
+export function stayFields(input: Record<string, unknown>, partial = false): Record<string, FsInput | undefined> {
+  const has = (key: string) => input[key] !== undefined;
+  const fields: Record<string, FsInput | undefined> = {};
+  if (!partial || has("name")) fields.name = text(input.name, "name");
+  if (!partial || has("type")) {
+    const type = text(input.type, "type", "hotel");
+    if (!(stayTypes as readonly string[]).includes(type)) throw new HttpError(400, `type must be one of ${stayTypes.join(", ")}.`);
+    fields.type = type;
+  }
+  if (!partial || has("location")) fields.location = text(input.location, "location");
+  if (!partial || has("latitude") || has("longitude")) {
+    Object.assign(fields, optionalCoordinate(input.latitude, input.longitude, "the stay's location"));
+  }
+  if (!partial || has("rooms")) fields.numberOfRooms = Math.round(optionalNumber(input.rooms, "rooms", 1) ?? 1);
+  if (!partial || has("totalCost")) fields.totalCost = new FsDouble(optionalNumber(input.totalCost, "totalCost") ?? 0);
+  if (!partial || has("checkInTime")) fields.checkInTime = hhmm(input.checkInTime, "checkInTime", "15:00");
+  if (!partial || has("checkOutTime")) fields.checkOutTime = hhmm(input.checkOutTime, "checkOutTime", "11:00");
+  if (!partial || has("checkIn")) fields.startDate = requireZonedTime(input.checkIn, "checkIn");
+  if (!partial || has("checkOut")) fields.endDate = requireZonedTime(input.checkOut, "checkOut");
+  const start = fields.startDate, end = fields.endDate;
+  if (start instanceof FsTimestamp && end instanceof FsTimestamp && end.iso <= start.iso) {
+    throw new HttpError(400, "checkOut must be after checkIn.");
+  }
+  return fields;
+}
+
 export function stayWrite(tripId: string, input: Record<string, unknown>, stayId = newId()): FsWrite {
-  const type = text(input.type, "type", "hotel");
-  if (!(stayTypes as readonly string[]).includes(type)) throw new HttpError(400, `type must be one of ${stayTypes.join(", ")}.`);
-  const startDate = requireZonedTime(input.checkIn, "checkIn");
-  const endDate = requireZonedTime(input.checkOut, "checkOut");
-  if (endDate.iso <= startDate.iso) throw new HttpError(400, "checkOut must be after checkIn.");
   return {
     kind: "set",
     path: `trips/${tripId}/accommodations/${stayId}`,
     mustNotExist: true,
-    fields: {
-      name: text(input.name, "name"),
-      type,
-      location: text(input.location, "location"),
-      ...optionalCoordinate(input.latitude, input.longitude, "the stay's location"),
-      numberOfRooms: Math.round(optionalNumber(input.rooms, "rooms", 1) ?? 1),
-      totalCost: new FsDouble(optionalNumber(input.totalCost, "totalCost") ?? 0),
-      checkInTime: hhmm(input.checkInTime, "checkInTime", "15:00"),
-      checkOutTime: hhmm(input.checkOutTime, "checkOutTime", "11:00"),
-      startDate,
-      endDate,
-      createdBy: "claude",
-    },
+    fields: { ...stayFields(input), createdBy: "claude" },
   };
+}
+
+/** Trip document fields Claude may change. Only the fields passed change. */
+export function tripUpdateFields(input: Record<string, unknown>): Record<string, FsInput | undefined> {
+  const has = (key: string) => input[key] !== undefined;
+  const fields: Record<string, FsInput | undefined> = {};
+  if (has("name")) fields.name = text(input.name, "name");
+  if (has("location")) fields.location = text(input.location, "location");
+  if (has("startDate")) fields.startDate = requireZonedTime(input.startDate, "startDate");
+  if (has("endDate")) fields.endDate = requireZonedTime(input.endDate, "endDate");
+  if (has("budget")) fields.overallBudget = new FsDouble(optionalNumber(input.budget, "budget") ?? 0);
+  if (has("currency")) fields.currency = currency(input.currency, "currency");
+  if (has("description")) fields.tripDescription = text(input.description, "description", "");
+  if (has("theme")) {
+    const theme = text(input.theme, "theme");
+    if (!(tripThemes as readonly string[]).includes(theme)) throw new HttpError(400, `theme must be one of ${tripThemes.join(", ")}.`);
+    fields.theme = theme;
+  }
+  if (has("latitude") || has("longitude")) Object.assign(fields, optionalCoordinate(input.latitude, input.longitude, "the trip's location"));
+  if (has("country")) fields.visitedCountry = text(input.country, "country", "");
+  if (has("city")) fields.visitedCity = text(input.city, "city", "");
+  return fields;
+}
+
+/**
+ * TransportSegmentDTO fields from Claude's input. Departure and arrival come in
+ * as local times with offset and are stored as the app does: a day plus "HH:mm".
+ */
+export function transportFields(
+  input: Record<string, unknown>,
+  partial: boolean,
+  tripCurrency: string,
+): Record<string, FsInput | undefined> {
+  const has = (key: string) => input[key] !== undefined;
+  const fields: Record<string, FsInput | undefined> = {};
+  if (!partial || has("mode")) {
+    const mode = text(input.mode, "mode");
+    if (!(transportModes as readonly string[]).includes(mode)) throw new HttpError(400, `mode must be one of ${transportModes.join(", ")}.`);
+    fields.mode = mode;
+  }
+  if (!partial || has("from")) fields.departureLocation = text(input.from, "from");
+  if (!partial || has("to")) fields.arrivalLocation = text(input.to, "to");
+  if (!partial || has("departure")) {
+    const { day, time } = splitZonedTime(input.departure, "departure");
+    fields.departureDate = day;
+    fields.departureTime = time;
+  }
+  if (has("arrival")) {
+    const { day, time } = splitZonedTime(input.arrival, "arrival");
+    fields.arrivalDate = day;
+    fields.arrivalTime = time;
+  }
+  if (has("departure") && has("arrival")) {
+    if (requireZonedTime(input.arrival, "arrival").iso < requireZonedTime(input.departure, "departure").iso) {
+      throw new HttpError(400, "arrival is before departure.");
+    }
+  }
+  if (has("bookingRef")) fields.bookingRef = text(input.bookingRef, "bookingRef", "");
+  if (has("seat")) fields.seatNumber = text(input.seat, "seat", "");
+  if (has("notes")) fields.notes = text(input.notes, "notes", "");
+  if (!partial || has("cost")) fields.cost = new FsDouble(optionalNumber(input.cost, "cost") ?? 0);
+  if (!partial || has("currency")) fields.currency = has("currency") ? currency(input.currency, "currency") : tripCurrency;
+  return fields;
+}
+
+/** DayNoteDTO fields. `day` is any local time that day, with offset; it's stored as local midnight. */
+export function dayNoteFields(input: Record<string, unknown>, partial = false): Record<string, FsInput | undefined> {
+  const has = (key: string) => input[key] !== undefined;
+  const fields: Record<string, FsInput | undefined> = {};
+  if (!partial || has("day")) fields.day = splitZonedTime(input.day, "day").day;
+  if (!partial || has("title")) fields.title = text(input.title, "title", "");
+  if (!partial || has("content")) fields.content = text(input.content, "content", "");
+  return fields;
 }

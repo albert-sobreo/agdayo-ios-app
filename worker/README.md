@@ -23,9 +23,11 @@ and lets Claude write trips straight into Agdayo.
 | Tool | What Claude can do |
 | --- | --- |
 | `list_trips`, `get_trip` | Read your trips: stays, transport, activities, day notes |
-| `create_trip` | Start a new trip (shows up when the trip list refreshes) |
-| `add_stay` | Add a hotel with its map pin |
-| `add_activities`, `update_activity`, `delete_activity` | Write the plan, up to 40 activities at a time |
+| `create_trip`, `update_trip` | Start a new trip (shows up when the trip list refreshes), or change its name, dates, budget and so on |
+| `add_stay`, `update_stay`, `delete_stay` | Hotels, with their map pins |
+| `add_activities`, `update_activity`, `delete_activity` | Write the plan, up to 40 activities at a time. Each keeps its Google place ID so the app can check opening hours |
+| `add_transport`, `update_transport`, `delete_transport` | Flights, buses, trains and ferries |
+| `set_day_note`, `delete_day_note` | Notes on a day |
 | `plan_route`, `travel_times` | Google transit/walk/drive routes and times |
 | `search_places`, `place_details` | Google Places, with coordinates and opening hours |
 | `get_guide`, `save_guide` | Read and save "Know before you go" guides |

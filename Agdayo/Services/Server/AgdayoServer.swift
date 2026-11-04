@@ -42,6 +42,21 @@ enum AgdayoServer {
         return try decoder.decode(RouteResponse.self, from: data).route
     }
 
+    /// A place's weekly opening hours, by Google place ID.
+    static func placeHours(id: String) async throws -> PlaceHours {
+        struct Response: Decodable {
+            struct Place: Decodable {
+                let openingPeriods: [PlaceHours.Period]?
+                let utcOffsetMinutes: Int?
+            }
+            let place: Place
+        }
+        // Google place IDs are letters, digits, "_" and "-", so they're safe in a path.
+        let data = try await send("GET", "/v1/places/\(id)")
+        let place = try decoder.decode(Response.self, from: data).place
+        return PlaceHours(periods: place.openingPeriods ?? [], utcOffsetMinutes: place.utcOffsetMinutes)
+    }
+
     /// Every saved country guide, by title.
     static func guides() async throws -> [GuideSummary] {
         struct Response: Decodable { let guides: [GuideSummary] }
