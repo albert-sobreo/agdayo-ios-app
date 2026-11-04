@@ -384,6 +384,7 @@ private struct DaySection: View {
                             fromCoordinate: fromCoordinate,
                             toCoordinate: toCoordinate,
                             previousStart: activity.date,
+                            originName: activity.title,
                             nextStart: next.date,
                             destinationName: next.title,
                             accentColor: trip.theme.accentColor,
@@ -534,6 +535,8 @@ private struct TravelConnectorView: View {
     /// Start of the stop you're leaving, for the tight-gap check. nil when
     /// leaving your stay, which has no start time.
     var previousStart: Date?
+    /// Name of the stop you're leaving, for the steps sheet. Empty when leaving your stay (fromLabel names it).
+    var originName: String = ""
     /// Start of the stop you're heading to, for the leave-by time.
     let nextStart: Date
     var destinationName: String = ""
@@ -552,15 +555,17 @@ private struct TravelConnectorView: View {
     /// The last figure shown. It stays on screen while another mode loads, so
     /// switching modes never swaps the text for a spinner and shifts the row.
     @State private var shownEstimate: TravelEstimate?
+    @State private var showingSteps = false
 
     private static let modes: [MKDirectionsTransportType] = [.walking, .transit, .automobile, .cycling]
 
-    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, fromLabel: String? = nil, previousStart: Date? = nil, nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
+    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, fromLabel: String? = nil, previousStart: Date? = nil, originName: String = "", nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
         self.isEmbedded = isEmbedded
         self.fromCoordinate = fromCoordinate
         self.toCoordinate = toCoordinate
         self.fromLabel = fromLabel
         self.previousStart = previousStart
+        self.originName = originName
         self.nextStart = nextStart
         self.destinationName = destinationName
         self.accentColor = accentColor
@@ -600,6 +605,17 @@ private struct TravelConnectorView: View {
             onEstimate(currentEstimate)
         }
         .onDisappear { onEstimate(nil) }
+        .sheet(isPresented: $showingSteps) {
+            TransitStepsSheet(
+                fromName: fromLabel.map { $0.replacingOccurrences(of: "From ", with: "") } ?? (originName.isEmpty ? "Previous stop" : originName),
+                toName: destinationName.isEmpty ? "Next stop" : destinationName,
+                fromCoordinate: fromCoordinate,
+                toCoordinate: toCoordinate,
+                arriveBy: nextStart,
+                accentColor: accentColor
+            )
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private var controls: some View {
@@ -656,8 +672,32 @@ private struct TravelConnectorView: View {
         }
     }
 
-    @ViewBuilder
     private var details: some View {
+        HStack(spacing: 10) {
+            timing
+            // MapKit only has transit ETAs; Google has the lines and stops,
+            // and often covers cities MapKit doesn't, so offer it even when
+            // MapKit found no transit.
+            if selectedMode == .transit {
+                Button {
+                    showingSteps = true
+                } label: {
+                    Label("Steps", systemImage: "list.bullet")
+                        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(accentColor.opacity(0.15), in: Capsule())
+                        .foregroundStyle(accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Transit steps")
+                .accessibilityHint("Shows which lines and stops to take, from Google")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var timing: some View {
         if let currentEstimate {
             if isTight, let previousStart {
                 let gap = nextStart.timeIntervalSince(previousStart)
