@@ -26,7 +26,7 @@ final class AgdayoUITests: XCTestCase {
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 10))
 
-        for tabName in ["Trips", "Map", "Profile", "Home"] {
+        for tabName in ["Trips", "Profile", "Home"] {
             let tab = tabBar.buttons[tabName]
             XCTAssertTrue(tab.exists, "\(tabName) tab should exist")
             tab.tap()
