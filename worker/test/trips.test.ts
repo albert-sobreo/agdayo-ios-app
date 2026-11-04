@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { FsDouble, FsTimestamp } from "../src/firestore";
-import { activityFields, addActivitiesWrites, createTripWrites, joinCode, requireZonedTime, stayWrite } from "../src/trips";
+import {
+  activityFields,
+  addActivitiesWrites,
+  createTripWrites,
+  dayNoteFields,
+  joinCode,
+  requireZonedTime,
+  splitZonedTime,
+  stayFields,
+  stayWrite,
+  transportFields,
+  tripUpdateFields,
+} from "../src/trips";
 
 describe("requireZonedTime", () => {
   it("needs a UTC offset so times land on the right hour", () => {
@@ -92,5 +104,71 @@ describe("stayWrite", () => {
     );
     expect(write.path).toBe("trips/TRIP/accommodations/STAY");
     expect(write.kind === "set" && write.fields).toMatchObject({ type: "hotel", numberOfRooms: 1, totalCost: new FsDouble(0), checkInTime: "15:00", checkOutTime: "11:00" });
+  });
+});
+
+describe("editing", () => {
+  it("splits a local time into the app's day and HH:mm", () => {
+    expect(splitZonedTime("2026-11-11T08:30:00+08:00", "departure")).toEqual({
+      day: new FsTimestamp("2026-11-10T16:00:00.000Z"),
+      time: "08:30",
+    });
+    expect(() => splitZonedTime("2026-11-11T08:30", "departure")).toThrow(/UTC offset/);
+  });
+
+  it("changes only the trip fields passed", () => {
+    expect(tripUpdateFields({ name: "Baguio again", budget: 5000 })).toEqual({ name: "Baguio again", overallBudget: new FsDouble(5000) });
+    expect(() => tripUpdateFields({ theme: "neon" })).toThrow(/theme/);
+  });
+
+  it("updates part of a stay and still checks the dates", () => {
+    expect(stayFields({ checkOutTime: "12:00" }, true)).toEqual({ checkOutTime: "12:00" });
+    expect(() =>
+      stayFields({ checkIn: "2026-11-18T15:00:00+08:00", checkOut: "2026-11-16T11:00:00+08:00" }, true),
+    ).toThrow(/after checkIn/);
+  });
+
+  it("writes transport the way the app stores it", () => {
+    const fields = transportFields(
+      {
+        mode: "flight",
+        from: "Manila (MNL)",
+        to: "Singapore (SIN)",
+        departure: "2026-11-11T08:30:00+08:00",
+        arrival: "2026-11-11T12:20:00+08:00",
+        bookingRef: "ABC123",
+        seat: "14A",
+      },
+      false,
+      "SGD",
+    );
+    expect(fields).toMatchObject({
+      mode: "flight",
+      departureLocation: "Manila (MNL)",
+      arrivalLocation: "Singapore (SIN)",
+      departureTime: "08:30",
+      arrivalTime: "12:20",
+      bookingRef: "ABC123",
+      seatNumber: "14A",
+      cost: new FsDouble(0),
+      currency: "SGD",
+    });
+    expect(() => transportFields({ mode: "jeepney", from: "a", to: "b", departure: "2026-11-11T08:30:00+08:00" }, false, "PHP")).toThrow(/mode/);
+    expect(() =>
+      transportFields({ departure: "2026-11-11T08:30:00+08:00", arrival: "2026-11-11T07:00:00+08:00" }, true, "PHP"),
+    ).toThrow(/before departure/);
+    expect(transportFields({ seat: "2C" }, true, "")).toEqual({ seatNumber: "2C" });
+  });
+
+  it("stores a day note on local midnight", () => {
+    expect(dayNoteFields({ day: "2026-11-16T21:00:00+08:00", title: "Night market", content: "Bring cash" })).toEqual({
+      day: new FsTimestamp("2026-11-15T16:00:00.000Z"),
+      title: "Night market",
+      content: "Bring cash",
+    });
+  });
+
+  it("keeps the Google place ID on activities", () => {
+    expect(activityFields({ placeId: "ChIJ123" }, true)).toEqual({ placeID: "ChIJ123" });
   });
 });

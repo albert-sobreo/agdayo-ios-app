@@ -25,7 +25,31 @@ describe("MCP", () => {
     expect(listed.map((tool) => tool.name)).toEqual(tools.map((tool) => tool.name));
     for (const tool of listed) expect(tool.inputSchema.type).toBe("object");
     const writers = listed.filter((tool) => tool.annotations.readOnlyHint === false).map((tool) => tool.name);
-    expect(writers.sort()).toEqual(["add_activities", "add_stay", "create_trip", "delete_activity", "save_guide", "update_activity"]);
+    expect(writers.sort()).toEqual([
+      "add_activities",
+      "add_stay",
+      "add_transport",
+      "create_trip",
+      "delete_activity",
+      "delete_day_note",
+      "delete_stay",
+      "delete_transport",
+      "save_guide",
+      "set_day_note",
+      "update_activity",
+      "update_stay",
+      "update_transport",
+      "update_trip",
+    ]);
+  });
+
+  it("names every write tool in the ask-first instruction", async () => {
+    const response = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }, ctx);
+    const text = (response as { result: { instructions: string } }).result.instructions;
+    const askFirst = text.split("\n").find((line) => line.includes("get the user's OK")) ?? "";
+    for (const tool of tools.filter((t) => t.annotations.readOnlyHint === false)) {
+      expect(askFirst, tool.name).toContain(tool.name);
+    }
   });
 
   it("returns tool input errors as results Claude can read", async () => {

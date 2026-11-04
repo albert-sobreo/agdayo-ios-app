@@ -139,4 +139,24 @@ describe("normalizePlace", () => {
       mapsUrl: "https://maps.google.com/?cid=1",
     });
   });
+
+  it("keeps opening periods for checking a time", () => {
+    const place = normalizePlace({
+      id: "bencab",
+      displayName: { text: "BenCab Museum" },
+      regularOpeningHours: {
+        periods: [
+          { open: { day: 2, hour: 9 }, close: { day: 2, hour: 17, minute: 30 } },
+          { open: { day: 0, hour: 0, minute: 0 } },
+          { close: { day: 3, hour: 1 } },
+        ],
+      },
+      utcOffsetMinutes: 480,
+    });
+    expect(place.openingPeriods).toEqual([
+      { open: { day: 2, hour: 9, minute: 0 }, close: { day: 2, hour: 17, minute: 30 } },
+      { open: { day: 0, hour: 0, minute: 0 } },
+    ]);
+    expect(place.utcOffsetMinutes).toBe(480);
+  });
 });
