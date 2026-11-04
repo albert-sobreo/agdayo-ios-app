@@ -7,6 +7,9 @@ struct TripListView: View {
     /// presented from the root, outside this view's own `NavigationStack`)
     /// so this view can push straight into the newly joined trip.
     @Binding var pendingJoinedTrip: Trip?
+    /// Set by `RootTabView` when a link opens a trip (and maybe a day of its
+    /// itinerary). Replaces whatever was open in this tab.
+    @Binding var pendingTripLink: TripLinkTarget?
 
     @Query(sort: \Trip.startDate) private var trips: [Trip]
     @Environment(\.modelContext) private var modelContext
@@ -150,6 +153,16 @@ struct TripListView: View {
                 guard let newValue else { return }
                 path.append(newValue)
                 pendingJoinedTrip = nil
+            }
+            .onChange(of: pendingTripLink) { _, newValue in
+                guard let newValue else { return }
+                var newPath = NavigationPath()
+                newPath.append(newValue.trip)
+                if let day = newValue.day {
+                    newPath.append(TripSectionRoute.itineraryDay(day))
+                }
+                path = newPath
+                pendingTripLink = nil
             }
         }
     }

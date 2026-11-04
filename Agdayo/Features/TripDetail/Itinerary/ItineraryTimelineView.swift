@@ -10,6 +10,8 @@ struct ItineraryTimelineView: View {
     /// intrinsic height there and collapses to nothing, so the embedded copy
     /// uses a plain stack; swipe-to-delete lives on the pushed full screen.
     var isEmbedded = false
+    /// When set, the full screen opens scrolled to this day.
+    var scrollToDay: Date?
 
     /// A live query scoped to this trip, not a `trip.activities` traversal —
     /// SwiftData's Observation tracking for to-many relationships doesn't
@@ -48,10 +50,11 @@ struct ItineraryTimelineView: View {
         }
     }
 
-    init(trip: Trip, memberProfiles: [AppUserProfile] = [], isEmbedded: Bool = false) {
+    init(trip: Trip, memberProfiles: [AppUserProfile] = [], isEmbedded: Bool = false, scrollToDay: Date? = nil) {
         self.trip = trip
         self.memberProfiles = memberProfiles
         self.isEmbedded = isEmbedded
+        self.scrollToDay = scrollToDay
         let tripID = trip.id
         _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID }, sort: \Activity.date)
         _transportSegments = Query(filter: #Predicate<TransportSegment> { $0.trip?.id == tripID })
@@ -133,6 +136,7 @@ struct ItineraryTimelineView: View {
             } else {
                 // A `List` (not a ScrollView + LazyVStack) so rows get native
                 // swipe-to-delete, like the trips list.
+                ScrollViewReader { proxy in
                 List {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.day) { index, group in
                         DaySection(
@@ -150,6 +154,16 @@ struct ItineraryTimelineView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(BrandPalette.canvas.ignoresSafeArea())
+                .task {
+                    // Sections are keyed by the start of their day (see the ForEach).
+                    guard let scrollToDay else { return }
+                    let day = Calendar.current.startOfDay(for: scrollToDay)
+                    guard dayGroups.contains(where: { $0.day == day }) else { return }
+                    // Give the list a moment to lay out before jumping.
+                    try? await Task.sleep(for: .milliseconds(250))
+                    withAnimation { proxy.scrollTo(day, anchor: .top) }
+                }
+                }
             }
         }
     }

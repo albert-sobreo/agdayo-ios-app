@@ -14,6 +14,8 @@ enum TripSectionRoute: Hashable {
     case polls
     case members
     case guide
+    /// The itinerary scrolled to one day; used by "Open in Agdayo" links.
+    case itineraryDay(Date)
 }
 
 struct TripSectionsRow: View {

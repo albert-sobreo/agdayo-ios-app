@@ -5,6 +5,7 @@ import { handleMcp, handleRpc, type McpContext, tools } from "../src/mcp";
 const ctx: McpContext = {
   env: {} as Env,
   uid: "uid1",
+  origin: "https://agdayo.example.com",
   firestore: () => {
     throw new Error("not used");
   },

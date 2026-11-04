@@ -3,6 +3,7 @@ import { Firestore, parseServiceAccount } from "./firestore";
 import { computeMatrix, computeRoute, maxMatrixPoints, parseMode, placeDetails, searchPlaces } from "./google";
 import { getGuide, listGuides, parseCountryCode, parseGuide, putGuide } from "./guides";
 import { cached, HttpError, optionalTime, requireLatLng, requireString } from "./http";
+import { appLink, localDay } from "./open";
 import {
   activityFields,
   addActivitiesWrites,
@@ -28,14 +29,19 @@ const supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const instructions = `Agdayo is the user's travel app. Use these tools to plan trips and write them into Agdayo; the user then follows the plan in the app.
 - Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, add_activities, add_stay, update_activity, delete_activity, save_guide).
+- Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
+- To change an existing plan, call get_trip first, then use update_activity, delete_activity and add_activities. Show what will change and get the user's OK first.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
 - Use search_places to get real coordinates before adding activities or stays, so travel times work in the app.
 - Transit directions and times come only from plan_route and travel_times (Google). If they return no transit route, say there's no transit data there and suggest walking or a car; never guess lines or times.
-- Mention that routes and places are from Google.`;
+- Mention that routes and places are from Google.
+- Trip tools return an appLink. After writing to a trip, share it as a link (e.g. [Open in Agdayo](appLink)) so the user can jump to that trip and day in the app.`;
 
 export interface McpContext {
   env: Env;
   uid: string;
+  /** This server's public origin, for appLink. */
+  origin: string;
   /** Firestore, created on first use so tools that don't need it work without the service account. */
   firestore: () => Firestore;
 }
@@ -90,7 +96,10 @@ export const tools: Tool[] = [
     description: "Gets one trip with its stays, transport, activities (sorted by time) and day notes.",
     inputSchema: { type: "object", properties: { tripId }, required: ["tripId"] },
     annotations: { readOnlyHint: true, openWorldHint: false },
-    run: (args, ctx) => getTrip(ctx.firestore(), ctx.uid, requireString(args.tripId, "tripId")),
+    run: async (args, ctx) => {
+      const id = requireString(args.tripId, "tripId");
+      return { ...(await getTrip(ctx.firestore(), ctx.uid, id)), appLink: appLink(ctx.origin, id) };
+    },
   },
   {
     name: "create_trip",
@@ -118,7 +127,7 @@ export const tools: Tool[] = [
     run: async (args, ctx) => {
       const id = newId();
       await ctx.firestore().commit(createTripWrites(ctx.uid, args, id));
-      return { tripId: id, created: true };
+      return { tripId: id, created: true, appLink: appLink(ctx.origin, id, localDay(args.startDate)) };
     },
   },
   {
@@ -150,7 +159,7 @@ export const tools: Tool[] = [
       await requireTripAccess(db, ctx.uid, id);
       const stayId = newId();
       await db.commit([stayWrite(id, args, stayId)]);
-      return { stayId, added: true };
+      return { stayId, added: true, appLink: appLink(ctx.origin, id, localDay(args.checkIn)) };
     },
   },
   {
@@ -176,7 +185,8 @@ export const tools: Tool[] = [
       await requireTripAccess(db, ctx.uid, id);
       const { writes, ids } = addActivitiesWrites(id, args.activities);
       await db.commit(writes);
-      return { activityIds: ids, added: ids.length };
+      const first = Array.isArray(args.activities) ? (args.activities[0] as Args | undefined) : undefined;
+      return { activityIds: ids, added: ids.length, appLink: appLink(ctx.origin, id, localDay(first?.time)) };
     },
   },
   {
@@ -197,7 +207,7 @@ export const tools: Tool[] = [
       const fields = activityFields(args, true);
       if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass at least one field to change.");
       await db.commit([{ kind: "update", path: `trips/${id}/activities/${activityId}`, fields }]);
-      return { activityId, updated: Object.keys(fields) };
+      return { activityId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.time)) };
     },
   },
   {
@@ -447,6 +457,7 @@ export async function handleMcp(request: Request, env: Env, uid: string): Promis
   const ctx: McpContext = {
     env,
     uid,
+    origin: new URL(request.url).origin,
     firestore: () => (firestore ??= new Firestore(parseServiceAccount(env.FIREBASE_SERVICE_ACCOUNT))),
   };
   const messages = Array.isArray(body) ? body : [body];
