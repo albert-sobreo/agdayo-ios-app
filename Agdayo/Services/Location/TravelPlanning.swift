@@ -1,0 +1,74 @@
+import CoreLocation
+import Foundation
+import MapKit
+
+/// Pure rules behind the itinerary's travel rows: which stay a day starts
+/// from, which way of getting around to show first, when to leave, and
+/// whether two stops are too close together. Kept free of SwiftUI and
+/// networking so it can be unit tested.
+enum TravelPlanning {
+
+    /// Straight-line distance under which walking is shown first.
+    static let walkingThreshold: CLLocationDistance = 1_000
+
+    /// The stay you wake up in on `day`: the one whose nights cover it,
+    /// including its check-out morning. When two stays touch (check-out and
+    /// check-in on the same day), the one you check out of wins, since that's
+    /// where the day starts. Only stays pinned on the map count.
+    static func stay(for day: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
+        let dayStart = calendar.startOfDay(for: day)
+        let covering = stays.filter { stay in
+            stay.coordinate != nil
+                && calendar.startOfDay(for: stay.startDate) <= dayStart
+                && dayStart <= calendar.startOfDay(for: stay.endDate)
+        }
+        return covering.min { calendar.startOfDay(for: $0.startDate) < calendar.startOfDay(for: $1.startDate) }
+    }
+
+    /// The mode a travel row opens on, before any directions are fetched:
+    /// walking for short hops, otherwise transit. The row falls back to
+    /// driving itself when transit has no route there (see
+    /// `fallbackMode(after:)`).
+    static func initialMode(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> MKDirectionsTransportType {
+        let distance = CLLocation(latitude: from.latitude, longitude: from.longitude)
+            .distance(from: CLLocation(latitude: to.latitude, longitude: to.longitude))
+        return distance < walkingThreshold ? .walking : .transit
+    }
+
+    /// What to try next when the automatically chosen mode has no route,
+    /// for example transit in a city without transit data. `nil` means stop.
+    static func fallbackMode(after mode: MKDirectionsTransportType) -> MKDirectionsTransportType? {
+        mode == .transit ? .automobile : nil
+    }
+
+    /// When to set off to reach `arrival` after `travelTime`.
+    static func leaveBy(arrival: Date, travelTime: TimeInterval) -> Date {
+        arrival.addingTimeInterval(-travelTime)
+    }
+
+    /// True when getting to the next stop takes longer than the time between
+    /// the two stops' start times. Activities have no end time, so this only
+    /// catches plans that can't work at all.
+    static func isTight(previousStart: Date, nextStart: Date, travelTime: TimeInterval) -> Bool {
+        travelTime > nextStart.timeIntervalSince(previousStart)
+    }
+}
+
+extension Accommodation {
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+extension MKDirectionsTransportType {
+    /// The Apple Maps launch option matching this mode, for "Directions".
+    /// Cycling has no launch option of its own, so it opens as driving.
+    var mapsLaunchMode: String {
+        switch self {
+        case .walking: return MKLaunchOptionsDirectionsModeWalking
+        case .transit: return MKLaunchOptionsDirectionsModeTransit
+        default: return MKLaunchOptionsDirectionsModeDriving
+        }
+    }
+}
