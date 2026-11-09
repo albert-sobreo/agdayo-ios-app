@@ -9,7 +9,6 @@ struct TodayCard: View {
     let trip: Trip
 
     @Query private var activities: [Activity]
-    @Query private var stays: [Accommodation]
     @Environment(\.openURL) private var openURL
 
     @State private var location = OneShotLocation()
@@ -36,10 +35,9 @@ struct TodayCard: View {
         self.trip = trip
         let tripID = trip.id
         _activities = Query(filter: #Predicate<Activity> { $0.trip?.id == tripID }, sort: \Activity.date)
-        _stays = Query(filter: #Predicate<Accommodation> { $0.trip?.id == tripID })
     }
 
-    private var plan: TodayPlan { TodayPlan(activities: activities, stays: stays, now: now) }
+    private var plan: TodayPlan { TodayPlan(activities: activities, now: now) }
     private var accent: Color { trip.theme.accentColor }
 
     var body: some View {

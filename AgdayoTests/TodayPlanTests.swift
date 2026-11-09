@@ -17,7 +17,6 @@ struct TodayPlanTests {
     @Test func nextIsTheFirstStopNotYetStarted() {
         let plan = TodayPlan(
             activities: [activity("Lunch", at(0, 12)), activity("Coffee", at(0, 15)), activity("Dinner", at(0, 19))],
-            stays: [],
             now: at(0, 13)
         )
         #expect(plan.next?.title == "Coffee")
@@ -27,23 +26,20 @@ struct TodayPlanTests {
     }
 
     @Test func afterTheLastStopItShowsTomorrowsFirst() {
-        let stay = Accommodation(name: "Hotel", latitude: 16.40, longitude: 120.60, startDate: at(-1, 0), endDate: at(2, 0))
         let plan = TodayPlan(
             activities: [activity("Dinner", at(0, 19)), activity("Breakfast", at(1, 8))],
-            stays: [stay],
             now: at(0, 22)
         )
         #expect(plan.next?.title == "Breakfast")
         #expect(plan.nextIsTomorrowOrLater)
         #expect(plan.laterToday.isEmpty)
-        // Nothing earlier that day, so travel starts from the stay.
-        #expect(plan.fallbackOrigin?.name == "Hotel")
+        // Nothing earlier that day, and stays aren't used as a starting point.
+        #expect(plan.fallbackOrigin == nil)
     }
 
     @Test func unpinnedPreviousStopIsSkipped() {
         let plan = TodayPlan(
             activities: [activity("Somewhere", at(0, 10), pinned: false), activity("Museum", at(0, 14))],
-            stays: [],
             now: at(0, 11)
         )
         #expect(plan.fallbackOrigin == nil)

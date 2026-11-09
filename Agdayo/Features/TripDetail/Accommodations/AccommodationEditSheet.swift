@@ -116,15 +116,6 @@ struct AccommodationEditSheet: View {
                                     longitude = coordinate?.longitude
                                     pinnedLocation = coordinate != nil ? name : nil
                                 })
-                                if pinIsCurrent {
-                                    Label("Pinned on the map. Travel times start here.", systemImage: "mappin.circle.fill")
-                                        .font(AppFont.outfit(12, relativeTo: .footnote))
-                                        .foregroundStyle(trip.theme.accentColor)
-                                } else {
-                                    Label("Pick a search result to pin it and see travel times from here.", systemImage: "mappin.slash")
-                                        .font(AppFont.outfit(12, relativeTo: .footnote))
-                                        .foregroundStyle(.secondary)
-                                }
                             }
                         }
                         FormField {
