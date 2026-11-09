@@ -484,8 +484,8 @@ private struct DaySection: View {
 }
 
 /// The travel row between two activities: distance and time for the chosen
-/// way of getting around, when to leave, a warning when the next stop starts before you could get there,
-/// and a menu that opens the leg in Apple Maps or Google Maps.
+/// way of getting around, a warning when the next stop starts before you
+/// could get there, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
     var isEmbedded = false
@@ -495,7 +495,7 @@ private struct TravelConnectorView: View {
     let previousStart: Date
     /// Name of the stop you're leaving, for the steps sheet and Apple Maps.
     var originName: String = ""
-    /// Start of the stop you're heading to, for the leave-by time.
+    /// Start of the stop you're heading to, for the tight-gap check and transit steps.
     let nextStart: Date
     var destinationName: String = ""
     let accentColor: Color
@@ -655,10 +655,6 @@ private struct TravelConnectorView: View {
                 Label("Tight: \(formattedDuration(currentEstimate.duration)) travel, \(formattedDuration(max(gap, 0))) between stops", systemImage: "exclamationmark.triangle.fill")
                     .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
                     .foregroundStyle(.orange)
-            } else {
-                Text("Leave by \(TravelPlanning.leaveBy(arrival: nextStart, travelTime: currentEstimate.duration, spare: TravelPlanning.leaveBySpare).formatted(date: .omitted, time: .shortened))")
-                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                    .foregroundStyle(accentColor)
             }
         }
     }
