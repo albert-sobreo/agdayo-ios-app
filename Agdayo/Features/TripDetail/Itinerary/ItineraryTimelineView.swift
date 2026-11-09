@@ -334,7 +334,6 @@ private struct DaySection: View {
                             isEmbedded: isEmbedded,
                             fromCoordinate: fromCoordinate,
                             toCoordinate: toCoordinate,
-                            previousStart: activity.date,
                             originName: activity.title,
                             nextStart: next.date,
                             destinationName: next.title,
@@ -484,18 +483,15 @@ private struct DaySection: View {
 }
 
 /// The travel row between two activities: distance and time for the chosen
-/// way of getting around, a warning when the next stop starts before you
-/// could get there, and a menu that opens the leg in Apple Maps or Google Maps.
+/// way of getting around, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
-    /// Start of the stop you're leaving, for the tight-gap check.
-    let previousStart: Date
     /// Name of the stop you're leaving, for the steps sheet and Apple Maps.
     var originName: String = ""
-    /// Start of the stop you're heading to, for the tight-gap check and transit steps.
+    /// Start of the stop you're heading to, for the transit steps' arrive-by time.
     let nextStart: Date
     var destinationName: String = ""
     let accentColor: Color
@@ -517,11 +513,10 @@ private struct TravelConnectorView: View {
 
     private static let modes: [MKDirectionsTransportType] = [.walking, .transit, .automobile, .cycling]
 
-    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, previousStart: Date, originName: String = "", nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
+    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, originName: String = "", nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
         self.isEmbedded = isEmbedded
         self.fromCoordinate = fromCoordinate
         self.toCoordinate = toCoordinate
-        self.previousStart = previousStart
         self.originName = originName
         self.nextStart = nextStart
         self.destinationName = destinationName
@@ -531,11 +526,6 @@ private struct TravelConnectorView: View {
     }
 
     private var currentEstimate: TravelEstimate? { estimatesByMode[selectedMode.rawValue] }
-
-    private var isTight: Bool {
-        guard let currentEstimate else { return false }
-        return TravelPlanning.isTight(previousStart: previousStart, nextStart: nextStart, travelTime: currentEstimate.duration)
-    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -623,39 +613,26 @@ private struct TravelConnectorView: View {
         }
     }
 
-    private var details: some View {
-        HStack(spacing: 10) {
-            timing
-            // MapKit only has transit ETAs; Google has the lines and stops,
-            // and often covers cities MapKit doesn't, so offer it even when
-            // MapKit found no transit.
-            if selectedMode == .transit {
-                Button {
-                    showingSteps = true
-                } label: {
-                    Label("Steps", systemImage: "list.bullet")
-                        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(accentColor.opacity(0.15), in: Capsule())
-                        .foregroundStyle(accentColor)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Transit steps")
-                .accessibilityHint("Shows which lines and stops to take, from Google")
-            }
-        }
-    }
-
+    /// The transit "Steps" button; nothing for other modes.
     @ViewBuilder
-    private var timing: some View {
-        if let currentEstimate {
-            if isTight {
-                let gap = nextStart.timeIntervalSince(previousStart)
-                Label("Tight: \(formattedDuration(currentEstimate.duration)) travel, \(formattedDuration(max(gap, 0))) between stops", systemImage: "exclamationmark.triangle.fill")
+    private var details: some View {
+        // MapKit only has transit ETAs; Google has the lines and stops,
+        // and often covers cities MapKit doesn't, so offer it even when
+        // MapKit found no transit.
+        if selectedMode == .transit {
+            Button {
+                showingSteps = true
+            } label: {
+                Label("Steps", systemImage: "list.bullet")
                     .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(accentColor.opacity(0.15), in: Capsule())
+                    .foregroundStyle(accentColor)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Transit steps")
+            .accessibilityHint("Shows which lines and stops to take, from Google")
         }
     }
 

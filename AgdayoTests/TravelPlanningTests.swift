@@ -53,13 +53,6 @@ struct TravelPlanningTests {
         #expect(arrival.timeIntervalSince(leave) == 18 * 60)
     }
 
-    @Test func tightWhenTravelTakesLongerThanTheGap() {
-        let first = day(0).addingTimeInterval(12.5 * 3600)
-        let next = first.addingTimeInterval(15 * 60)
-        #expect(TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 25 * 60))
-        #expect(!TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 10 * 60))
-    }
-
     @Test func googleMapsLinkCarriesBothEndsAndTheMode() throws {
         let url = try #require(TravelPlanning.googleMapsURL(
             from: CLLocationCoordinate2D(latitude: 1.2834, longitude: 103.8607),

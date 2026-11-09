@@ -3,8 +3,8 @@ import Foundation
 import MapKit
 
 /// Pure rules behind the itinerary's travel rows between activities: which
-/// way of getting around to show first, when to leave, and whether two
-/// stops are too close together. Kept free of SwiftUI and
+/// activity a leg starts from, which way of getting around to show first,
+/// and when to leave (for reminders and the Today card). Kept free of SwiftUI and
 /// networking so it can be unit tested.
 enum TravelPlanning {
 
@@ -61,13 +61,6 @@ enum TravelPlanning {
     /// Spare time added to every leave-by shown or notified, so "leave by"
     /// doesn't mean "arrive exactly on the minute".
     static let leaveBySpare: TimeInterval = 5 * 60
-
-    /// True when getting to the next stop takes longer than the time between
-    /// the two stops' start times. Activities have no end time, so this only
-    /// catches plans that can't work at all.
-    static func isTight(previousStart: Date, nextStart: Date, travelTime: TimeInterval) -> Bool {
-        travelTime > nextStart.timeIntervalSince(previousStart)
-    }
 }
 
 extension MKDirectionsTransportType {
