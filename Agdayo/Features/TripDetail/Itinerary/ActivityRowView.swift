@@ -49,7 +49,8 @@ struct ActivityRowView: View {
     /// Shows a small mark for activities Claude added.
     var addedByClaude = false
     /// Shows the cost as a tinted pill instead of a small grey line, for
-    /// transport departures where the fare is the thing you look for.
+    /// transport departures and stay check-ins, where the price is the thing
+    /// you look for.
     var prominentCost = false
 
     private let verticalPadding: CGFloat = 12

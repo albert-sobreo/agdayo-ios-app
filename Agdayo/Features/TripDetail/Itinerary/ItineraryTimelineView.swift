@@ -386,7 +386,7 @@ private struct DaySection: View {
             title: entry.title,
             location: entry.subtitle,
             cost: entry.cost,
-            costCurrency: entry.costCurrency,
+            costCurrency: entry.costCurrency ?? trip.currency,
             costNote: nil,
             iconName: entry.iconName,
             time: entry.time,
@@ -839,14 +839,21 @@ private enum ItineraryEntry: Identifiable {
         }
     }
 
-    /// What the leg costs, shown on its departure row only so a leg's price
-    /// isn't counted twice by eye. nil when no cost was entered.
+    /// What a leg or a stay costs, shown once: on the leg's departure row and
+    /// the stay's check-in row, not again on its arrival or check-out.
+    /// nil when no cost was entered.
     var cost: Double? {
-        guard case .transport(let segment) = self, segment.cost > 0 else { return nil }
-        return segment.cost
+        let cost: Double
+        switch self {
+        case .transport(let segment): cost = segment.cost
+        case .checkIn(let stay): cost = stay.totalCost
+        default: return nil
+        }
+        return cost > 0 ? cost : nil
     }
 
-    /// The segment's own currency, as entered.
+    /// The segment's own currency, as entered. nil for a stay, which has no
+    /// currency of its own and is in the trip's currency.
     var costCurrency: String? {
         guard case .transport(let segment) = self else { return nil }
         return segment.currency
