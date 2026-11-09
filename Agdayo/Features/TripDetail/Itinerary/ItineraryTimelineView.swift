@@ -75,7 +75,7 @@ struct ItineraryTimelineView: View {
         let grouped = Dictionary(grouping: allEntries) { calendar.startOfDay(for: $0.time) }
         let days = Set(trip.calendarDays).union(grouped.keys)
         return days.sorted().map { day in
-            DayGroup(day: day, entries: (grouped[day] ?? []).sorted { $0.time < $1.time })
+            DayGroup(day: day, entries: (grouped[day] ?? []).sorted { ItineraryOrder.precedes($0.orderKey, $1.orderKey) })
         }
     }
 
@@ -855,11 +855,51 @@ private enum ItineraryEntry: Identifiable {
         }
     }
 
+    var orderKey: ItineraryOrder.Key {
+        switch self {
+        case .transport:
+            return .init(time: time, rank: .departure)
+        case .arrival(let segment):
+            // A leg that lands the minute it leaves keeps its arrival after its departure.
+            let instant = ItineraryOrder.minute(time) == ItineraryOrder.minute(segment.departureDateTime)
+            return .init(time: time, rank: instant ? .instantArrival : .arrival)
+        case .activity, .checkIn, .checkOut:
+            return .init(time: time, rank: .other)
+        }
+    }
+
     /// Combines a day with an "HH:mm" string, as the models store times.
     private static func date(_ day: Date, atTime time: String) -> Date {
         let parts = time.split(separator: ":").compactMap { Int($0) }
         guard parts.count == 2 else { return day }
         return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day) ?? day
+    }
+}
+
+/// How a day's lines are ordered: by minute, and within the same minute a
+/// transport arrival first (you land, then do things), then activities and
+/// hotel times, then a departure (you do things, then leave). So a leg's
+/// departure and arrival stay side by side unless something is planned
+/// strictly between them.
+enum ItineraryOrder {
+    enum Rank: Int {
+        case arrival, other, departure, instantArrival
+    }
+
+    struct Key {
+        let time: Date
+        let rank: Rank
+    }
+
+    static func precedes(_ a: Key, _ b: Key) -> Bool {
+        let minuteA = minute(a.time), minuteB = minute(b.time)
+        if minuteA != minuteB { return minuteA < minuteB }
+        return a.rank.rawValue < b.rank.rawValue
+    }
+
+    /// Times are picked to the minute; leftover seconds shouldn't decide order.
+    static func minute(_ date: Date) -> Int {
+        Int((date.timeIntervalSinceReferenceDate / 60).rounded(.down))
     }
 }
 

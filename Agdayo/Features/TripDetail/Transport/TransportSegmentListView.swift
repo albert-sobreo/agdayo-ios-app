@@ -21,7 +21,9 @@ struct TransportSegmentListView: View {
     }
 
     private var sorted: [TransportSegment] {
-        segments.sorted { $0.departureDate < $1.departureDate }
+        // `departureDate` only carries the day (its time part is whatever it
+        // was saved with), so same-day legs need the "HH:mm" time too.
+        segments.sorted { $0.departureDateTime < $1.departureDateTime }
     }
 
     var body: some View {

@@ -19,6 +19,28 @@ enum ActivitySaver {
         return min(next, lastMoment)
     }
 
+    /// The activities that came after `original` on its day, i.e. the ones
+    /// that should move along when an activity is moved from `original`.
+    /// Activities at the same minute are left alone; they're happening
+    /// together rather than after.
+    static func laterSameDay(after original: Date, in activities: [Activity], excluding id: UUID) -> [Activity] {
+        let calendar = Calendar.current
+        return activities
+            .filter { $0.id != id && $0.date > original && calendar.isDate($0.date, inSameDayAs: original) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// Moves each activity by `offset`, keeping its reminder and the shared
+    /// copy in step.
+    @MainActor
+    static func shift(_ activities: [Activity], by offset: TimeInterval, in trip: Trip) {
+        for activity in activities {
+            activity.date = activity.date.addingTimeInterval(offset)
+            pushIfShared(activity, in: trip)
+            NotificationScheduler.scheduleReminder(for: activity)
+        }
+    }
+
     @MainActor
     @discardableResult
     static func insert(

@@ -99,6 +99,14 @@ struct ActivityEditSheet: View {
     }
 
     @State private var isConfirmingDiscard = false
+    /// Set when an edit moved the activity's time and later activities that
+    /// day could move along with it.
+    @State private var pendingShift: PendingShift?
+
+    private struct PendingShift {
+        let activities: [Activity]
+        let offset: TimeInterval
+    }
     /// Every input as one string, captured when the sheet appears, so Cancel
     /// can tell whether anything changed.
     @State private var initialSignature: String?
@@ -233,7 +241,7 @@ struct ActivityEditSheet: View {
                 // In map mode the bottom bar has the Add buttons instead.
                 if !isMapMode {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") { save() }
+                        Button("Save") { saveOrAskToShift() }
                             .disabled(!isValid)
                     }
                 }
@@ -244,6 +252,21 @@ struct ActivityEditSheet: View {
             }
         }
         .confirmsDiscard(isPresented: $isConfirmingDiscard, onDiscard: { dismiss() })
+        .confirmationDialog(
+            "Move later activities too?",
+            isPresented: Binding(get: { pendingShift != nil }, set: { if !$0 { pendingShift = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingShift
+        ) { shift in
+            Button(shift.activities.count == 1 ? "Move It Too" : "Move All \(shift.activities.count)") {
+                ActivitySaver.shift(shift.activities, by: shift.offset, in: trip)
+                save()
+            }
+            Button("Only This Activity") { save() }
+            Button("Cancel", role: .cancel) {}
+        } message: { shift in
+            Text(shiftMessage(shift))
+        }
         .onAppear {
             if editingActivity == nil, paidByUID == nil {
                 paidByUID = authService.firebaseUser?.uid
@@ -389,6 +412,28 @@ struct ActivityEditSheet: View {
     private func save() {
         _ = persist()
         dismiss()
+    }
+
+    /// When an edit moves the activity to another time on the same day,
+    /// offers to move everything after it that day by the same amount, so
+    /// running late (or early) doesn't mean editing each one. A move to a
+    /// different day is just that activity changing plans, so it saves as is.
+    private func saveOrAskToShift() {
+        guard let editingActivity else { return save() }
+        let original = editingActivity.date
+        // The picker works in minutes; ignore leftover seconds on old dates.
+        let offset = (date.timeIntervalSince(original) / 60).rounded() * 60
+        guard offset != 0, Calendar.current.isDate(date, inSameDayAs: original) else { return save() }
+        let later = ActivitySaver.laterSameDay(after: original, in: tripActivities, excluding: editingActivity.id)
+        guard !later.isEmpty else { return save() }
+        pendingShift = PendingShift(activities: later, offset: offset)
+    }
+
+    private func shiftMessage(_ shift: PendingShift) -> String {
+        let amount = Duration.seconds(abs(shift.offset)).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+        let direction = shift.offset > 0 ? "later" : "earlier"
+        let count = shift.activities.count == 1 ? "1 activity comes" : "\(shift.activities.count) activities come"
+        return "You moved this \(amount) \(direction). \(count) after it that day."
     }
 
     /// Inserts or updates the activity, syncs it and schedules its reminder.

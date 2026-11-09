@@ -12,7 +12,7 @@ import { HttpError } from "./http";
 export const tripThemes = ["peach", "blue", "amber", "emerald", "violet", "teal", "rose", "slate"] as const;
 export const stayTypes = ["hotel", "airbnb", "transient", "other"] as const;
 /** TransportMode raw values in the app. */
-export const transportModes = ["flight", "bus", "train", "car", "ferry", "rideshare", "other"] as const;
+export const transportModes = ["flight", "bus", "jeepney", "van", "train", "ferry", "bangka", "car", "rideshare", "tricycle", "motorcycle", "pedicab", "other"] as const;
 export const maxActivitiesPerCall = 40;
 
 /** Matches TripMembershipService.generateRandomCode. */

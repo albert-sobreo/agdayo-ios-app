@@ -2,18 +2,34 @@ import Foundation
 import SwiftData
 
 enum TransportMode: String, Codable, CaseIterable, Identifiable {
-    case flight, bus, train, car, ferry, rideshare, other
+    // Raw values are saved and synced, so never rename them; the order here
+    // is only the picker's order.
+    case flight, bus, jeepney, van, train, ferry, bangka, car, rideshare, tricycle, motorcycle, pedicab, other
 
     var id: String { rawValue }
+
+    /// A mode this build doesn't know (saved by a newer version, on this
+    /// phone or synced from another member's) reads as `.other` instead of
+    /// failing; SwiftData stops the app on a value it can't decode.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = TransportMode(rawValue: raw) ?? .other
+    }
 
     var displayName: String {
         switch self {
         case .flight: return "Flight"
         case .bus: return "Bus"
+        case .jeepney: return "Jeepney"
+        case .van: return "Van/UV Express"
         case .train: return "Train"
-        case .car: return "Car"
         case .ferry: return "Ferry"
+        case .bangka: return "Bangka"
+        case .car: return "Car"
         case .rideshare: return "Taxi/Ride-share"
+        case .tricycle: return "Tricycle"
+        case .motorcycle: return "Motorcycle Taxi"
+        case .pedicab: return "Pedicab"
         case .other: return "Other"
         }
     }
@@ -22,10 +38,16 @@ enum TransportMode: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .flight: return "airplane"
         case .bus: return "bus"
+        case .jeepney: return "truck.pickup.side"
+        case .van: return "suv.side"
         case .train: return "tram"
-        case .car: return "car"
         case .ferry: return "ferry"
+        case .bangka: return "sailboat"
+        case .car: return "car"
         case .rideshare: return "car.circle"
+        case .tricycle: return "scooter"
+        case .motorcycle: return "motorcycle"
+        case .pedicab: return "bicycle"
         case .other: return "arrow.triangle.turn.up.right.circle"
         }
     }

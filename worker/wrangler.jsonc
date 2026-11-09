@@ -1,42 +1,52 @@
 {
-  // Agdayo's own server: holds API keys and gives the app (and Claude,
-  // through the MCP connector at /mcp) routes, travel times, places and guides.
-  "name": "agdayo",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-11-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
-  "vars": {
-    // Firebase project whose sign-in tokens are accepted.
-    "FIREBASE_PROJECT_ID": "agdayo-app",
-    // Comma-separated Firebase user IDs allowed to call this server.
-    // Fill in your own UID before deploying (see README).
-    "ALLOWED_UIDS": "",
-    // Claude connector: Google accounts allowed to connect Claude (comma-separated).
-    "ALLOWED_EMAILS": "",
-    // Claude connector: Client ID of the Google OAuth "Web application" client.
-    "GOOGLE_OAUTH_CLIENT_ID": ""
-    // Optional: "CONNECTOR_UID" if ALLOWED_UIDS lists more than one UID.
-  },
-  "kv_namespaces": [
-    {
-      // Connector sign-ins and tokens. Replace with the ID printed by
-      // `npx wrangler kv namespace create OAUTH_KV`.
-      "binding": "OAUTH_KV",
-      "id": "00000000000000000000000000000000"
-    }
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "agdayo",
-      // Replace with the ID printed by `npx wrangler d1 create agdayo`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
-    }
-  ]
-  // Secrets, set with `npx wrangler secret put <NAME>`:
-  //   GOOGLE_MAPS_API_KEY         Google Cloud key with Routes API and Places API (New)
-  //   GOOGLE_OAUTH_CLIENT_SECRET  secret of the OAuth client above
-  //   FIREBASE_SERVICE_ACCOUNT    Firebase service account key JSON (lets Claude read and write trips)
+	// Agdayo's own server: holds API keys and gives the app (and Claude,
+	// through the MCP connector at /mcp) routes, travel times, places and guides.
+	"name": "agdayo",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"vars": {
+		// Firebase project whose sign-in tokens are accepted.
+		"FIREBASE_PROJECT_ID": "agdayo-app",
+		// Comma-separated Firebase user IDs allowed to call this server.
+		// Fill in your own UID before deploying (see README).
+		"ALLOWED_UIDS": "RHrejSAA53gFxFrcGqkeVOUWw6U2",
+		// Claude connector: Google accounts allowed to connect Claude (comma-separated).
+		"ALLOWED_EMAILS": "janalbertsobreo@gmail.com",
+		// Claude connector: Client ID of the Google OAuth "Web application" client.
+		"GOOGLE_OAUTH_CLIENT_ID": "1015175012900-hing4re822ejq1b0fvstuglcohhec6j7.apps.googleusercontent.com"
+		// Optional: "CONNECTOR_UID" if ALLOWED_UIDS lists more than one UID.
+	},
+	"kv_namespaces": [
+		{
+			// Connector sign-ins and tokens. Replace with the ID printed by
+			// `npx wrangler kv namespace create OAUTH_KV`.
+			"binding": "OAUTH_KV",
+			"id": "09b84044d3054ab3b7fc649cb417208d"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "agdayo",
+			// Replace with the ID printed by `npx wrangler d1 create agdayo`.
+			"database_id": "ee026397-9ee2-4d32-9024-1622c8fc1eae",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "agdayo",
+			"database_name": "agdayo",
+			"database_id": "ee026397-9ee2-4d32-9024-1622c8fc1eae",
+			"remote": true
+		}
+	]
+	// Secrets, set with `npx wrangler secret put <NAME>`:
+	//   GOOGLE_MAPS_API_KEY         Google Cloud key with Routes API and Places API (New)
+	//   GOOGLE_OAUTH_CLIENT_SECRET  secret of the OAuth client above
+	//   FIREBASE_SERVICE_ACCOUNT    Firebase service account key JSON (lets Claude read and write trips)
 }

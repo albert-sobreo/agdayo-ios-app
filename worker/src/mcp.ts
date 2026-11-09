@@ -119,7 +119,7 @@ const stayProperties = {
 };
 
 const transportProperties = {
-  mode: { type: "string", enum: [...transportModes], description: "rideshare means taxi or ride-hailing." },
+  mode: { type: "string", enum: [...transportModes], description: "rideshare means taxi or ride-hailing (e.g. Grab). van is a UV Express or shuttle van; motorcycle is a motorcycle taxi (Angkas, habal-habal); bangka is a small outrigger boat." },
   from: { type: "string", description: "Where it leaves from, e.g. Manila (MNL) Terminal 3." },
   to: { type: "string", description: "Where it arrives, e.g. Singapore Changi (SIN) Terminal 1." },
   departure: { ...zonedTime, description: "Departure, local time at the origin with offset." },
