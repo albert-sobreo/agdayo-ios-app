@@ -385,8 +385,8 @@ private struct DaySection: View {
         let content = ActivityRowView(
             title: entry.title,
             location: entry.subtitle,
-            cost: nil,
-            costCurrency: nil,
+            cost: entry.cost,
+            costCurrency: entry.costCurrency,
             costNote: nil,
             iconName: entry.iconName,
             time: entry.time,
@@ -836,6 +836,19 @@ private enum ItineraryEntry: Identifiable {
         case .checkIn(let stay), .checkOut(let stay):
             return stay.location
         }
+    }
+
+    /// What the leg costs, shown on its departure row only so a leg's price
+    /// isn't counted twice by eye. nil when no cost was entered.
+    var cost: Double? {
+        guard case .transport(let segment) = self, segment.cost > 0 else { return nil }
+        return segment.cost
+    }
+
+    /// The segment's own currency, as entered.
+    var costCurrency: String? {
+        guard case .transport(let segment) = self else { return nil }
+        return segment.currency
     }
 
     var iconName: String {
