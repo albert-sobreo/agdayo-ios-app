@@ -393,7 +393,8 @@ private struct DaySection: View {
             accentColor: trip.theme.accentColor,
             isFirst: isFirst,
             isLast: isLast,
-            showsChevron: false
+            showsChevron: false,
+            prominentCost: true
         )
         if isEmbedded {
             content.padding(.horizontal, 16)

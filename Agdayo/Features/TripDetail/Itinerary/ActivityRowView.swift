@@ -48,6 +48,9 @@ struct ActivityRowView: View {
     var notice: String? = nil
     /// Shows a small mark for activities Claude added.
     var addedByClaude = false
+    /// Shows the cost as a tinted pill instead of a small grey line, for
+    /// transport departures where the fare is the thing you look for.
+    var prominentCost = false
 
     private let verticalPadding: CGFloat = 12
     private let dotSize: CGFloat = 10
@@ -96,7 +99,16 @@ struct ActivityRowView: View {
                         .foregroundStyle(.orange)
                 }
 
-                if let cost {
+                if let cost, prominentCost {
+                    Label(cost.formattedCurrency(code: costCurrency ?? "PHP"), systemImage: "banknote")
+                        .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(accentColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(accentColor.opacity(0.15), in: Capsule())
+                        .padding(.top, 2)
+                        .accessibilityLabel("Cost \(cost.formattedCurrency(code: costCurrency ?? "PHP"))")
+                } else if let cost {
                     HStack(spacing: 4) {
                         Text(cost.formattedCurrency(code: costCurrency ?? "PHP"))
                             .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
