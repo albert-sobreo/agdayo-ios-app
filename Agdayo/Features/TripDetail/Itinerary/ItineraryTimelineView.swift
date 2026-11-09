@@ -79,15 +79,8 @@ struct ItineraryTimelineView: View {
         }
     }
 
-    /// "Day N" counts from the trip's first day, so something booked outside the
-    /// trip's dates (a flight the evening before) is labelled as such instead
-    /// of becoming "Day 1" and shifting every real day along.
     private func dayTitle(for day: Date) -> String {
-        let calendar = Calendar.current
-        let tripDays = trip.calendarDays.map { calendar.startOfDay(for: $0) }.sorted()
-        if let index = tripDays.firstIndex(of: day) { return "Day \(index + 1)" }
-        guard let first = tripDays.first else { return "Day 1" }
-        return day < first ? "Before trip" : "After trip"
+        trip.dayTitle(for: day)
     }
 
     /// The time to mark on today's day, or nil when the trip isn't in progress.

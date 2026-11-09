@@ -18,6 +18,18 @@ extension Trip {
         }
         return days
     }
+
+    /// "Day N" counts from the trip's first day, so something booked outside the
+    /// trip's dates (a flight the evening before) is labelled as such instead
+    /// of becoming "Day 1" and shifting every real day along.
+    func dayTitle(for date: Date) -> String {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let tripDays = calendarDays
+        if let index = tripDays.firstIndex(of: day) { return "Day \(index + 1)" }
+        guard let first = tripDays.first else { return "Day 1" }
+        return day < first ? "Before trip" : "After trip"
+    }
 }
 
 /// One step of the guided day: a time, what it's for, and the place the

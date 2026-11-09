@@ -44,7 +44,7 @@ struct TransportSegmentListView: View {
                         Button {
                             editingSegment = segment
                         } label: {
-                            TransportSegmentRow(segment: segment, accentColor: trip.theme.accentColor)
+                            TransportSegmentRow(segment: segment, dayTitle: trip.dayTitle(for: segment.departureDate), accentColor: trip.theme.accentColor)
                         }
                         .buttonStyle(.plain)
                         .moneyRow()
@@ -113,6 +113,8 @@ struct TransportSegmentListView: View {
 /// with times, then booking details and cost.
 private struct TransportSegmentRow: View {
     let segment: TransportSegment
+    /// "Day 2", or "Before trip"/"After trip" for legs outside the trip's dates.
+    let dayTitle: String
     let accentColor: Color
 
     var body: some View {
@@ -120,20 +122,25 @@ private struct TransportSegmentRow: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
                     MoneyIconBadge(systemName: segment.mode.iconName, accentColor: accentColor)
-                    Text(segment.departureDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                        .font(AppFont.outfit(13, weight: .semibold, relativeTo: .footnote))
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(dayTitle)
+                            .font(AppFont.outfit(13, weight: .bold, relativeTo: .footnote))
+                            .foregroundStyle(accentColor)
+                        Text(segment.departureDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                            .font(AppFont.outfit(13, weight: .semibold, relativeTo: .footnote))
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     PillTag(text: segment.mode.displayName, background: accentColor.opacity(0.15), foreground: accentColor)
                 }
 
                 HStack(alignment: .top, spacing: 8) {
-                    endpoint(segment.departureLocation, time: segment.departureTime, alignment: .leading)
+                    endpoint(segment.departureLocation, time: Self.twelveHour(segment.departureTime), alignment: .leading)
                     Image(systemName: "arrow.right")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(accentColor)
                         .padding(.top, 10)
-                    endpoint(segment.arrivalLocation, time: segment.arrivalTime, alignment: .trailing)
+                    endpoint(segment.arrivalLocation, time: Self.twelveHour(segment.arrivalTime), alignment: .trailing)
                 }
 
                 if hasDetails {
@@ -155,6 +162,16 @@ private struct TransportSegmentRow: View {
         }
     }
 
+    /// Stored "HH:mm" as "2:30 PM", whatever the phone's clock setting.
+    /// Anything that isn't a valid time is shown as typed.
+    static func twelveHour(_ time: String?) -> String? {
+        guard let time, !time.isEmpty else { return nil }
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2, (0..<24).contains(parts[0]), (0..<60).contains(parts[1]) else { return time }
+        let hour = parts[0] % 12 == 0 ? 12 : parts[0] % 12
+        return String(format: "%d:%02d %@", hour, parts[1], parts[0] < 12 ? "AM" : "PM")
+    }
+
     private var hasDetails: Bool {
         segment.cost > 0 || !(segment.bookingRef ?? "").isEmpty || !(segment.seatNumber ?? "").isEmpty
     }
@@ -165,6 +182,8 @@ private struct TransportSegmentRow: View {
             Text(time.flatMap { $0.isEmpty ? nil : $0 } ?? "--:--")
                 .font(AppFont.barlowCondensed(28, weight: .semibold))
                 .foregroundStyle(accentColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(place.isEmpty ? "Anywhere" : place)
                 .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(.primary)
