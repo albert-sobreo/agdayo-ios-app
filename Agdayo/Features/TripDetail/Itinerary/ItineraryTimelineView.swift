@@ -126,7 +126,6 @@ struct ItineraryTimelineView: View {
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
-                            stays: accommodations,
                             now: nowMarker,
                             isEmbedded: true,
                             onPlanDay: { startPlanning(day: group.day) }
@@ -145,7 +144,6 @@ struct ItineraryTimelineView: View {
                             group: group,
                             trip: trip,
                             memberProfiles: memberProfiles,
-                            stays: accommodations,
                             now: nowMarker,
                             isEmbedded: false,
                             onPlanDay: { startPlanning(day: group.day) }
@@ -169,68 +167,6 @@ struct ItineraryTimelineView: View {
         }
     }
 
-    /// Stays saved before stays had map pins only have an address or name.
-    /// Look each one up once so travel from the stay works without the
-    /// traveler re-entering it. A wrong match can be fixed by picking the
-    /// right result in the stay's edit sheet.
-    private func pinStaysWithoutCoordinates() async {
-        for stay in accommodations where stay.coordinate == nil {
-            let query = stay.location.isEmpty ? stay.name : stay.location
-            guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
-                  let found = await DayBaseResolver.place(named: query, near: trip.coordinate),
-                  !found.isBroad else { continue }
-            stay.latitude = found.coordinate.latitude
-            stay.longitude = found.coordinate.longitude
-            if trip.ownerUID != nil {
-                let tripID = trip.id
-                let stayID = stay.id
-                let dto = stay.dto
-                Task {
-                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "accommodations", docID: stayID, data: dto)
-                }
-            }
-        }
-    }
-
-    /// Same idea for transport saved before it had pins: look up the airport
-    /// or station by name once, so arrival and departure travel rows appear.
-    /// Only places near the trip are trusted (a home airport far away isn't
-    /// needed for travel from a stay, and a vague name could match anywhere).
-    private func pinTransportWithoutCoordinates() async {
-        for segment in transportSegments where segment.departureCoordinate == nil || segment.arrivalCoordinate == nil {
-            var changed = false
-            if segment.departureCoordinate == nil,
-               let found = await DayBaseResolver.place(named: segment.departureLocation, near: trip.coordinate),
-               !found.isBroad, isNearTrip(found.coordinate) {
-                segment.departureLatitude = found.coordinate.latitude
-                segment.departureLongitude = found.coordinate.longitude
-                changed = true
-            }
-            if segment.arrivalCoordinate == nil,
-               let found = await DayBaseResolver.place(named: segment.arrivalLocation, near: trip.coordinate),
-               !found.isBroad, isNearTrip(found.coordinate) {
-                segment.arrivalLatitude = found.coordinate.latitude
-                segment.arrivalLongitude = found.coordinate.longitude
-                changed = true
-            }
-            if changed, trip.ownerUID != nil {
-                let tripID = trip.id
-                let segmentID = segment.id
-                let dto = segment.dto
-                Task {
-                    try? await FirestoreCollectionSync.push(tripID: tripID, collection: "transportSegments", docID: segmentID, data: dto)
-                }
-            }
-        }
-    }
-
-    /// Within 150 km of the trip's own pin (a city and its airport).
-    private func isNearTrip(_ coordinate: CLLocationCoordinate2D) -> Bool {
-        guard let center = trip.coordinate else { return false }
-        return CLLocation(latitude: center.latitude, longitude: center.longitude)
-            .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) < 150_000
-    }
-
     var body: some View {
         content
         .navigationTitle("Itinerary")
@@ -245,10 +181,6 @@ struct ItineraryTimelineView: View {
                 }
                 .accessibilityLabel("Add to Itinerary")
             }
-        }
-        .task {
-            await pinStaysWithoutCoordinates()
-            await pinTransportWithoutCoordinates()
         }
         .task {
             // Re-read the clock each minute; ends when the screen goes away.
@@ -274,8 +206,6 @@ private struct DaySection: View {
     let group: DayGroup
     let trip: Trip
     var memberProfiles: [AppUserProfile] = []
-    /// Every stay on the trip; the one covering this day is where its travel starts.
-    var stays: [Accommodation] = []
     /// The current time while the trip is in progress, else nil. Only the
     /// day it falls on shows the "Now" marker.
     var now: Date?
@@ -288,26 +218,11 @@ private struct DaySection: View {
     /// The figure each travel row is showing, keyed by row, for the day's total.
     @State private var legEstimates: [String: TravelEstimate] = [:]
 
-    /// Where this day starts: the pinned stay covering it.
-    private var stay: Accommodation? { TravelPlanning.stay(for: group.day, in: stays) }
-
-    /// The day's first stop with a map pin, which gets a travel row from the stay.
-    private var firstLocatedActivityID: UUID? {
-        for entry in group.entries {
-            if case .activity(let activity) = entry, activity.coordinate != nil { return activity.id }
-        }
-        return nil
-    }
-
     private var travelTotal: (duration: TimeInterval, distance: CLLocationDistance)? {
         guard !legEstimates.isEmpty else { return nil }
         let duration = legEstimates.values.reduce(TimeInterval(0)) { $0 + $1.duration }
         let distance = legEstimates.values.reduce(CLLocationDistance(0)) { $0 + $1.distance }
         return (duration, distance)
-    }
-
-    private func report(_ key: String) -> (TravelEstimate?) -> Void {
-        { estimate in legEstimates[key] = estimate }
     }
 
     /// Also turns the next stop's reminder into a leave-by one, now that the
@@ -408,56 +323,17 @@ private struct DaySection: View {
             let count = group.entries.count
             let marker = nowIndex
             ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
-                if marker == index {
-                    nowRow(isTop: index == 0, isBottom: false)
-                }
-                if isEmbedded && index > 0 && marker != index {
-                    Divider().padding(.leading, ItineraryRail.contentInset)
-                }
-                // The marker row takes over the card's top/bottom edge when it sits there.
-                let isFirst = index == 0 && marker != 0
-                let isLast = index == count - 1 && marker != count
-                // Travel from the stay to the day's first pinned stop.
-                if case .activity(let activity) = entry,
-                   activity.id == firstLocatedActivityID,
-                   let stay, let stayCoordinate = stay.coordinate,
-                   let toCoordinate = activity.coordinate,
-                   !Self.isSamePlace(stayCoordinate, toCoordinate) {
-                    TravelConnectorView(
-                        isEmbedded: isEmbedded,
-                        fromCoordinate: stayCoordinate,
-                        toCoordinate: toCoordinate,
-                        fromLabel: "From \(stay.name)",
-                        nextStart: activity.date,
-                        destinationName: activity.title,
-                        accentColor: trip.theme.accentColor,
-                        onEstimate: reportAndRemind("stay-\(activity.id)", for: activity)
-                    )
-                    .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
-                }
-                // Travel from your stay to the station or airport.
-                if case .transport(let segment) = entry {
-                    departureLeg(for: segment)
-                }
-                if case .activity(let activity) = entry {
-                    row(for: activity, isFirst: isFirst, isLast: isLast)
-                } else {
-                    staticRow(for: entry, isFirst: isFirst, isLast: isLast)
-                }
-                // Travel from the airport or station to your stay.
-                if case .arrival(let segment) = entry {
-                    arrivalLeg(for: segment)
-                }
-                // Travel time is only estimated between two consecutive activities.
-                if case .activity(let activity) = entry,
-                   index + 1 < count,
-                   case .activity(let next) = group.entries[index + 1] {
+                // Travel from the previous activity, skipping any check-in or
+                // check-out row between the two. Stays and transport never
+                // start or end a leg. Drawn above the "Now" marker and divider,
+                // right under the stop you're leaving, as before.
+                if case .activity(let next) = entry,
+                   let activity = previousActivity(before: index) {
                     if let fromCoordinate = activity.coordinate, let toCoordinate = next.coordinate {
                         TravelConnectorView(
                             isEmbedded: isEmbedded,
                             fromCoordinate: fromCoordinate,
                             toCoordinate: toCoordinate,
-                            previousStart: activity.date,
                             originName: activity.title,
                             nextStart: next.date,
                             destinationName: next.title,
@@ -470,6 +346,20 @@ private struct DaySection: View {
                             .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
                     }
                 }
+                if marker == index {
+                    nowRow(isTop: index == 0, isBottom: false)
+                }
+                if isEmbedded && index > 0 && marker != index {
+                    Divider().padding(.leading, ItineraryRail.contentInset)
+                }
+                // The marker row takes over the card's top/bottom edge when it sits there.
+                let isFirst = index == 0 && marker != 0
+                let isLast = index == count - 1 && marker != count
+                if case .activity(let activity) = entry {
+                    row(for: activity, isFirst: isFirst, isLast: isLast)
+                } else {
+                    staticRow(for: entry, isFirst: isFirst, isLast: isLast)
+                }
             }
             if marker == count {
                 nowRow(isTop: false, isBottom: true)
@@ -477,64 +367,13 @@ private struct DaySection: View {
         }
     }
 
-    /// Stay → departure point, timed to be there early enough (2 h for a
-    /// flight). Nothing for car or taxi, which leave from where you are.
-    @ViewBuilder
-    private func departureLeg(for segment: TransportSegment) -> some View {
-        let departure = segment.departureDateTime
-        if let to = segment.departureCoordinate,
-           let beThereBy = TravelPlanning.beThereBy(mode: segment.mode, departure: departure),
-           let stay = TravelPlanning.stay(beforeDepartingAt: departure, in: stays),
-           let from = stay.coordinate,
-           !Self.isSamePlace(from, to) {
-            TravelConnectorView(
-                isEmbedded: isEmbedded,
-                fromCoordinate: from,
-                toCoordinate: to,
-                fromLabel: "From \(stay.name)",
-                nextStart: beThereBy,
-                destinationName: segment.departureLocation,
-                note: TravelPlanning.beThereNote(mode: segment.mode),
-                accentColor: trip.theme.accentColor,
-                onEstimate: report("depart-\(segment.id)")
-            )
-            .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
-        }
-    }
-
-    /// Arrival point → that night's stay, setting off once you're out
-    /// (45 min after a flight lands, 15 after anything else).
-    @ViewBuilder
-    private func arrivalLeg(for segment: TransportSegment) -> some View {
-        if let arrival = segment.arrivalDateTime,
-           let from = segment.arrivalCoordinate,
-           let stay = TravelPlanning.stay(afterArrivingAt: arrival, in: stays),
-           let to = stay.coordinate,
-           !Self.isSamePlace(from, to) {
-            let ready = TravelPlanning.readyAfterArrival(mode: segment.mode, arrival: arrival)
-            TravelConnectorView(
-                isEmbedded: isEmbedded,
-                fromCoordinate: from,
-                toCoordinate: to,
-                fromLabel: "From \(segment.arrivalLocation)",
-                fromIcon: segment.mode.iconName,
-                // Not shown for this leg (it says when you'd arrive instead),
-                // but the row needs a time; check-in is the natural one.
-                nextStart: max(TravelPlanning.checkIn(of: stay), ready),
-                departsAt: ready,
-                destinationName: stay.name,
-                note: segment.mode == .flight ? "Sets off 45 min after landing" : nil,
-                accentColor: trip.theme.accentColor,
-                onEstimate: report("arrive-\(segment.id)")
-            )
-            .modifier(CardRow(isEmbedded: isEmbedded, background: cardBackground(isTop: false, isBottom: false)))
-        }
-    }
-
-    /// Within about 50 m: the stop is the stay itself, so no travel row.
-    private static func isSamePlace(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Bool {
-        CLLocation(latitude: a.latitude, longitude: a.longitude)
-            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude)) < 50
+    /// The activity a travel row into `entries[index]` starts from (see
+    /// `TravelPlanning.legOriginIndex`).
+    private func previousActivity(before index: Int) -> Activity? {
+        let kinds = group.entries.map(\.legKind)
+        guard let origin = TravelPlanning.legOriginIndex(before: index, in: kinds),
+              case .activity(let activity) = group.entries[origin] else { return nil }
+        return activity
     }
 
     /// Where "Now" falls among today's activities: the number that have
@@ -643,35 +482,21 @@ private struct DaySection: View {
 
 }
 
-/// The travel row between two stops (or from your stay to the day's first
-/// stop): distance and time for the chosen way of getting around, when to
-/// leave, a warning when the next stop starts before you could get there,
-/// and a menu that opens the leg in Apple Maps or Google Maps.
+/// The travel row between two activities: distance and time for the chosen
+/// way of getting around, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
-    /// "From Hotel Name" on the first row of a day; nil between stops.
-    var fromLabel: String?
-    /// Start of the stop you're leaving, for the tight-gap check. nil when
-    /// leaving your stay, which has no start time.
-    var previousStart: Date?
-    /// Name of the stop you're leaving, for the steps sheet. Empty when leaving your stay (fromLabel names it).
+    /// Name of the stop you're leaving, for the steps sheet and Apple Maps.
     var originName: String = ""
-    /// Start of the stop you're heading to, for the leave-by time.
+    /// Start of the stop you're heading to, for the transit steps' arrive-by time.
     let nextStart: Date
     var destinationName: String = ""
     let accentColor: Color
     /// Reports the figure currently shown, so the day can add up its travel.
     var onEstimate: (TravelEstimate?) -> Void = { _ in }
-    /// Icon beside `fromLabel`: a bed for your stay, a plane for an airport.
-    var fromIcon: String = "bed.double"
-    /// Set when the leg starts at a known time (leaving the airport) rather
-    /// than ending at one: the row then says when you'd get there.
-    var departsAt: Date? = nil
-    /// A short line explaining the timing, e.g. the time allowed at the airport.
-    var note: String? = nil
 
     @State private var selectedMode: MKDirectionsTransportType
     /// True once the traveler taps a mode, which stops automatic fallback.
@@ -688,15 +513,10 @@ private struct TravelConnectorView: View {
 
     private static let modes: [MKDirectionsTransportType] = [.walking, .transit, .automobile, .cycling]
 
-    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, fromLabel: String? = nil, fromIcon: String = "bed.double", previousStart: Date? = nil, originName: String = "", nextStart: Date, departsAt: Date? = nil, destinationName: String = "", note: String? = nil, accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
+    init(isEmbedded: Bool = false, fromCoordinate: CLLocationCoordinate2D, toCoordinate: CLLocationCoordinate2D, originName: String = "", nextStart: Date, destinationName: String = "", accentColor: Color, onEstimate: @escaping (TravelEstimate?) -> Void = { _ in }) {
         self.isEmbedded = isEmbedded
         self.fromCoordinate = fromCoordinate
         self.toCoordinate = toCoordinate
-        self.fromLabel = fromLabel
-        self.fromIcon = fromIcon
-        self.departsAt = departsAt
-        self.note = note
-        self.previousStart = previousStart
         self.originName = originName
         self.nextStart = nextStart
         self.destinationName = destinationName
@@ -707,29 +527,13 @@ private struct TravelConnectorView: View {
 
     private var currentEstimate: TravelEstimate? { estimatesByMode[selectedMode.rawValue] }
 
-    private var isTight: Bool {
-        guard departsAt == nil, let previousStart, let currentEstimate else { return false }
-        return TravelPlanning.isTight(previousStart: previousStart, nextStart: nextStart, travelTime: currentEstimate.duration)
-    }
-
     var body: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: ItineraryRail.timeWidth)
             ItineraryRailLine(accentColor: accentColor)
             VStack(alignment: .leading, spacing: 4) {
-                if let fromLabel {
-                    Label(fromLabel, systemImage: fromIcon)
-                        .font(AppFont.outfit(12, weight: .medium, relativeTo: .caption))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
                 controls
                 details
-                if let note {
-                    Text(note)
-                        .font(AppFont.outfit(11, relativeTo: .caption2))
-                        .foregroundStyle(.secondary)
-                }
             }
             .padding(.vertical, 6)
             Spacer(minLength: 0)
@@ -744,12 +548,11 @@ private struct TravelConnectorView: View {
         .onDisappear { onEstimate(nil) }
         .sheet(isPresented: $showingSteps) {
             TransitStepsSheet(
-                fromName: fromLabel.map { $0.replacingOccurrences(of: "From ", with: "") } ?? (originName.isEmpty ? "Previous stop" : originName),
+                fromName: originName.isEmpty ? "Previous stop" : originName,
                 toName: destinationName.isEmpty ? "Next stop" : destinationName,
                 fromCoordinate: fromCoordinate,
                 toCoordinate: toCoordinate,
                 arriveBy: nextStart,
-                departAt: departsAt,
                 accentColor: accentColor
             )
             .presentationDetents([.medium, .large])
@@ -810,47 +613,26 @@ private struct TravelConnectorView: View {
         }
     }
 
-    private var details: some View {
-        HStack(spacing: 10) {
-            timing
-            // MapKit only has transit ETAs; Google has the lines and stops,
-            // and often covers cities MapKit doesn't, so offer it even when
-            // MapKit found no transit.
-            if selectedMode == .transit {
-                Button {
-                    showingSteps = true
-                } label: {
-                    Label("Steps", systemImage: "list.bullet")
-                        .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(accentColor.opacity(0.15), in: Capsule())
-                        .foregroundStyle(accentColor)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Transit steps")
-                .accessibilityHint("Shows which lines and stops to take, from Google")
-            }
-        }
-    }
-
+    /// The transit "Steps" button; nothing for other modes.
     @ViewBuilder
-    private var timing: some View {
-        if let currentEstimate {
-            if let departsAt {
-                Text("Arrive about \(departsAt.addingTimeInterval(currentEstimate.duration).formatted(date: .omitted, time: .shortened))")
+    private var details: some View {
+        // MapKit only has transit ETAs; Google has the lines and stops,
+        // and often covers cities MapKit doesn't, so offer it even when
+        // MapKit found no transit.
+        if selectedMode == .transit {
+            Button {
+                showingSteps = true
+            } label: {
+                Label("Steps", systemImage: "list.bullet")
                     .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                    .foregroundStyle(accentColor)
-            } else if isTight, let previousStart {
-                let gap = nextStart.timeIntervalSince(previousStart)
-                Label("Tight: \(formattedDuration(currentEstimate.duration)) travel, \(formattedDuration(max(gap, 0))) between stops", systemImage: "exclamationmark.triangle.fill")
-                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                    .foregroundStyle(.orange)
-            } else {
-                Text("Leave by \(TravelPlanning.leaveBy(arrival: nextStart, travelTime: currentEstimate.duration, spare: TravelPlanning.leaveBySpare).formatted(date: .omitted, time: .shortened))")
-                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(accentColor.opacity(0.15), in: Capsule())
                     .foregroundStyle(accentColor)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Transit steps")
+            .accessibilityHint("Shows which lines and stops to take, from Google")
         }
     }
 
@@ -878,7 +660,7 @@ private struct TravelConnectorView: View {
     private func openInMaps() {
         let source = MKMapItem(placemark: MKPlacemark(coordinate: fromCoordinate))
         let destination = MKMapItem(placemark: MKPlacemark(coordinate: toCoordinate))
-        if let fromLabel { source.name = fromLabel.replacingOccurrences(of: "From ", with: "") }
+        if !originName.isEmpty { source.name = originName }
         if !destinationName.isEmpty { destination.name = destinationName }
         MKMapItem.openMaps(with: [source, destination], launchOptions: [MKLaunchOptionsDirectionsModeKey: selectedMode.mapsLaunchMode])
     }
@@ -1005,6 +787,15 @@ private enum ItineraryEntry: Identifiable {
         case .arrival(let segment): return "arrival-\(segment.id)"
         case .checkIn(let stay): return "checkin-\(stay.id)"
         case .checkOut(let stay): return "checkout-\(stay.id)"
+        }
+    }
+
+    /// How this row counts for travel legs between activities.
+    var legKind: TravelPlanning.TimelineRowKind {
+        switch self {
+        case .activity: return .activity
+        case .checkIn, .checkOut: return .stay
+        case .transport, .arrival: return .transport
         }
     }
 

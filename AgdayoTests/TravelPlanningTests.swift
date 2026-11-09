@@ -11,32 +11,26 @@ struct TravelPlanningTests {
         calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: .now))!
     }
 
-    private func stay(_ name: String, from start: Int, to end: Int, pinned: Bool = true) -> Accommodation {
-        Accommodation(
-            name: name,
-            latitude: pinned ? 1.3 : nil,
-            longitude: pinned ? 103.8 : nil,
-            startDate: day(start),
-            endDate: day(end)
-        )
+    @Test func legsJoinConsecutiveActivities() {
+        let kinds: [TravelPlanning.TimelineRowKind] = [.activity, .activity]
+        #expect(TravelPlanning.legOriginIndex(before: 0, in: kinds) == nil)
+        #expect(TravelPlanning.legOriginIndex(before: 1, in: kinds) == 0)
     }
 
-    @Test func stayCoversItsNightsAndCheckOutMorning() {
-        let hotel = stay("Hotel", from: 0, to: 2)
-        #expect(TravelPlanning.stay(for: day(0), in: [hotel])?.name == "Hotel")
-        #expect(TravelPlanning.stay(for: day(2), in: [hotel])?.name == "Hotel")
-        #expect(TravelPlanning.stay(for: day(3), in: [hotel]) == nil)
+    @Test func legsLookPastCheckInAndCheckOut() {
+        // Lunch, check-in, dinner: dinner's leg starts at lunch, not the stay.
+        let kinds: [TravelPlanning.TimelineRowKind] = [.activity, .stay, .activity]
+        #expect(TravelPlanning.legOriginIndex(before: 2, in: kinds) == 0)
+        // The check-in row itself never gets a leg.
+        #expect(TravelPlanning.legOriginIndex(before: 1, in: kinds) == nil)
     }
 
-    @Test func onChangeoverDayTheStayYouCheckOutOfWins() {
-        let first = stay("First", from: 0, to: 2)
-        let second = stay("Second", from: 2, to: 4)
-        #expect(TravelPlanning.stay(for: day(2), in: [second, first])?.name == "First")
-    }
-
-    @Test func staysWithoutAPinAreIgnored() {
-        let unpinned = stay("Unpinned", from: 0, to: 2, pinned: false)
-        #expect(TravelPlanning.stay(for: day(1), in: [unpinned]) == nil)
+    @Test func noLegFromAStayOrAcrossTransport() {
+        // Check-out first thing, then breakfast: no leg from the stay.
+        #expect(TravelPlanning.legOriginIndex(before: 1, in: [.stay, .activity]) == nil)
+        // Landing (or a van ride) between two activities: no leg across it.
+        #expect(TravelPlanning.legOriginIndex(before: 2, in: [.activity, .transport, .activity]) == nil)
+        #expect(TravelPlanning.legOriginIndex(before: 1, in: [.transport, .activity]) == nil)
     }
 
     @Test func shortHopsStartOnWalkingLongerOnesOnTransit() {
@@ -57,13 +51,6 @@ struct TravelPlanningTests {
         let arrival = day(0).addingTimeInterval(9.5 * 3600)
         let leave = TravelPlanning.leaveBy(arrival: arrival, travelTime: 18 * 60)
         #expect(arrival.timeIntervalSince(leave) == 18 * 60)
-    }
-
-    @Test func tightWhenTravelTakesLongerThanTheGap() {
-        let first = day(0).addingTimeInterval(12.5 * 3600)
-        let next = first.addingTimeInterval(15 * 60)
-        #expect(TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 25 * 60))
-        #expect(!TravelPlanning.isTight(previousStart: first, nextStart: next, travelTime: 10 * 60))
     }
 
     @Test func googleMapsLinkCarriesBothEndsAndTheMode() throws {

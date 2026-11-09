@@ -2,27 +2,39 @@ import CoreLocation
 import Foundation
 import MapKit
 
-/// Pure rules behind the itinerary's travel rows: which stay a day starts
-/// from, which way of getting around to show first, when to leave, and
-/// whether two stops are too close together. Kept free of SwiftUI and
+/// Pure rules behind the itinerary's travel rows between activities: which
+/// activity a leg starts from, which way of getting around to show first,
+/// and when to leave (for reminders and the Today card). Kept free of SwiftUI and
 /// networking so it can be unit tested.
 enum TravelPlanning {
 
     /// Straight-line distance under which walking is shown first.
     static let walkingThreshold: CLLocationDistance = 1_000
 
-    /// The stay you wake up in on `day`: the one whose nights cover it,
-    /// including its check-out morning. When two stays touch (check-out and
-    /// check-in on the same day), the one you check out of wins, since that's
-    /// where the day starts. Only stays pinned on the map count.
-    static func stay(for day: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
-        let dayStart = calendar.startOfDay(for: day)
-        let covering = stays.filter { stay in
-            stay.coordinate != nil
-                && calendar.startOfDay(for: stay.startDate) <= dayStart
-                && dayStart <= calendar.startOfDay(for: stay.endDate)
+    /// What a row of a day's timeline is, as far as travel legs go.
+    enum TimelineRowKind: Equatable {
+        case activity
+        /// A check-in or check-out row. Shown for context only.
+        case stay
+        /// A transport departure or arrival.
+        case transport
+    }
+
+    /// Where the travel row into the activity at `index` starts: the closest
+    /// earlier activity that day, looking past check-in and check-out rows.
+    /// Stays never start or end a leg, and a transport row in between means
+    /// you've moved on, so there's no leg. nil when `index` isn't an activity
+    /// or nothing qualifies.
+    static func legOriginIndex(before index: Int, in kinds: [TimelineRowKind]) -> Int? {
+        guard kinds.indices.contains(index), kinds[index] == .activity else { return nil }
+        for i in stride(from: index - 1, through: 0, by: -1) {
+            switch kinds[i] {
+            case .activity: return i
+            case .stay: continue
+            case .transport: return nil
+            }
         }
-        return covering.min { calendar.startOfDay(for: $0.startDate) < calendar.startOfDay(for: $1.startDate) }
+        return nil
     }
 
     /// The mode a travel row opens on, before any directions are fetched:
@@ -49,99 +61,6 @@ enum TravelPlanning {
     /// Spare time added to every leave-by shown or notified, so "leave by"
     /// doesn't mean "arrive exactly on the minute".
     static let leaveBySpare: TimeInterval = 5 * 60
-
-    /// True when getting to the next stop takes longer than the time between
-    /// the two stops' start times. Activities have no end time, so this only
-    /// catches plans that can't work at all.
-    static func isTight(previousStart: Date, nextStart: Date, travelTime: TimeInterval) -> Bool {
-        travelTime > nextStart.timeIntervalSince(previousStart)
-    }
-}
-
-// MARK: Arrival and departure
-
-extension TravelPlanning {
-    /// When you're ready to head on after arriving: bags and immigration
-    /// after a flight, a short walk out for anything else.
-    static func readyAfterArrival(mode: TransportMode, arrival: Date) -> Date {
-        arrival.addingTimeInterval(mode == .flight ? 45 * 60 : 15 * 60)
-    }
-
-    /// When to be at the departure point, or nil for modes that pick you up
-    /// where you are (car, taxi).
-    static func beThereBy(mode: TransportMode, departure: Date) -> Date? {
-        switch mode {
-        case .flight: return departure.addingTimeInterval(-2 * 60 * 60)
-        case .bus, .train, .ferry, .other: return departure.addingTimeInterval(-20 * 60)
-        case .car, .rideshare: return nil
-        }
-    }
-
-    /// Plain words for `beThereBy`, shown under the travel row.
-    static func beThereNote(mode: TransportMode) -> String? {
-        switch mode {
-        case .flight: return "Allows 2 h at the airport"
-        case .bus, .train, .ferry, .other: return "Allows 20 min before departure"
-        case .car, .rideshare: return nil
-        }
-    }
-
-    /// The pinned stay you head to after arriving: you're booked in that
-    /// night and haven't checked out before you land.
-    static func stay(afterArrivingAt arrival: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
-        stays
-            .filter { stay in
-                stay.coordinate != nil
-                    && calendar.startOfDay(for: stay.startDate) <= calendar.startOfDay(for: arrival)
-                    && checkOut(of: stay, calendar: calendar) > arrival
-            }
-            .min { $0.startDate < $1.startDate }
-    }
-
-    /// The pinned stay you leave from for a departure: checked in before it
-    /// leaves, and checking out that day or later.
-    static func stay(beforeDepartingAt departure: Date, in stays: [Accommodation], calendar: Calendar = .current) -> Accommodation? {
-        stays
-            .filter { stay in
-                stay.coordinate != nil
-                    && checkIn(of: stay, calendar: calendar) < departure
-                    && calendar.startOfDay(for: stay.endDate) >= calendar.startOfDay(for: departure)
-            }
-            .max { $0.startDate < $1.startDate }
-    }
-
-    static func checkIn(of stay: Accommodation, calendar: Calendar = .current) -> Date {
-        combine(stay.startDate, time: stay.checkInTime, calendar: calendar)
-    }
-
-    static func checkOut(of stay: Accommodation, calendar: Calendar = .current) -> Date {
-        combine(stay.endDate, time: stay.checkOutTime, calendar: calendar)
-    }
-
-    private static func combine(_ day: Date, time: String, calendar: Calendar) -> Date {
-        let parts = time.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return day }
-        return calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day) ?? day
-    }
-}
-
-extension TransportSegment {
-    var departureCoordinate: CLLocationCoordinate2D? {
-        guard let departureLatitude, let departureLongitude else { return nil }
-        return CLLocationCoordinate2D(latitude: departureLatitude, longitude: departureLongitude)
-    }
-
-    var arrivalCoordinate: CLLocationCoordinate2D? {
-        guard let arrivalLatitude, let arrivalLongitude else { return nil }
-        return CLLocationCoordinate2D(latitude: arrivalLatitude, longitude: arrivalLongitude)
-    }
-}
-
-extension Accommodation {
-    var coordinate: CLLocationCoordinate2D? {
-        guard let latitude, let longitude else { return nil }
-        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    }
 }
 
 extension MKDirectionsTransportType {

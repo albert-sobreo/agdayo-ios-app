@@ -7,15 +7,15 @@ struct TodayPlan {
     /// The next activity that hasn't started yet: today's, or the next day's
     /// first when today is done.
     let next: Activity?
-    /// Where you set off from when your location isn't known: the stop
-    /// before `next` today, else the stay you're in.
+    /// Where you set off from when your location isn't known: the pinned
+    /// stop before `next` that day, if there is one.
     let fallbackOrigin: (name: String, coordinate: CLLocationCoordinate2D)?
     /// Today's activities after `next`.
     let laterToday: [Activity]
     /// True when `next` is on a later day than `now`.
     let nextIsTomorrowOrLater: Bool
 
-    init(activities: [Activity], stays: [Accommodation], now: Date, calendar: Calendar = .current) {
+    init(activities: [Activity], now: Date, calendar: Calendar = .current) {
         let sorted = activities.sorted { $0.date < $1.date }
         let upcoming = sorted.filter { $0.date > now }
         let next = upcoming.first
@@ -31,8 +31,6 @@ struct TodayPlan {
             }
             if let previousToday, let coordinate = previousToday.coordinate {
                 fallbackOrigin = (previousToday.title, coordinate)
-            } else if let stay = TravelPlanning.stay(for: next.date, in: stays, calendar: calendar), let coordinate = stay.coordinate {
-                fallbackOrigin = (stay.name, coordinate)
             } else {
                 fallbackOrigin = nil
             }

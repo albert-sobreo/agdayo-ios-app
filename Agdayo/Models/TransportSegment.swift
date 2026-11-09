@@ -63,7 +63,7 @@ final class TransportSegment {
     /// synced, same reasoning as `Activity.calendarEventID`.
     var calendarEventID: String?
     /// Map pins for where it leaves from and arrives at (an airport, a
-    /// station), so the itinerary can show travel to and from your stay.
+    /// station). The itinerary doesn't draw travel rows to or from them.
     var departureLatitude: Double?
     var departureLongitude: Double?
     var arrivalLatitude: Double?

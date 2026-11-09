@@ -22,9 +22,8 @@ final class Accommodation {
     var name: String
     var type: AccommodationType
     var location: String
-    /// Where the stay is on the map, set from the location search (or a
-    /// one-time lookup for stays saved before this existed). Used to show
-    /// travel from the stay to each day's first stop.
+    /// Where the stay is on the map, set from the location search. Not used
+    /// for itinerary travel rows, which only join activities.
     var latitude: Double?
     var longitude: Double?
     var numberOfRooms: Int

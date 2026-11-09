@@ -140,7 +140,7 @@ struct TransportSegmentEditSheet: View {
                                     departureLocation = name
                                     departurePin = Self.pin(name, coordinate)
                                 })
-                                pinHint(isPinned: currentDeparturePin != nil, pinned: "Pinned. Shows travel from your stay.")
+                                pinHint(isPinned: currentDeparturePin != nil, pinned: "Pinned on the map.")
                             }
                         }
                         FormField {
@@ -155,7 +155,7 @@ struct TransportSegmentEditSheet: View {
                                     arrivalLocation = name
                                     arrivalPin = Self.pin(name, coordinate)
                                 })
-                                pinHint(isPinned: currentArrivalPin != nil, pinned: "Pinned. Shows travel to your stay.")
+                                pinHint(isPinned: currentArrivalPin != nil, pinned: "Pinned on the map.")
                             }
                         }
                         FormField {
