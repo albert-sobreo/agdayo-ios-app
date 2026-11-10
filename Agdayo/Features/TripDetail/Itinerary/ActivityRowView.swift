@@ -103,10 +103,7 @@ struct ActivityRowView: View {
                 if let cost, prominentCost {
                     Label(cost.formattedCurrency(code: costCurrency ?? "PHP"), systemImage: "banknote")
                         .font(AppFont.outfit(14, weight: .semibold, relativeTo: .subheadline))
-                        .foregroundStyle(accentColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(accentColor.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.primary)
                         .padding(.top, 2)
                         .accessibilityLabel("Cost \(cost.formattedCurrency(code: costCurrency ?? "PHP"))")
                 } else if let cost {
