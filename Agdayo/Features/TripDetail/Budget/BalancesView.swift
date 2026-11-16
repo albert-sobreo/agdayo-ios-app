@@ -38,7 +38,8 @@ struct BalancesView: View {
     private var balances: [(profile: AppUserProfile, amount: Double)] {
         let net = ExpenseBalanceService.balances(
             activities: activities, accommodations: accommodations, transportSegments: transportSegments,
-            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency
+            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency,
+            memberUIDs: memberUIDs
         )
         return memberProfiles
             .map { ($0, net[$0.uid] ?? 0) }
@@ -48,8 +49,15 @@ struct BalancesView: View {
     private var settlements: [ExpenseSettlement] {
         ExpenseBalanceService.settlements(
             activities: activities, accommodations: accommodations, transportSegments: transportSegments,
-            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency
+            expenses: expenses, recordedSettlements: recordedSettlements, currency: trip.currency,
+            memberUIDs: memberUIDs
         )
+    }
+
+    /// Current members. People removed from the trip are left out of splits,
+    /// so what's left of each cost is shared among those still in it.
+    private var memberUIDs: Set<String> {
+        Set(memberProfiles.map(\.uid))
     }
 
     private var paymentHistory: [Settlement] {
@@ -122,14 +130,14 @@ struct BalancesView: View {
     /// being truncated beside the other one.
     private func payment(from fromUID: String, to toUID: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(profile(for: fromUID)?.displayName ?? "Someone")
+            Text(profile(for: fromUID)?.displayName ?? "Former member")
                 .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
                 .fixedSize(horizontal: false, vertical: true)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "arrow.turn.down.right")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(accent)
-                Text(profile(for: toUID)?.displayName ?? "someone")
+                Text(profile(for: toUID)?.displayName ?? "Former member")
                     .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
                     .fixedSize(horizontal: false, vertical: true)
             }

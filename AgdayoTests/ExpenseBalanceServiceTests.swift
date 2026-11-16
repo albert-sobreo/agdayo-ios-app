@@ -113,4 +113,47 @@ struct ExpenseBalanceServiceTests {
         #expect(balances["alice"] == 100)
         #expect(balances["bob"] == -100)
     }
+
+    @Test func removedMemberIsLeftOutOfEvenSplit() {
+        let context = makeTestContext()
+        let trip = Trip(name: "Trip", location: "X", startDate: .now, endDate: .now, currency: "PHP")
+        context.insert(trip)
+        let activity = Activity(title: "Dinner", cost: 900, paidByUID: "alice", splitUIDs: ["alice", "bob", "carol"], trip: trip)
+        context.insert(activity)
+
+        let balances = ExpenseBalanceService.balances(
+            activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [],
+            currency: "PHP", memberUIDs: ["alice", "bob"]
+        )
+        #expect(balances["alice"] == 450)
+        #expect(balances["bob"] == -450)
+        #expect(balances["carol"] == nil)
+    }
+
+    @Test func removedMemberDropsCustomAmountsToEvenSplit() {
+        let context = makeTestContext()
+        let trip = Trip(name: "Trip", location: "X", startDate: .now, endDate: .now, currency: "PHP")
+        context.insert(trip)
+        let activity = Activity(
+            title: "Dinner", cost: 300, paidByUID: "alice",
+            splitUIDs: ["alice", "bob", "carol"], splitAmounts: ["alice": 50, "bob": 50, "carol": 200],
+            trip: trip
+        )
+        context.insert(activity)
+
+        let balances = ExpenseBalanceService.balances(
+            activities: [activity], accommodations: [], transportSegments: [], expenses: [], recordedSettlements: [],
+            currency: "PHP", memberUIDs: ["alice", "bob"]
+        )
+        #expect(balances["alice"] == 150)
+        #expect(balances["bob"] == -150)
+    }
+
+    @Test func roundedEvenSharesAddUpToTotal() {
+        let shares = ExpenseBalanceService.roundedEvenShares(total: 100, uids: ["a", "b", "c"])
+        #expect(shares["a"] == 33.33)
+        #expect(shares["b"] == 33.33)
+        #expect(abs((shares["c"] ?? 0) - 33.34) < 0.0001)
+        #expect(abs(shares.values.reduce(0, +) - 100) < 0.0001)
+    }
 }

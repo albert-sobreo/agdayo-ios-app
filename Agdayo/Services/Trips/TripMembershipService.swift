@@ -312,6 +312,38 @@ enum TripMembershipService {
         ], merge: true)
     }
 
+    /// Takes a removed member out of every cost split in the trip, so what
+    /// they would have owed is shared among the people still splitting it.
+    /// Custom per-person amounts no longer add up without them, so those
+    /// items go back to an even split. Who paid is left alone: that money
+    /// was really spent. Writes each changed record back to Firestore.
+    @MainActor
+    static func removeFromSplits(uid: String, in trip: Trip) {
+        let tripID = trip.id
+        func strip(_ splitUIDs: inout [String], _ splitAmounts: inout [String: Double]) -> Bool {
+            guard splitUIDs.contains(uid) else { return false }
+            splitUIDs.removeAll { $0 == uid }
+            splitAmounts = [:]
+            return true
+        }
+        for activity in trip.activities where strip(&activity.splitUIDs, &activity.splitAmounts) {
+            let id = activity.id, dto = activity.dto
+            Task { try? await FirestoreCollectionSync.push(tripID: tripID, collection: "activities", docID: id, data: dto) }
+        }
+        for stay in trip.accommodations where strip(&stay.splitUIDs, &stay.splitAmounts) {
+            let id = stay.id, dto = stay.dto
+            Task { try? await FirestoreCollectionSync.push(tripID: tripID, collection: "accommodations", docID: id, data: dto) }
+        }
+        for segment in trip.transportSegments where strip(&segment.splitUIDs, &segment.splitAmounts) {
+            let id = segment.id, dto = segment.dto
+            Task { try? await FirestoreCollectionSync.push(tripID: tripID, collection: "transportSegments", docID: id, data: dto) }
+        }
+        for expense in trip.expenses where strip(&expense.splitUIDs, &expense.splitAmounts) {
+            let id = expense.id, dto = expense.dto
+            Task { try? await FirestoreCollectionSync.push(tripID: tripID, collection: "expenses", docID: id, data: dto) }
+        }
+    }
+
     /// Finds every trip a UID is a member of, via the denormalized
     /// `memberOfTripIDs` array on their own `users/{uid}` doc — a plain
     /// single-document read, deliberately avoiding a Firestore

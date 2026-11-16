@@ -267,12 +267,24 @@ struct ActivityDetailView: View {
 
     // MARK: Split
 
+    private var memberUIDs: Set<String> { Set(memberProfiles.map(\.uid)) }
+
     /// An empty `splitUIDs` means everyone, matching the edit sheet's default.
+    /// People removed from the trip are left out, the same way the balances
+    /// leave them out (see `ExpenseBalanceService.shares`).
     private var splitSet: Set<String> {
-        activity.splitUIDs.isEmpty ? Set(memberProfiles.map(\.uid)) : Set(activity.splitUIDs)
+        activity.splitUIDs.isEmpty
+            ? memberUIDs
+            : Set(ExpenseBalanceService.currentSplitUIDs(activity.splitUIDs, memberUIDs: memberUIDs))
     }
 
-    private var isCustomSplit: Bool { !activity.splitAmounts.isEmpty }
+    /// True when someone in the split has since left the trip. Their custom
+    /// amount no longer counts, so the cost is shown split evenly instead.
+    private var splitIncludesFormerMember: Bool {
+        splitSet.count != Set(activity.splitUIDs).count && !activity.splitUIDs.isEmpty
+    }
+
+    private var isCustomSplit: Bool { !activity.splitAmounts.isEmpty && !splitIncludesFormerMember }
 
     private var splitAmountsTotal: Double {
         splitSet.reduce(0) { $0 + (activity.splitAmounts[$1] ?? 0) }
@@ -342,10 +354,7 @@ struct ActivityDetailView: View {
             get: { isCustomSplit },
             set: { useCustom in
                 if useCustom {
-                    let uids = splitSet
-                    let total = activity.cost ?? 0
-                    let share = uids.isEmpty ? 0 : (total / Double(uids.count) * 100).rounded() / 100
-                    activity.splitAmounts = Dictionary(uniqueKeysWithValues: uids.map { ($0, share) })
+                    activity.splitAmounts = ExpenseBalanceService.roundedEvenShares(total: activity.cost ?? 0, uids: Array(splitSet))
                 } else {
                     activity.splitAmounts = [:]
                 }
@@ -363,6 +372,7 @@ struct ActivityDetailView: View {
     }
 
     private func toggleSplit(_ uid: String) {
+        if splitIncludesFormerMember { activity.splitAmounts = [:] }
         var uids = splitSet
         if uids.contains(uid) {
             uids.remove(uid)
