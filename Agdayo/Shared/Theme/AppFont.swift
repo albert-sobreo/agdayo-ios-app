@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Outfit (primary UI typeface) and Matatas One (decorative display face,
 /// reserved for hero trip/place names) — matching the web app's `.outfit`
@@ -22,6 +23,7 @@ enum AppFont {
 
     private static func postscriptName(for weight: Font.Weight) -> String {
         switch weight {
+        case .light, .thin, .ultraLight: return installed("Outfit-Light", else: "Outfit-Regular")
         case .black: return "Outfit-Black"
         case .heavy: return "Outfit-ExtraBold"
         case .bold: return "Outfit-Bold"
@@ -33,6 +35,8 @@ enum AppFont {
 
     private static func barlowPostscriptName(for weight: Font.Weight) -> String {
         switch weight {
+        case .ultraLight, .thin: return installed("BarlowCondensed-ExtraLight", else: installed("BarlowCondensed-Light", else: "BarlowCondensed-Regular"))
+        case .light: return installed("BarlowCondensed-Light", else: "BarlowCondensed-Regular")
         case .black: return "BarlowCondensed-Black"
         case .heavy: return "BarlowCondensed-ExtraBold"
         case .bold: return "BarlowCondensed-Bold"
@@ -40,5 +44,12 @@ enum AppFont {
         case .medium: return "BarlowCondensed-Medium"
         default: return "BarlowCondensed-Regular"
         }
+    }
+
+    /// `name` when that font is bundled, otherwise `fallback`. The light
+    /// weights need their font files in Resources/Fonts (listed in Info.plist's
+    /// UIAppFonts); until then they show in Regular, as before.
+    private static func installed(_ name: String, else fallback: String) -> String {
+        UIFont(name: name, size: 12) != nil ? name : fallback
     }
 }
