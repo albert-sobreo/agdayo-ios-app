@@ -46,7 +46,8 @@ final class StoreService {
     /// The app was a paid download up to the build before this one. Anyone whose
     /// first build is lower than this number paid for it and is unlocked for free.
     /// Every build before the free version used build number 1, so this must stay
-    /// higher than any build shipped while the app was paid.
+    /// higher than any build shipped while the app was paid. For the same reason
+    /// build numbers never restart at 1 for a new version (see CLAUDE.md).
     nonisolated static let freeVersionFirstBuild = 100
 
     nonisolated static let freeTripLimit = 2
