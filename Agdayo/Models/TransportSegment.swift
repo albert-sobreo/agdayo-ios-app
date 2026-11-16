@@ -150,18 +150,14 @@ final class TransportSegment {
     /// `departureTime` ("HH:mm") here for anything that needs the actual
     /// departure instant, e.g. scheduling a reminder.
     var departureDateTime: Date {
-        let parts = departureTime.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return departureDate }
-        return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: departureDate) ?? departureDate
+        Calendar.current.date(storedDay: departureDate, time: departureTime)
     }
 
     /// Same idea as `departureDateTime`, using `arrivalDate`/`arrivalTime`
     /// when present. `nil` when no arrival details were entered.
     var arrivalDateTime: Date? {
         guard let arrivalDate, let arrivalTime else { return nil }
-        let parts = arrivalTime.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return arrivalDate }
-        return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: arrivalDate) ?? arrivalDate
+        return Calendar.current.date(storedDay: arrivalDate, time: arrivalTime)
     }
 
     /// Same idea as `Activity.costAndRate(inTripCurrency:)`.
@@ -169,5 +165,25 @@ final class TransportSegment {
         if currency == tripCurrency { return (cost, 1) }
         guard let exchangeRateToTripCurrency else { return nil }
         return (cost * exchangeRateToTripCurrency, exchangeRateToTripCurrency)
+    }
+}
+
+extension Calendar {
+    /// The calendar day a stored "day" value stands for. Days are saved as
+    /// midnight where they were entered: on the phone that made them, or at the
+    /// destination when Claude writes them. Read as-is in another time zone,
+    /// midnight can fall on the day before (midnight in Tokyo is 11 PM the
+    /// previous day in Manila). Reading from midday instead keeps the right
+    /// day for time zones up to 12 hours apart.
+    func storedDay(_ day: Date) -> Date {
+        startOfDay(for: day.addingTimeInterval(12 * 60 * 60))
+    }
+
+    /// A stored day plus an "HH:mm" time, as transport keeps them.
+    func date(storedDay day: Date, time: String) -> Date {
+        let start = storedDay(day)
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return start }
+        return date(bySettingHour: parts[0], minute: parts[1], second: 0, of: start) ?? start
     }
 }

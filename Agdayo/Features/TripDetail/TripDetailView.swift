@@ -106,7 +106,8 @@ struct TripDetailView: View {
                     openPollCount: polls.filter { !$0.isClosed }.count,
                     ideaCount: ideas.count,
                     hasPhotoAlbum: trip.albumURL != nil,
-                    showsBalances: syncCoordinator.memberProfiles.count > 1
+                    showsBalances: syncCoordinator.memberProfiles.count > 1,
+                    showsGuide: authService.canUseServer
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
             }

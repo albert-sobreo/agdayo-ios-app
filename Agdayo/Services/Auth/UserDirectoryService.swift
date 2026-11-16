@@ -44,7 +44,9 @@ enum UserDirectoryService {
             data["displayName"] = user.displayName ?? user.email ?? "Traveler"
             data["email"] = user.email ?? ""
             data["createdAt"] = FieldValue.serverTimestamp()
-            try await documentRef.setData(data)
+            // Merged, so a `memberOfTripIDs` written by a trip upload a moment
+            // earlier isn't wiped.
+            try await documentRef.setData(data, merge: true)
         }
     }
 

@@ -22,6 +22,10 @@ struct RootTabView: View {
     @State private var pendingJoinedTrip: Trip?
     @State private var pendingTripLink: TripLinkTarget?
     @State private var selectedTab: RootTab = .home
+    /// Trips being uploaded right now. Launch runs the backfill from both the
+    /// sign-in task and the scene becoming active; without this each trip
+    /// would be uploaded twice, with a new join code each time.
+    @State private var uploadingTripIDs: Set<UUID> = []
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -156,8 +160,9 @@ struct RootTabView: View {
     /// looking "already synced."
     private func backfillOwnershipIfNeeded() {
         guard authService.isSignedIn, let uid = authService.firebaseUser?.uid else { return }
-        for trip in trips where trip.ownerUID == nil {
+        for trip in trips where trip.ownerUID == nil && !uploadingTripIDs.contains(trip.id) {
             let tripID = trip.id
+            uploadingTripIDs.insert(tripID)
             let name = trip.name
             let location = trip.location
             let theme = trip.theme.rawValue
@@ -195,6 +200,7 @@ struct RootTabView: View {
             let ideaDTOs = trip.ideas.map { ($0.id, $0.dto) }
 
             Task { @MainActor in
+                defer { uploadingTripIDs.remove(tripID) }
                 do {
                     try await TripMembershipService.createTripRecord(
                         tripID: tripID, ownerUID: uid, name: name, location: location,
@@ -278,6 +284,7 @@ private struct LiveSharingBanner: View {
 struct BackgroundImageModifier: View {
     var body: some View {
         Image("light-bg")
+            .resizable()
             .scaledToFill()
             .ignoresSafeArea()
     }

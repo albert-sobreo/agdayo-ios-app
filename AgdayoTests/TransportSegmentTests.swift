@@ -46,4 +46,12 @@ struct TransportSegmentTests {
         let expected = Calendar.current.date(bySettingHour: 9, minute: 15, second: 0, of: day)!
         #expect(segment.arrivalDateTime == expected)
     }
+
+    @Test func departureDayWrittenInZoneAheadStaysOnItsDay() {
+        // Midnight at a destination an hour ahead is 11 PM the day before here.
+        let day = Calendar.current.startOfDay(for: .now)
+        let segment = TransportSegment(departureDate: day.addingTimeInterval(-3600), departureTime: "08:00")
+        let expected = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: day)!
+        #expect(segment.departureDateTime == expected)
+    }
 }

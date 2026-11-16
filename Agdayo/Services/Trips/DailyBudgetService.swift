@@ -96,7 +96,7 @@ enum DailyBudgetService {
                 continue
             }
             let route = segment.arrivalLocation.isEmpty ? "" : " to \(segment.arrivalLocation)"
-            byDay[calendar.startOfDay(for: segment.departureDate), default: []].append(BudgetLineItem(
+            byDay[calendar.storedDay(segment.departureDate), default: []].append(BudgetLineItem(
                 id: "transport-\(segment.id)", sourceID: segment.id, kind: .transport,
                 title: segment.mode.displayName + route, subtitle: nil, iconName: segment.mode.iconName, amount: converted,
                 categoryID: segment.budgetCategoryID, memberUID: segment.budgetMemberUID

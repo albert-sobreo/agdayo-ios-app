@@ -8,7 +8,7 @@
     <array/>
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
-        <!-- @AppStorage (hasCompletedOnboarding, remindersEnabled) and
+        <!-- @AppStorage (remindersEnabled) and
              NotificationScheduler's direct UserDefaults.standard reads/writes
              — all app-internal preferences, never shared with other apps. -->
         <dict>

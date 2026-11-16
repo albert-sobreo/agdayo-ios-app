@@ -134,7 +134,11 @@ enum NotificationScheduler {
     }
 
     private static func schedule(identifier: String, content: UNMutableNotificationContent, fireDate: Date) {
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        // Pinned to the time zone it was worked out in, so the reminder still
+        // fires at the right moment after the phone crosses into another zone
+        // (without one, "07:45" would fire at 07:45 wherever the phone is).
+        var components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        components.timeZone = Calendar.current.timeZone
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)

@@ -16,6 +16,16 @@ final class AuthService {
 
     var isSignedIn: Bool { firebaseUser != nil }
 
+    /// When this session last re-authenticated, for account deletion.
+    private var recentlyAuthenticatedAt: Date?
+    /// From the last Apple re-authentication; used once to revoke the token.
+    private var appleAuthorizationCode: String?
+    /// Firebase accepts deletion within about 5 minutes of signing in.
+    private static let recentLoginWindow: TimeInterval = 4 * 60
+
+    /// True for accounts the Agdayo server accepts (guide, transit steps).
+    var canUseServer: Bool { AgdayoServer.isAvailable(for: firebaseUser?.uid) }
+
     init() {
         firebaseUser = Auth.auth().currentUser
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
@@ -143,9 +153,28 @@ final class AuthService {
     /// `reauthenticateWithGoogle()`/`reauthenticateWithPassword(_:)`) and
     /// call `deleteAccount()` again — the Firestore cleanup above is
     /// idempotent, so repeating it is harmless.
+    ///
+    /// The freshness check runs before anything is deleted, so cancelling the
+    /// re-authentication leaves both the account and its trips untouched.
+    /// Apple accounts always re-authenticate first: the fresh authorization
+    /// code is needed to revoke the app's Sign in with Apple token, which App
+    /// Review requires when an account is deleted.
     func deleteAccount() async throws {
         guard let user = Auth.auth().currentUser else { return }
+        let isFresh = recentlyAuthenticatedAt.map { Date.now.timeIntervalSince($0) < Self.recentLoginWindow } ?? false
+        if signInProviderID == "apple.com" {
+            guard isFresh, appleAuthorizationCode != nil else { throw AuthServiceError.requiresRecentLogin }
+        } else if !isFresh {
+            let lastSignIn = user.metadata.lastSignInDate ?? .distantPast
+            if Date.now.timeIntervalSince(lastSignIn) >= Self.recentLoginWindow {
+                throw AuthServiceError.requiresRecentLogin
+            }
+        }
         try await Self.cleanUpAccountData(uid: user.uid)
+        if let appleAuthorizationCode {
+            try? await Auth.auth().revokeToken(withAuthorizationCode: appleAuthorizationCode)
+            self.appleAuthorizationCode = nil
+        }
         do {
             try await user.delete()
         } catch {
@@ -172,6 +201,7 @@ final class AuthService {
             accessToken: result.user.accessToken.tokenString
         )
         try await user.reauthenticate(with: credential)
+        recentlyAuthenticatedAt = .now
     }
 
     /// Same idea as `reauthenticateWithGoogle()`, for Apple accounts — the
@@ -185,6 +215,8 @@ final class AuthService {
         }
         let firebaseCredential = OAuthProvider.credential(providerID: .apple, idToken: idTokenString, rawNonce: rawNonce)
         try await user.reauthenticate(with: firebaseCredential)
+        recentlyAuthenticatedAt = .now
+        appleAuthorizationCode = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
     }
 
     /// Same idea as `reauthenticateWithGoogle()`, for email/password accounts
@@ -194,6 +226,7 @@ final class AuthService {
         guard let user = Auth.auth().currentUser, let email = user.email else { return }
         let credential = EmailAuthProvider.credential(withEmail: email, password: password)
         try await user.reauthenticate(with: credential)
+        recentlyAuthenticatedAt = .now
     }
 
     /// Trips owned by this account are deleted outright (matching

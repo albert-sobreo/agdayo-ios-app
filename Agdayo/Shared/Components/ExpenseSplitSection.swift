@@ -87,7 +87,22 @@ struct ExpenseSplitSection: View {
                     }
                 }
             }
+            .onAppear(perform: dropFormerMembers)
+            .onChange(of: memberProfiles.map(\.uid)) { dropFormerMembers() }
         }
+    }
+
+    /// Takes people who have been removed from the trip out of the split. They
+    /// have no row here, so leaving them in would make the even shares and the
+    /// split total disagree with what's shown. Their custom amount is gone with
+    /// them, so the rest go back to an even split.
+    private func dropFormerMembers() {
+        let members = Set(memberProfiles.map(\.uid))
+        guard !members.isEmpty else { return }
+        let current = splitUIDs.intersection(members)
+        guard !current.isEmpty, current.count != splitUIDs.count else { return }
+        splitUIDs = current
+        splitAmounts = [:]
     }
 
     private var customSplitBinding: Binding<Bool> {
@@ -95,8 +110,7 @@ struct ExpenseSplitSection: View {
             get: { isCustomSplit },
             set: { useCustom in
                 if useCustom {
-                    let share = splitUIDs.isEmpty ? 0 : (totalCost / Double(splitUIDs.count) * 100).rounded() / 100
-                    splitAmounts = Dictionary(uniqueKeysWithValues: splitUIDs.map { ($0, share) })
+                    splitAmounts = ExpenseBalanceService.roundedEvenShares(total: totalCost, uids: Array(splitUIDs))
                 } else {
                     splitAmounts = [:]
                 }

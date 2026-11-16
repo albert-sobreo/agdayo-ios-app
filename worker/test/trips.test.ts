@@ -153,7 +153,7 @@ describe("editing", () => {
       cost: new FsDouble(0),
       currency: "SGD",
     });
-    expect(() => transportFields({ mode: "jeepney", from: "a", to: "b", departure: "2026-11-11T08:30:00+08:00" }, false, "PHP")).toThrow(/mode/);
+    expect(() => transportFields({ mode: "spaceship", from: "a", to: "b", departure: "2026-11-11T08:30:00+08:00" }, false, "PHP")).toThrow(/mode/);
     expect(() =>
       transportFields({ departure: "2026-11-11T08:30:00+08:00", arrival: "2026-11-11T07:00:00+08:00" }, true, "PHP"),
     ).toThrow(/before departure/);
@@ -175,5 +175,13 @@ describe("editing", () => {
 
   it("keeps the Google place ID on activities", () => {
     expect(activityFields({ placeId: "ChIJ123" }, true)).toEqual({ placeID: "ChIJ123" });
+  });
+});
+
+describe("trip updates", () => {
+  it("rejects an end date before the start date", () => {
+    expect(() => tripUpdateFields({ startDate: "2026-11-18T00:00:00+08:00", endDate: "2026-11-16T00:00:00+08:00" })).toThrow(
+      /before startDate/,
+    );
   });
 });

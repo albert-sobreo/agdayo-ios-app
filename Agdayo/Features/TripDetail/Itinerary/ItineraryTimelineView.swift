@@ -413,6 +413,7 @@ private struct DaySection: View {
     private func row(for activity: Activity, isFirst: Bool, isLast: Bool) -> some View {
         let content = ActivityHoursRow(
             activity: activity,
+            tripCurrency: trip.currency,
             englishTitle: Self.englishName(in: activity.activityDescription),
             accentColor: trip.theme.accentColor,
             isFirst: isFirst,
@@ -480,6 +481,7 @@ private struct DaySection: View {
 /// way of getting around, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(AuthService.self) private var authService
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
@@ -587,7 +589,10 @@ private struct TravelConnectorView: View {
             }
             .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(.secondary)
-            .fixedSize()
+            // Shrinks instead of pushing the directions button off narrow screens.
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .layoutPriority(1)
 
             Spacer(minLength: 4)
 
@@ -613,7 +618,7 @@ private struct TravelConnectorView: View {
         // MapKit only has transit ETAs; Google has the lines and stops,
         // and often covers cities MapKit doesn't, so offer it even when
         // MapKit found no transit.
-        if selectedMode == .transit {
+        if selectedMode == .transit, authService.canUseServer {
             Button {
                 showingSteps = true
             } label: {
@@ -940,6 +945,9 @@ private struct CardRow<Background: View>: ViewModifier {
 /// its time, when the activity has a place ID, and says so if it's closed then.
 private struct ActivityHoursRow: View {
     let activity: Activity
+    /// Used when the activity's cost has no currency of its own (Claude can
+    /// add a cost without one); costs are counted in the trip's currency then.
+    let tripCurrency: String
     let englishTitle: String?
     let accentColor: Color
     let isFirst: Bool
@@ -952,7 +960,7 @@ private struct ActivityHoursRow: View {
             title: activity.title,
             location: activity.location,
             cost: activity.cost,
-            costCurrency: activity.costCurrency,
+            costCurrency: activity.costCurrency ?? tripCurrency,
             costNote: activity.costNote,
             iconName: activity.iconName,
             time: activity.date,

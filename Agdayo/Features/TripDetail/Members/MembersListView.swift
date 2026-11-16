@@ -255,6 +255,7 @@ struct MembersListView: View {
     private func removeMember(_ member: TripMemberRecord) {
         let tripID = trip.id
         let uid = member.profile.uid
+        TripMembershipService.removeFromSplits(uid: uid, in: trip)
         Task {
             try? await TripMembershipService.removeMember(tripID: tripID, uid: uid)
         }

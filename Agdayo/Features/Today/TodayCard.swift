@@ -10,6 +10,7 @@ struct TodayCard: View {
 
     @Query private var activities: [Activity]
     @Environment(\.openURL) private var openURL
+    @Environment(AuthService.self) private var authService
 
     @State private var location = OneShotLocation()
     @State private var now = Date.now
@@ -151,7 +152,7 @@ struct TodayCard: View {
                 .font(AppFont.outfit(12, relativeTo: .caption))
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                if leg.mode == .transit {
+                if leg.mode == .transit, authService.canUseServer {
                     Button { showingSteps = true } label: {
                         Label("Steps", systemImage: "list.bullet")
                     }
@@ -179,6 +180,8 @@ struct TodayCard: View {
                 HStack(spacing: 10) {
                     Text(activity.date, format: .dateTime.hour().minute())
                         .font(AppFont.barlowCondensed(16, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(width: 64, alignment: .leading)
                     Text(activity.title)
                         .font(AppFont.outfit(14, relativeTo: .subheadline))

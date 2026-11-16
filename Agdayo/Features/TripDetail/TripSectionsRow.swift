@@ -33,6 +33,8 @@ struct TripSectionsRow: View {
     var ideaCount: Int = 0
     var hasPhotoAlbum: Bool = false
     var showsBalances: Bool = false
+    /// Only for accounts the Agdayo server accepts (see `AgdayoServer.allowedUIDs`).
+    var showsGuide: Bool = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -51,8 +53,10 @@ struct TripSectionsRow: View {
                         SquareNavCard(iconName: "arrow.left.arrow.right", subtitle: "Settle Up", title: "Balances", accentColor: accentColor)
                     }
                 }
-                NavigationLink(value: TripSectionRoute.guide) {
-                    SquareNavCard(iconName: "book.pages", subtitle: "Know before you go", title: "Guide", accentColor: accentColor)
+                if showsGuide {
+                    NavigationLink(value: TripSectionRoute.guide) {
+                        SquareNavCard(iconName: "book.pages", subtitle: "Know before you go", title: "Guide", accentColor: accentColor)
+                    }
                 }
                 NavigationLink(value: TripSectionRoute.accommodations) {
                     SquareNavCard(iconName: "bed.double", subtitle: "\(accommodationCount) Stays", title: "Accommodations", accentColor: accentColor)

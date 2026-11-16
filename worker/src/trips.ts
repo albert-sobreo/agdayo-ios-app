@@ -283,6 +283,10 @@ export function tripUpdateFields(input: Record<string, unknown>): Record<string,
     fields.theme = theme;
   }
   if (has("latitude") || has("longitude")) Object.assign(fields, optionalCoordinate(input.latitude, input.longitude, "the trip's location"));
+  const start = fields.startDate, end = fields.endDate;
+  if (start instanceof FsTimestamp && end instanceof FsTimestamp && end.iso < start.iso) {
+    throw new HttpError(400, "endDate is before startDate.");
+  }
   if (has("country")) fields.visitedCountry = text(input.country, "country", "");
   if (has("city")) fields.visitedCity = text(input.city, "city", "");
   return fields;

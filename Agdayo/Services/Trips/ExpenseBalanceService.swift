@@ -40,10 +40,11 @@ enum ExpenseBalanceService {
         transportSegments: [TransportSegment],
         expenses: [Expense],
         recordedSettlements: [Settlement],
-        currency: String
+        currency: String,
+        memberUIDs: Set<String> = []
     ) -> [String: Double] {
         var net: [String: Double] = [:]
-        for item in splittableCosts(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, currency: currency) {
+        for item in splittableCosts(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, currency: currency, memberUIDs: memberUIDs) {
             net[item.paidByUID, default: 0] += item.amount
             for (uid, share) in item.shares {
                 net[uid, default: 0] -= share
@@ -65,9 +66,10 @@ enum ExpenseBalanceService {
         transportSegments: [TransportSegment],
         expenses: [Expense],
         recordedSettlements: [Settlement],
-        currency: String
+        currency: String,
+        memberUIDs: Set<String> = []
     ) -> [ExpenseSettlement] {
-        let net = balances(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, recordedSettlements: recordedSettlements, currency: currency)
+        let net = balances(activities: activities, accommodations: accommodations, transportSegments: transportSegments, expenses: expenses, recordedSettlements: recordedSettlements, currency: currency, memberUIDs: memberUIDs)
         var creditors = net
             .filter { $0.value > 0.01 }
             .map { $0 }
@@ -103,7 +105,8 @@ enum ExpenseBalanceService {
         accommodations: [Accommodation],
         transportSegments: [TransportSegment],
         expenses: [Expense],
-        currency: String
+        currency: String,
+        memberUIDs: Set<String>
     ) -> [SplittableCost] {
         var items: [SplittableCost] = []
 
@@ -111,28 +114,28 @@ enum ExpenseBalanceService {
             guard let (cost, rate) = activity.costAndRate(inTripCurrency: currency), cost > 0,
                   let paidByUID = activity.paidByUID,
                   !activity.splitUIDs.isEmpty else { continue }
-            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: activity.splitUIDs, splitAmounts: activity.splitAmounts, rate: rate)))
+            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: activity.splitUIDs, splitAmounts: activity.splitAmounts, rate: rate, memberUIDs: memberUIDs)))
         }
 
         for accommodation in accommodations {
             guard accommodation.totalCost > 0,
                   let paidByUID = accommodation.paidByUID,
                   !accommodation.splitUIDs.isEmpty else { continue }
-            items.append(SplittableCost(amount: accommodation.totalCost, paidByUID: paidByUID, shares: shares(amount: accommodation.totalCost, splitUIDs: accommodation.splitUIDs, splitAmounts: accommodation.splitAmounts, rate: 1)))
+            items.append(SplittableCost(amount: accommodation.totalCost, paidByUID: paidByUID, shares: shares(amount: accommodation.totalCost, splitUIDs: accommodation.splitUIDs, splitAmounts: accommodation.splitAmounts, rate: 1, memberUIDs: memberUIDs)))
         }
 
         for segment in transportSegments {
             guard let (cost, rate) = segment.costAndRate(inTripCurrency: currency), cost > 0,
                   let paidByUID = segment.paidByUID,
                   !segment.splitUIDs.isEmpty else { continue }
-            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: segment.splitUIDs, splitAmounts: segment.splitAmounts, rate: rate)))
+            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: segment.splitUIDs, splitAmounts: segment.splitAmounts, rate: rate, memberUIDs: memberUIDs)))
         }
 
         for expense in expenses {
             guard let (cost, rate) = expense.costAndRate(inTripCurrency: currency), cost > 0,
                   let paidByUID = expense.paidByUID,
                   !expense.splitUIDs.isEmpty else { continue }
-            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: expense.splitUIDs, splitAmounts: expense.splitAmounts, rate: rate)))
+            items.append(SplittableCost(amount: cost, paidByUID: paidByUID, shares: shares(amount: cost, splitUIDs: expense.splitUIDs, splitAmounts: expense.splitAmounts, rate: rate, memberUIDs: memberUIDs)))
         }
 
         return items
@@ -142,13 +145,50 @@ enum ExpenseBalanceService {
     /// otherwise divides `amount` evenly across `splitUIDs`. Custom amounts
     /// are entered in the item's own currency, so `rate` (1 when currencies
     /// already match) converts them the same way `amount` was converted.
-    private static func shares(amount: Double, splitUIDs: [String], splitAmounts: [String: Double], rate: Double) -> [String: Double] {
-        guard splitAmounts.isEmpty else {
-            return splitUIDs.reduce(into: [:]) { result, uid in
-                result[uid] = (splitAmounts[uid] ?? 0) * rate
+    ///
+    /// `memberUIDs` is the trip's current members (empty when unknown). Anyone
+    /// in the split who has since been removed from the trip is left out, and
+    /// the cost is shared among the people still in it, so the shares always
+    /// add up to the cost. Custom amounts no longer add up once someone is
+    /// left out, so the cost is then split evenly instead.
+    static func shares(amount: Double, splitUIDs: [String], splitAmounts: [String: Double], rate: Double, memberUIDs: Set<String> = []) -> [String: Double] {
+        var uids = splitUIDs
+        var custom = splitAmounts
+        if !memberUIDs.isEmpty {
+            let current = splitUIDs.filter { memberUIDs.contains($0) }
+            if !current.isEmpty, current.count != splitUIDs.count {
+                uids = current
+                custom = [:]
             }
         }
-        let evenShare = amount / Double(splitUIDs.count)
-        return Dictionary(uniqueKeysWithValues: splitUIDs.map { ($0, evenShare) })
+        guard custom.isEmpty else {
+            return uids.reduce(into: [:]) { result, uid in
+                result[uid] = (custom[uid] ?? 0) * rate
+            }
+        }
+        let evenShare = amount / Double(uids.count)
+        return Dictionary(uids.map { ($0, evenShare) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// The people splitting an item, leaving out anyone no longer on the trip
+    /// (falls back to everyone listed if that would leave nobody).
+    static func currentSplitUIDs(_ splitUIDs: [String], memberUIDs: Set<String>) -> [String] {
+        guard !memberUIDs.isEmpty else { return splitUIDs }
+        let current = splitUIDs.filter { memberUIDs.contains($0) }
+        return current.isEmpty ? splitUIDs : current
+    }
+
+    /// An even share per person, rounded to the cent, with the cents left over
+    /// from rounding given to the last person so the shares add up exactly to
+    /// `total` (e.g. 100 for 3 people is 33.33, 33.33, 33.34).
+    static func roundedEvenShares(total: Double, uids: [String]) -> [String: Double] {
+        guard !uids.isEmpty else { return [:] }
+        let ordered = uids.sorted()
+        let share = (total / Double(ordered.count) * 100).rounded(.down) / 100
+        var result: [String: Double] = [:]
+        for uid in ordered.dropLast() { result[uid] = share }
+        let rest = total - share * Double(ordered.count - 1)
+        result[ordered[ordered.count - 1]] = (rest * 100).rounded() / 100
+        return result
     }
 }

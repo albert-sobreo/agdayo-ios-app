@@ -332,10 +332,7 @@ struct TransportSegmentEditSheet: View {
     }
 
     private static func combine(date: Date, time: String) -> Date {
-        let calendar = Calendar.current
-        let parts = time.split(separator: ":").compactMap { Int($0) }
-        guard parts.count == 2 else { return date }
-        return calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: date) ?? date
+        Calendar.current.date(storedDay: date, time: time)
     }
 
     private static func timeString(from date: Date) -> String {
