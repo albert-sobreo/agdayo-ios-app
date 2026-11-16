@@ -176,14 +176,30 @@ struct HomeView: View {
         return "\(trip.location) · \(trip.startDate.formatted(formatter)) → \(trip.endDate.formatted(formatter))"
     }
 
+    /// Follows the phone's 12/24-hour setting. Formatters are made once, not per row.
+    private static let uses12HourClock = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? true
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = uses12HourClock ? "hh:mm" : "HH:mm"
+        return formatter
+    }()
+    private static let meridiemFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "a"
+        return formatter
+    }()
+    private static let monthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("Md")
+        return formatter
+    }()
+
     private func timeParts(_ date: Date) -> (time: String, meridiem: String, monthDay: String) {
-        let time = DateFormatter()
-        time.dateFormat = "hh:mm"
-        let meridiem = DateFormatter()
-        meridiem.dateFormat = "a"
-        let monthDay = DateFormatter()
-        monthDay.dateFormat = "M/dd"
-        return (time.string(from: date), meridiem.string(from: date).lowercased(), monthDay.string(from: date))
+        (
+            Self.timeFormatter.string(from: date),
+            Self.uses12HourClock ? Self.meridiemFormatter.string(from: date).lowercased() : "",
+            Self.monthDayFormatter.string(from: date)
+        )
     }
 
     private func dashedDivider(color: Color) -> some View {
@@ -248,7 +264,7 @@ struct HomeView: View {
                                             .tracking(2)
                                         VStack(alignment: .leading, spacing: 0) {
                                             Text(parts.monthDay)
-                                                .font(AppFont.outfit(8, weight: .light))
+                                                .font(AppFont.outfit(10, weight: .light, relativeTo: .caption2))
                                                 .tracking(0.5)
                                                 .opacity(0.6)
                                             Text(parts.meridiem)
@@ -261,6 +277,8 @@ struct HomeView: View {
                                         }
                                     }
                                     .foregroundStyle(headline)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
                                     .frame(width: 108, alignment: .leading)
                                     VStack(alignment: .leading, spacing: -2){
                                         Text(activity.title)
@@ -475,6 +493,8 @@ private struct TripSummaryCardView: View {
         }
         .padding()
         .frame(width: 220, alignment: .leading)
+        // A fixed-width card: past this size the three stat columns overflow.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .modifier(GlassOrStickerCard(cornerRadius: AppRadius.denseCard))
     }
 
@@ -488,7 +508,7 @@ private struct TripSummaryCardView: View {
     private func statColumn(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(label)
-                .trackedLabel(8, color: headline.opacity(0.7))
+                .trackedLabel(10, color: headline.opacity(0.7))
             Text(value.uppercased())
                 .font(AppFont.barlowCondensed(14, weight: .semibold))
                 .foregroundStyle(headline)

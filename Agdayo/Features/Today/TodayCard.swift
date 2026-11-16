@@ -180,6 +180,8 @@ struct TodayCard: View {
                 HStack(spacing: 10) {
                     Text(activity.date, format: .dateTime.hour().minute())
                         .font(AppFont.barlowCondensed(16, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .frame(width: 64, alignment: .leading)
                     Text(activity.title)
                         .font(AppFont.outfit(14, relativeTo: .subheadline))

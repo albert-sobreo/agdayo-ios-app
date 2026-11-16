@@ -284,6 +284,7 @@ private struct LiveSharingBanner: View {
 struct BackgroundImageModifier: View {
     var body: some View {
         Image("light-bg")
+            .resizable()
             .scaledToFill()
             .ignoresSafeArea()
     }

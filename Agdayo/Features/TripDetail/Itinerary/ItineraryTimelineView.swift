@@ -589,7 +589,10 @@ private struct TravelConnectorView: View {
             }
             .font(AppFont.outfit(12, relativeTo: .caption))
             .foregroundStyle(.secondary)
-            .fixedSize()
+            // Shrinks instead of pushing the directions button off narrow screens.
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .layoutPriority(1)
 
             Spacer(minLength: 4)
 

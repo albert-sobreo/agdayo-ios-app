@@ -61,6 +61,10 @@ struct ActivityRowView: View {
             Text(time, format: .dateTime.hour().minute())
                 .font(AppFont.barlowCondensed(18, weight: .semibold))
                 .foregroundStyle(.primary)
+                // The column is a fixed width so the rail lines up; shrink
+                // rather than wrap "10:30 AM" at larger text sizes.
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .frame(width: ItineraryRail.timeWidth, alignment: .leading)
                 .padding(.vertical, verticalPadding)
 

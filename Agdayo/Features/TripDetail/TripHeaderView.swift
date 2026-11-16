@@ -96,6 +96,8 @@ struct TripHeaderView: View {
                 statColumn(label: "Days", value: "\(numberOfDays)")
                     .frame(maxWidth: .infinity)
             }
+            // Three columns of large numbers: cap the size so "NOV 16" doesn't wrap.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
 
             TripPlanningProgressBar(progress: planningProgress, theme: theme)
 

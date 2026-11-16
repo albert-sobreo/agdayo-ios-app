@@ -137,6 +137,15 @@ const transportProperties = {
 
 const recordId = (name: string) => ({ type: "string", description: `${name} from get_trip.` });
 
+/** A record ID from get_trip (a UUID), so it can't reach any other document path. */
+function requireRecordId(value: unknown, field: string): string {
+  const id = requireString(value, field);
+  if (!/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/.test(id)) {
+    throw new HttpError(400, `${field} must be an ID from get_trip.`);
+  }
+  return id;
+}
+
 /** Changes or deletes one record of a trip after checking the user can edit it. */
 async function changeRecord(
   ctx: McpContext,
@@ -146,8 +155,7 @@ async function changeRecord(
   fields: Record<string, FsInput | undefined> | null,
 ): Promise<{ tripId: string; recordId: string }> {
   const id = requireString(args.tripId, "tripId");
-  const recordId = requireString(args[idField], idField);
-  if (!/^[0-9A-Fa-f-]{36}$/.test(recordId)) throw new HttpError(400, `${idField} must be an ID from get_trip.`);
+  const recordId = requireRecordId(args[idField], idField);
   const db = ctx.firestore();
   await requireTripAccess(db, ctx.uid, id);
   const path = `trips/${id}/${collection}/${recordId}`;
@@ -254,7 +262,7 @@ export const tools: Tool[] = [
     annotations: { ...write, idempotentHint: true },
     run: async (args, ctx) => {
       const id = requireString(args.tripId, "tripId");
-      const activityId = requireString(args.activityId, "activityId");
+      const activityId = requireRecordId(args.activityId, "activityId");
       const db = ctx.firestore();
       await requireTripAccess(db, ctx.uid, id);
       const fields = activityFields(args, true);
@@ -271,7 +279,7 @@ export const tools: Tool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     run: async (args, ctx) => {
       const id = requireString(args.tripId, "tripId");
-      const activityId = requireString(args.activityId, "activityId");
+      const activityId = requireRecordId(args.activityId, "activityId");
       const db = ctx.firestore();
       await requireTripAccess(db, ctx.uid, id);
       await db.commit([{ kind: "delete", path: `trips/${id}/activities/${activityId}` }]);
