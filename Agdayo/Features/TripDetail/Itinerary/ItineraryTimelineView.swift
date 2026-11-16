@@ -480,6 +480,7 @@ private struct DaySection: View {
 /// way of getting around, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(AuthService.self) private var authService
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
@@ -613,7 +614,7 @@ private struct TravelConnectorView: View {
         // MapKit only has transit ETAs; Google has the lines and stops,
         // and often covers cities MapKit doesn't, so offer it even when
         // MapKit found no transit.
-        if selectedMode == .transit {
+        if selectedMode == .transit, authService.canUseServer {
             Button {
                 showingSteps = true
             } label: {

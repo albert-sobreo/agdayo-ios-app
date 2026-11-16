@@ -16,6 +16,9 @@ final class AuthService {
 
     var isSignedIn: Bool { firebaseUser != nil }
 
+    /// True for accounts the Agdayo server accepts (guide, transit steps).
+    var canUseServer: Bool { AgdayoServer.isAvailable(for: firebaseUser?.uid) }
+
     init() {
         firebaseUser = Auth.auth().currentUser
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in

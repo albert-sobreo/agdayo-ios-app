@@ -73,7 +73,10 @@ enum FirestoreCollectionSync {
         Firestore.firestore().collection("trips").document(tripID.uuidString).addSnapshotListener { snapshot, _ in
             guard let snapshot else { return }
             guard snapshot.exists else {
-                onChange(nil)
+                // A "missing" answer from the local cache only means the
+                // document was never cached (e.g. opened offline). Only the
+                // server can say the trip was really deleted.
+                if !snapshot.metadata.isFromCache { onChange(nil) }
                 return
             }
             onChange(try? snapshot.data(as: T.self))

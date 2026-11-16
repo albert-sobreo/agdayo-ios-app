@@ -8,6 +8,16 @@ import Foundation
 enum AgdayoServer {
     static let baseURL = URL(string: "https://agdayo.albertcorpmail.workers.dev")!
 
+    /// Accounts the server accepts (its `ALLOWED_UIDS`). Features that need the
+    /// server (the country guide, transit steps) are hidden for everyone else,
+    /// who would only get an error. Keep in step with `worker/wrangler.jsonc`.
+    static let allowedUIDs: Set<String> = ["RHrejSAA53gFxFrcGqkeVOUWw6U2"]
+
+    static func isAvailable(for uid: String?) -> Bool {
+        guard let uid else { return false }
+        return allowedUIDs.contains(uid)
+    }
+
     enum ServerError: LocalizedError {
         case signedOut
         case notAllowed
