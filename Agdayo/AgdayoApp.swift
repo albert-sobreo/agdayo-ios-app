@@ -75,20 +75,12 @@ struct AgdayoApp: App {
             GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
         Self.configureNavigationBarAppearance()
-        Self.resetOnboardingStateForUITestsIfNeeded()
-    }
-
-    /// Companion to `sharedModelContainer`'s own reset above — `hasCompletedOnboarding`
-    /// lives in `UserDefaults`, not the SwiftData store, so a UI test run needs both
-    /// cleared for every run to actually start at `OnboardingView`.
-    private static func resetOnboardingStateForUITestsIfNeeded() {
-        guard ProcessInfo.processInfo.arguments.contains("-UITestReset") else { return }
-        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
     }
 
     var body: some Scene {
         WindowGroup {
-            RootContainerView()
+            // Straight to the tabs: no account or intro is needed to start planning.
+            RootTabView()
                 .appFont()
                 .preferredColorScheme(.light)
                 .environment(authService)
@@ -117,20 +109,5 @@ struct AgdayoApp: App {
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().compactAppearance = appearance
-    }
-}
-
-/// Shows `OnboardingView` once, on first launch, before `RootTabView` —
-/// independent of sign-in state, since the app itself doesn't require an
-/// account to start planning a trip.
-private struct RootContainerView: View {
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-
-    var body: some View {
-        if hasCompletedOnboarding {
-            RootTabView()
-        } else {
-            OnboardingView(onFinish: { hasCompletedOnboarding = true })
-        }
     }
 }

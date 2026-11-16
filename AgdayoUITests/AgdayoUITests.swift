@@ -7,12 +7,11 @@ final class AgdayoUITests: XCTestCase {
     }
 
     @MainActor
-    func testOnboardingLeadsToTabBar() throws {
+    func testFirstLaunchOpensStraightToHome() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-UITestReset"]
         app.launch()
 
-        completeOnboarding(app)
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
     }
 
@@ -21,7 +20,6 @@ final class AgdayoUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-UITestReset"]
         app.launch()
-        completeOnboarding(app)
 
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(tabBar.waitForExistence(timeout: 10))
@@ -38,7 +36,6 @@ final class AgdayoUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-UITestReset"]
         app.launch()
-        completeOnboarding(app)
 
         ensureSignedOut(app)
 
