@@ -14,6 +14,7 @@ enum TripSectionRoute: Hashable {
     case polls
     case members
     case guide
+    case claude
     /// The itinerary scrolled to one day; used by "Open in Agdayo" links.
     case itineraryDay(Date)
 }
@@ -35,10 +36,18 @@ struct TripSectionsRow: View {
     var showsBalances: Bool = false
     /// Off while the guide is switched off (see `AgdayoServer.showsGuide`).
     var showsGuide: Bool = false
+    /// "Plan with Claude", for signed-in accounts (connecting needs one).
+    var showsClaude: Bool = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
+                if showsClaude {
+                    NavigationLink(value: TripSectionRoute.claude) {
+                        SquareNavCard(iconName: "sparkles", subtitle: "Plan with AI", title: "Claude", accentColor: accentColor)
+                    }
+                    .accessibilityHint("Shows how to connect Claude to plan this trip")
+                }
                 NavigationLink(value: TripSectionRoute.ideas) {
                     SquareNavCard(iconName: "lightbulb", subtitle: ideaCount == 1 ? "1 Idea" : "\(ideaCount) Ideas", title: "Ideas", accentColor: accentColor)
                 }

@@ -107,7 +107,8 @@ struct TripDetailView: View {
                     ideaCount: ideas.count,
                     hasPhotoAlbum: trip.albumURL != nil,
                     showsBalances: syncCoordinator.memberProfiles.count > 1,
-                    showsGuide: AgdayoServer.showsGuide && authService.canUseServer
+                    showsGuide: AgdayoServer.showsGuide && authService.canUseServer,
+                    showsClaude: authService.canUseServer
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
             }
@@ -196,6 +197,8 @@ struct TripDetailView: View {
             MembersListView(trip: trip, syncCoordinator: syncCoordinator, onLeftTrip: onLeftTrip)
         case .guide:
             TripGuideView(trip: trip)
+        case .claude:
+            ConnectClaudeView()
         }
     }
 
