@@ -23,7 +23,7 @@ final class AuthService {
     /// Firebase accepts deletion within about 5 minutes of signing in.
     private static let recentLoginWindow: TimeInterval = 4 * 60
 
-    /// True when the Agdayo server will answer (transit steps, connecting Claude): any signed-in account.
+    /// True when the Agdayo server will answer (connecting Claude): any signed-in account.
     var canUseServer: Bool { AgdayoServer.isAvailable(for: firebaseUser?.uid) }
 
     init() {

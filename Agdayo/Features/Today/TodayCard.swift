@@ -10,13 +10,11 @@ struct TodayCard: View {
 
     @Query private var activities: [Activity]
     @Environment(\.openURL) private var openURL
-    @Environment(AuthService.self) private var authService
 
     @State private var location = OneShotLocation()
     @State private var now = Date.now
     @State private var leg: Leg?
     @State private var isLoading = false
-    @State private var showingSteps = false
 
     /// The worked-out trip to the next stop.
     private struct Leg: Equatable {
@@ -69,19 +67,6 @@ struct TodayCard: View {
             }
         }
         .onChange(of: location.authorizationStatus) { Task { await loadLeg() } }
-        .sheet(isPresented: $showingSteps) {
-            if let next = plan.next, let leg, let to = next.coordinate {
-                TransitStepsSheet(
-                    fromName: leg.usedLocation ? "Your location" : leg.fromName,
-                    toName: next.title,
-                    fromCoordinate: leg.from,
-                    toCoordinate: to,
-                    arriveBy: next.date,
-                    accentColor: accent
-                )
-                .presentationDetents([.medium, .large])
-            }
-        }
     }
 
     // MARK: Pieces
@@ -152,12 +137,6 @@ struct TodayCard: View {
                 .font(AppFont.outfit(12, relativeTo: .caption))
                 .foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                if leg.mode == .transit, authService.canUseServer {
-                    Button { showingSteps = true } label: {
-                        Label("Steps", systemImage: "list.bullet")
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
                 Menu {
                     Button("Apple Maps", systemImage: "map") { openAppleMaps(to: next, leg: leg) }
                     Button("Google Maps", systemImage: "globe") { openGoogleMaps(to: next, leg: leg) }

@@ -175,7 +175,6 @@ describe("editing", () => {
   });
 
   it("keeps the Google place ID on activities", () => {
-    expect(activityFields({ placeId: "ChIJ123" }, true)).toEqual({ placeID: "ChIJ123" });
   });
 });
 

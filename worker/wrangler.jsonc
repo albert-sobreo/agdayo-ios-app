@@ -1,6 +1,6 @@
 {
-	// Agdayo's own server: holds API keys and gives the app (and Claude,
-	// through the MCP connector at /mcp) routes, travel times, places and guides.
+	// Agdayo's own server: the Claude connector at /mcp, which writes trips
+	// into each person's own Agdayo account.
 	"name": "agdayo",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-11-01",
@@ -18,10 +18,6 @@
 		"ALLOWED_UIDS": "*",
 		// Accounts that are always refused (comma-separated), e.g. for abuse.
 		"BLOCKED_UIDS": "",
-		// Google calls each account may make per day (UTC); cached answers are free.
-		"GOOGLE_DAILY_LIMIT": "300",
-		// Accounts with no daily Google limit (comma-separated): your own.
-		"UNLIMITED_UIDS": "RHrejSAA53gFxFrcGqkeVOUWw6U2",
 		// Claude connector: Client ID of the Google OAuth "Web application" client,
 		// for "Continue with Google" on the sign-in page.
 		"GOOGLE_OAUTH_CLIENT_ID": "1015175012900-hing4re822ejq1b0fvstuglcohhec6j7.apps.googleusercontent.com"
@@ -50,7 +46,6 @@
 		}
 	]
 	// Secrets, set with `npx wrangler secret put <NAME>`:
-	//   GOOGLE_MAPS_API_KEY         Google Cloud key with Routes API and Places API (New)
 	//   GOOGLE_OAUTH_CLIENT_SECRET  secret of the OAuth client above
 	//   FIREBASE_SERVICE_ACCOUNT    Firebase service account key JSON (trips, and finding Google users' accounts)
 }

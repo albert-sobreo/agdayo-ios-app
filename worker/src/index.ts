@@ -2,28 +2,11 @@ import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import { isAllowedUid, requireUser } from "./auth";
 import { connectCodeTtlSeconds, createConnectCode, formatConnectCode } from "./connect";
 import type { Env } from "./env";
-import {
-  computeMatrix,
-  computeRoute,
-  maxMatrixPoints,
-  parseMode,
-  placeDetails,
-  searchPlaces,
-} from "./google";
 import { getGuide, listGuides, parseCountryCode } from "./guides";
-import {
-  errorResponse,
-  HttpError,
-  json,
-  optionalTime,
-  readJson,
-  requireLatLng,
-  requireString,
-} from "./http";
+import { errorResponse, HttpError, json } from "./http";
 import { handleMcp } from "./mcp";
 import { authorize, authorizeWithCode, authorizeWithGoogle, callback, type ConnectorProps } from "./oauth";
 import { openPage } from "./open";
-import { googleCached, matrixUnits } from "./usage";
 
 /**
  * Agdayo's server. Two front doors:
@@ -32,16 +15,11 @@ import { googleCached, matrixUnits } from "./usage";
  * - Claude calls /mcp as a custom connector, with a token from signing in at
  *   /authorize (oauth.ts) as the person's own Agdayo account.
  *
- * Who may use either is ALLOWED_UIDS ("*" for everyone signed in). Google
- * calls count against a daily limit per account (usage.ts). The OAuth provider library serves /token, /register
+ * Who may use either is ALLOWED_UIDS ("*" for everyone signed in). The OAuth provider library serves /token, /register
  *   and the .well-known metadata.
  *
  *   GET  /health                   no sign-in; for uptime checks
  *   GET  /open/trip/:id?day=       no sign-in; opens the trip in the app (open.ts)
- *   POST /v1/route                 { origin, destination, mode?, departureTime?, arrivalTime? }
- *   POST /v1/matrix                { points: LatLng[] (2–10), mode? }
- *   POST /v1/places/search         { query, near?, radiusMeters?, limit? }
- *   GET  /v1/places/:id
  *   GET  /v1/guides
  *   GET  /v1/guides/:countryCode
  *   POST /v1/connect-code          a one-time code for connecting Claude (connect.ts)
@@ -119,47 +97,6 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === "/v1/connect-code" && method === "POST") {
     const code = await createConnectCode(env, uid);
     return json({ code: formatConnectCode(code), expiresInSeconds: connectCodeTtlSeconds });
-  }
-
-  if (path === "/v1/route" && method === "POST") {
-    const body = await readJson(request);
-    const routeRequest = {
-      origin: requireLatLng(body.origin, "origin"),
-      destination: requireLatLng(body.destination, "destination"),
-      mode: parseMode(body.mode),
-      departureTime: optionalTime(body.departureTime, "departureTime"),
-      arrivalTime: optionalTime(body.arrivalTime, "arrivalTime"),
-    };
-    const result = await googleCached(env, uid, 1, "route", routeRequest, 300, () => computeRoute(env, routeRequest));
-    // No route is a normal answer (e.g. no transit data in that city), not an error.
-    return json({ route: result });
-  }
-
-  if (path === "/v1/matrix" && method === "POST") {
-    const body = await readJson(request);
-    if (!Array.isArray(body.points) || body.points.length < 2 || body.points.length > maxMatrixPoints) {
-      throw new HttpError(400, `points must list 2 to ${maxMatrixPoints} places.`);
-    }
-    const points = body.points.map((point, index) => requireLatLng(point, `points[${index}]`));
-    const mode = parseMode(body.mode);
-    return json(await googleCached(env, uid, matrixUnits(points.length), "matrix", { points, mode }, 300, () => computeMatrix(env, points, mode)));
-  }
-
-  if (path === "/v1/places/search" && method === "POST") {
-    const body = await readJson(request);
-    const search = {
-      query: requireString(body.query, "query"),
-      near: body.near === undefined ? undefined : requireLatLng(body.near, "near"),
-      radiusMeters: typeof body.radiusMeters === "number" ? body.radiusMeters : undefined,
-      limit: typeof body.limit === "number" ? body.limit : undefined,
-    };
-    return json({ places: await googleCached(env, uid, 1, "places", search, 3600, () => searchPlaces(env, search)) });
-  }
-
-  const placeMatch = /^\/v1\/places\/([^/]+)$/.exec(path);
-  if (placeMatch?.[1] && method === "GET") {
-    const id = decodeURIComponent(placeMatch[1]);
-    return json({ place: await googleCached(env, uid, 1, "place", id, 3600, () => placeDetails(env, id)) });
   }
 
   if (path === "/v1/guides" && method === "GET") {

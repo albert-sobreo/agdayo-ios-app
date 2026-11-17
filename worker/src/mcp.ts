@@ -1,9 +1,7 @@
 import type { Env } from "./env";
 import { Firestore, type FsInput, parseServiceAccount } from "./firestore";
-import { computeMatrix, computeRoute, maxMatrixPoints, parseMode, placeDetails, searchPlaces } from "./google";
-import { HttpError, optionalTime, requireLatLng, requireString } from "./http";
+import { HttpError, requireString } from "./http";
 import { appLink, localDay } from "./open";
-import { googleCached, matrixUnits } from "./usage";
 import {
   activityFields,
   addActivitiesWrites,
@@ -37,12 +35,10 @@ const instructions = `Agdayo is the user's travel app. Use these tools to plan t
 - Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note).
 - Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
 - To change an existing plan, call get_trip first, then use the update_, delete_ and add_ tools. Show what will change and get the user's OK first.
-- When an activity's place came from search_places, pass its placeId so the app can warn when the place is closed at that time.
-- When adding transport, pin both ends with search_places (fromLatitude/toLatitude and so on) so the app can show travel between the airport or station and the stay.
+- Give activities and stays their latitude and longitude (look them up if you aren't sure) so the app can show them on the map and estimate travel times between them.
+- When adding transport, pin both ends (fromLatitude/toLatitude and so on) so the app can show travel between the airport or station and the stay.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
-- Use search_places to get real coordinates before adding activities or stays, so travel times work in the app.
-- Transit directions and times come only from plan_route and travel_times (Google). If they return no transit route, say there's no transit data there and suggest walking or a car; never guess lines or times.
-- Mention that routes and places are from Google.
+- Agdayo works out travel times itself with Apple Maps. Don't invent transit lines, stops or timetables in activity notes.
 - Trip tools return an appLink. After writing to a trip, share it as a link (e.g. [Open in Agdayo](appLink)) so the user can jump to that trip and day in the app.`;
 
 export interface McpContext {
@@ -65,15 +61,8 @@ interface Tool {
   run: (args: Args, ctx: McpContext) => Promise<unknown>;
 }
 
-const latLng = {
-  type: "object",
-  properties: { latitude: { type: "number" }, longitude: { type: "number" } },
-  required: ["latitude", "longitude"],
-};
 const zonedTime = { type: "string", description: "Local time with UTC offset, e.g. 2026-12-10T09:00:00+08:00." };
 const tripId = { type: "string", description: "Trip ID from list_trips." };
-const travelMode = { type: "string", enum: ["transit", "walk", "drive", "bicycle"], description: "Defaults to transit." };
-const read = { readOnlyHint: true, openWorldHint: true };
 const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 
 const activityProperties = {
@@ -87,7 +76,6 @@ const activityProperties = {
   cost: { type: "number" },
   costCurrency: { type: "string", description: "Three-letter code, e.g. SGD." },
   costNote: { type: "string" },
-  placeId: { type: "string", description: "Google place ID from search_places, so the app can check opening hours." },
 };
 
 const tripProperties = {
@@ -125,7 +113,7 @@ const transportProperties = {
   to: { type: "string", description: "Where it arrives, e.g. Singapore Changi (SIN) Terminal 1." },
   departure: { ...zonedTime, description: "Departure, local time at the origin with offset." },
   arrival: { ...zonedTime, description: "Arrival, local time at the destination with offset." },
-  fromLatitude: { type: "number", description: "Pin for the departure point (airport, station), from search_places." },
+  fromLatitude: { type: "number", description: "Pin for the departure point (airport, station)." },
   fromLongitude: { type: "number" },
   toLatitude: { type: "number", description: "Pin for the arrival point. With a stay pinned too, the app shows travel between them." },
   toLongitude: { type: "number" },
@@ -416,89 +404,6 @@ export const tools: Tool[] = [
     run: async (args, ctx) => {
       const { tripId: id, recordId: noteId } = await changeRecord(ctx, args, "noteId", "dayNotes", null);
       return { noteId, deleted: true, appLink: appLink(ctx.origin, id) };
-    },
-  },
-  {
-    name: "plan_route",
-    title: "Plan route",
-    description:
-      "Directions between two points from Google: duration, distance and, for transit, each line with stops and scheduled times. Returns route: null when there's no route (e.g. no transit data in that city).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        origin: latLng,
-        destination: latLng,
-        mode: travelMode,
-        departureTime: { type: "string", description: "ISO 8601 with offset. Leave out for now." },
-        arrivalTime: { type: "string", description: "ISO 8601 with offset, transit only." },
-      },
-      required: ["origin", "destination"],
-    },
-    annotations: read,
-    run: async (args, ctx) => {
-      const request = {
-        origin: requireLatLng(args.origin, "origin"),
-        destination: requireLatLng(args.destination, "destination"),
-        mode: parseMode(args.mode),
-        departureTime: optionalTime(args.departureTime, "departureTime"),
-        arrivalTime: optionalTime(args.arrivalTime, "arrivalTime"),
-      };
-      return { route: await googleCached(ctx.env, ctx.uid, 1, "route", request, 300, () => computeRoute(ctx.env, request)) };
-    },
-  },
-  {
-    name: "travel_times",
-    title: "Travel times",
-    description: `Travel time and distance between every pair of up to ${maxMatrixPoints} points (Google). Good for ordering a day's stops.`,
-    inputSchema: {
-      type: "object",
-      properties: { points: { type: "array", items: latLng, minItems: 2, maxItems: maxMatrixPoints }, mode: travelMode },
-      required: ["points"],
-    },
-    annotations: read,
-    run: async (args, ctx) => {
-      if (!Array.isArray(args.points) || args.points.length < 2 || args.points.length > maxMatrixPoints) {
-        throw new HttpError(400, `points must list 2 to ${maxMatrixPoints} places.`);
-      }
-      const points = args.points.map((point, index) => requireLatLng(point, `points[${index}]`));
-      const mode = parseMode(args.mode);
-      return googleCached(ctx.env, ctx.uid, matrixUnits(points.length), "matrix", { points, mode }, 300, () => computeMatrix(ctx.env, points, mode));
-    },
-  },
-  {
-    name: "search_places",
-    title: "Search places",
-    description: "Finds places by text (Google Places): name, address, coordinates, rating, opening hours.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "e.g. 'hawker centre near Chinatown Singapore'" },
-        near: latLng,
-        radiusMeters: { type: "number" },
-        limit: { type: "number", description: "1 to 20, default 10." },
-      },
-      required: ["query"],
-    },
-    annotations: read,
-    run: async (args, ctx) => {
-      const search = {
-        query: requireString(args.query, "query"),
-        near: args.near === undefined ? undefined : requireLatLng(args.near, "near"),
-        radiusMeters: typeof args.radiusMeters === "number" ? args.radiusMeters : undefined,
-        limit: typeof args.limit === "number" ? args.limit : undefined,
-      };
-      return { places: await googleCached(ctx.env, ctx.uid, 1, "places", search, 3600, () => searchPlaces(ctx.env, search)) };
-    },
-  },
-  {
-    name: "place_details",
-    title: "Place details",
-    description: "Details for one place ID from search_places.",
-    inputSchema: { type: "object", properties: { placeId: { type: "string" } }, required: ["placeId"] },
-    annotations: read,
-    run: async (args, ctx) => {
-      const id = requireString(args.placeId, "placeId");
-      return { place: await googleCached(ctx.env, ctx.uid, 1, "place", id, 3600, () => placeDetails(ctx.env, id)) };
     },
   },
 ];

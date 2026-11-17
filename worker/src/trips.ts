@@ -237,7 +237,6 @@ export function activityFields(input: Record<string, unknown>, partial = false):
   }
   if (has("costCurrency")) fields.costCurrency = currency(input.costCurrency, "costCurrency");
   if (has("costNote")) fields.costNote = text(input.costNote, "costNote", "");
-  if (has("placeId")) fields.placeID = text(input.placeId, "placeId", "");
   return fields;
 }
 

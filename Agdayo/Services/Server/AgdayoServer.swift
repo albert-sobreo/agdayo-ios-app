@@ -2,10 +2,9 @@ import CoreLocation
 import FirebaseAuth
 import Foundation
 
-/// Agdayo's own server (the Cloudflare Worker in `worker/`). It holds the
-/// Google key and answers with Google routes. Every signed-in account can use
-/// it, within a daily allowance of Google calls, so the address is fine to
-/// keep in the repo.
+/// Agdayo's own server (the Cloudflare Worker in `worker/`): the Claude
+/// connector, plus connect codes for it. It only answers signed-in accounts,
+/// so the address is fine to keep in the repo.
 enum AgdayoServer {
     static let baseURL = URL(string: "https://agdayo.albertcorpmail.workers.dev")!
 
@@ -16,8 +15,8 @@ enum AgdayoServer {
     /// server, so turning this back on brings it back.
     static let showsGuide = false
 
-    /// Features that need the server (transit steps, connecting Claude) need
-    /// an account, since the server only answers signed-in requests.
+    /// Connecting Claude needs an account, since the server only answers
+    /// signed-in requests.
     static func isAvailable(for uid: String?) -> Bool {
         uid != nil
     }
@@ -42,48 +41,12 @@ enum AgdayoServer {
 
         var errorDescription: String? {
             switch self {
-            case .signedOut: return "Sign in to see transit steps."
+            case .signedOut: return "Sign in to use this."
             case .notAllowed: return "This account can't use the Agdayo server."
             case .notFound: return "Not found on the Agdayo server."
             case .server(let message): return message
             }
         }
-    }
-
-    /// A transit route from Google, or nil when Google has no route (often no
-    /// transit data in that city). `arriveBy` asks for a route that gets
-    /// there by that time.
-    static func transitRoute(from origin: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, arriveBy: Date?, departAt: Date? = nil) async throws -> ServerRoute? {
-        var body: [String: Any] = [
-            "origin": ["latitude": origin.latitude, "longitude": origin.longitude],
-            "destination": ["latitude": destination.latitude, "longitude": destination.longitude],
-            "mode": "transit",
-        ]
-        // Google only has timetables for roughly the coming weeks; a past
-        // time is meaningless, so plan for now in that case.
-        if let departAt, departAt > .now {
-            body["departureTime"] = ISO8601DateFormatter().string(from: departAt)
-        } else if let arriveBy, arriveBy > .now {
-            body["arrivalTime"] = ISO8601DateFormatter().string(from: arriveBy)
-        }
-        let key = String(format: "route-%.4f,%.4f-%.4f,%.4f", origin.latitude, origin.longitude, destination.latitude, destination.longitude)
-        let data = try await send("POST", "/v1/route", body: try JSONSerialization.data(withJSONObject: body), offlineKey: key)
-        return try decoder.decode(RouteResponse.self, from: data).route
-    }
-
-    /// A place's weekly opening hours, by Google place ID.
-    static func placeHours(id: String) async throws -> PlaceHours {
-        struct Response: Decodable {
-            struct Place: Decodable {
-                let openingPeriods: [PlaceHours.Period]?
-                let utcOffsetMinutes: Int?
-            }
-            let place: Place
-        }
-        // Google place IDs are letters, digits, "_" and "-", so they're safe in a path.
-        let data = try await send("GET", "/v1/places/\(id)")
-        let place = try decoder.decode(Response.self, from: data).place
-        return PlaceHours(periods: place.openingPeriods ?? [], utcOffsetMinutes: place.utcOffsetMinutes)
     }
 
     /// Every saved country guide, by title.
@@ -102,10 +65,6 @@ enum AgdayoServer {
         } catch ServerError.notFound {
             return nil
         }
-    }
-
-    private struct RouteResponse: Decodable {
-        let route: ServerRoute?
     }
 
     private struct ErrorResponse: Decodable {
@@ -165,50 +124,6 @@ enum AgdayoServer {
         let trimmed = text.replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression)
         return ISO8601DateFormatter().date(from: trimmed)
     }
-}
-
-/// Mirrors `RouteResult` in worker/src/google.ts.
-struct ServerRoute: Decodable {
-    let mode: String
-    let durationSeconds: Double
-    let distanceMeters: Double
-    let fare: Fare?
-    let steps: [Step]
-    /// True when Google had no timetable for the requested time and planned for now instead.
-    let timeAdjusted: Bool
-    let fetchedAt: Date
-
-    struct Fare: Decodable {
-        let currency: String
-        let amount: Double
-        let text: String?
-    }
-
-    struct Step: Decodable {
-        /// "walk", "transit", "drive" or "bicycle".
-        let kind: String
-        let durationSeconds: Double
-        let distanceMeters: Double
-        let instruction: String?
-        let transit: TransitLeg?
-    }
-
-    struct TransitLeg: Decodable {
-        let lineName: String
-        let lineShortName: String?
-        let vehicle: String
-        let color: String?
-        let textColor: String?
-        let headsign: String?
-        let departureStop: String
-        let arrivalStop: String
-        let departureTime: Date?
-        let arrivalTime: Date?
-        let stopCount: Int?
-    }
-
-    /// When the first train or bus leaves, for a "Leave by" headline.
-    var firstDeparture: Date? { steps.lazy.compactMap { $0.transit?.departureTime }.first }
 }
 
 /// Mirrors the summaries from `GET /v1/guides`.

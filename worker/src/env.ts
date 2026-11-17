@@ -2,8 +2,6 @@ import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 
 export interface Env {
   DB: D1Database;
-  /** Google Cloud key with the Routes API and Places API (New) enabled. Secret. */
-  GOOGLE_MAPS_API_KEY: string;
   /** Firebase project whose ID tokens are accepted, e.g. "agdayo-app". */
   FIREBASE_PROJECT_ID: string;
   /**
@@ -13,10 +11,6 @@ export interface Env {
   ALLOWED_UIDS: string;
   /** Comma-separated Firebase UIDs that are always refused, e.g. for abuse. Optional. */
   BLOCKED_UIDS?: string;
-  /** Google calls each account may make per day (UTC). A 10-place travel_times counts as 100. Default 300. */
-  GOOGLE_DAILY_LIMIT?: string;
-  /** Comma-separated Firebase UIDs with no daily Google limit. Optional. */
-  UNLIMITED_UIDS?: string;
 
   // Claude connector (see oauth.ts and mcp.ts)
   /** Stores connector tokens, sign-ins in progress and connect codes. */
