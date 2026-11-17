@@ -65,11 +65,15 @@ function createProvider(origin: string): OAuthProvider<Env> {
     },
     defaultHandler: {
       async fetch(request: Request, env: Env): Promise<Response> {
+        const isApi = new URL(request.url).pathname.startsWith("/v1/");
+        if (isApi && request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+        let response: Response;
         try {
-          return await route(request, env);
+          response = await route(request, env);
         } catch (error) {
-          return errorResponse(error);
+          response = errorResponse(error);
         }
+        return isApi ? withCors(response) : response;
       },
     },
     authorizeEndpoint: "/authorize",
@@ -77,6 +81,24 @@ function createProvider(origin: string): OAuthProvider<Env> {
     clientRegistrationEndpoint: "/register",
     scopesSupported: ["trips"],
   });
+}
+
+/**
+ * The web app (web/, on another origin) calls /v1 from the browser. /v1 only
+ * takes a Firebase ID token in the Authorization header, never cookies, so
+ * letting any origin call it gives a page nothing it couldn't do with the token.
+ */
+const corsHeaders: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "authorization, content-type",
+  "access-control-max-age": "86400",
+};
+
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) headers.set(key, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function route(request: Request, env: Env): Promise<Response> {
