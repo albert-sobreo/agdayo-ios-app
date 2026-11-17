@@ -1,0 +1,12 @@
+// The web app is a separate Worker that only serves the built files in dist/.
+// Deploy with `npm run deploy` (builds, then uploads).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agdayo-web",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // Any path that isn't a file (like /trip/123) serves index.html, so Vue Router handles it.
+    "not_found_handling": "single-page-application"
+  }
+}

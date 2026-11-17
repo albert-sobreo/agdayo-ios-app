@@ -1,0 +1,159 @@
+/* Agdayo web: design tokens copied from the iOS app
+   (Agdayo/Shared/Theme: TripTheme+Color.swift, BrandPalette.swift,
+   DesignSystem.swift, AppFont.swift). Keep the two in sync. */
+
+@import "@fontsource-variable/outfit";
+@import "@fontsource/barlow-condensed/400.css";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/barlow-condensed/800.css";
+@import "@fontsource/barlow-condensed/900.css";
+@import "tailwindcss";
+
+/* Matatas One: decorative Baybayin hero face, for trip/place names only.
+   File copied from Agdayo/Resources/Fonts/matatas_one.otf into web/public/fonts/. */
+@font-face {
+  font-family: "Matatas One";
+  src: url("/fonts/matatas_one.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Fonts: font-sans (Outfit, default), font-display (Barlow Condensed), font-baybayin */
+  --font-sans: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-baybayin: "Matatas One", serif;
+
+  /* BrandPalette: fixed brand colors, same on every trip */
+  --color-canvas: #f9f7f4;      /* page background */
+  --color-blush: #fbded9;       /* hero card / trip header wash */
+  --color-maroon: #8a2a35;      /* hero headlines, category icons */
+  --color-brand-rose: #d9444e;  /* progress fill */
+  --color-rose-track: #f4cac8;  /* progress track */
+  --color-mint: #cdf1dc;        /* "Active" pill background */
+  --color-mint-text: #1d7a4e;   /* "Active" pill text */
+  --color-ink: #1a1a1a;         /* main text */
+  --color-card-surface: #f3f1ed; /* nav tiles */
+
+  /* App-wide semantic colors (TripTheme+Color.swift) */
+  --color-primary: #f0a693;
+  --color-secondary: #d4d4d8;
+  --color-danger: #e11d48;
+  --color-success: #10b981;
+  --color-info: #0ea5e9;
+  --color-warning: #f59e0b;
+
+  /* Peach is Agdayo's own scale; the other 7 trip themes are stock Tailwind colors */
+  --color-peach-50: #fff6f3;
+  --color-peach-100: #ffeae5;
+  --color-peach-200: #fdd3c7;
+  --color-peach-500: #f0a693;
+
+  /* AppRadius */
+  --radius-card: 32px;          /* rounded-card: trip cards */
+  --radius-card-sm: 24px;       /* rounded-card-sm: smaller cards, sheets */
+  --radius-dense: 16px;         /* rounded-dense: stat tiles, activity cards */
+  --radius-pill: 6px;           /* rounded-pill: tags */
+
+  /* Sticker card: hard 2px offset shadow, no blur */
+  --shadow-sticker: 2px 2px 0 0 var(--color-secondary);
+  --shadow-sticker-trip: 2px 2px 0 0 var(--trip-border);
+}
+
+/* Per-trip theme. Put data-theme="peach|blue|amber|emerald|violet|teal|rose|slate"
+   on a trip's wrapper, then use bg-trip-50, bg-trip-100, bg-trip-200, text-trip-500,
+   border-trip-border and so on inside it. Values match TripTheme+Color.swift. */
+@theme inline {
+  --color-trip-50: var(--trip-50);         /* header background */
+  --color-trip-100: var(--trip-100);       /* light pill background */
+  --color-trip-200: var(--trip-200);       /* progress track */
+  --color-trip-500: var(--trip-500);       /* accent */
+  --color-trip-border: var(--trip-border); /* card border and sticker shadow */
+}
+
+:root,
+[data-theme="peach"] {
+  --trip-50: #fff6f3; --trip-100: #ffeae5; --trip-200: #fdd3c7; --trip-500: #f0a693; --trip-border: #f1e3e0;
+}
+[data-theme="blue"] {
+  --trip-50: #f0f9ff; --trip-100: #e0f2fe; --trip-200: #bae6fd; --trip-500: #0ea5e9; --trip-border: #e0f2fe;
+}
+[data-theme="amber"] {
+  --trip-50: #fffbeb; --trip-100: #fef3c7; --trip-200: #fde68a; --trip-500: #f59e0b; --trip-border: #fef3c7;
+}
+[data-theme="emerald"] {
+  --trip-50: #ecfdf5; --trip-100: #d1fae5; --trip-200: #a7f3d0; --trip-500: #10b981; --trip-border: #e6faf2;
+}
+[data-theme="violet"] {
+  --trip-50: #f5f3ff; --trip-100: #ede9fe; --trip-200: #ddd6fe; --trip-500: #8b5cf6; --trip-border: #ede9fe;
+}
+[data-theme="teal"] {
+  --trip-50: #f0fdfa; --trip-100: #ccfbf1; --trip-200: #99f6e4; --trip-500: #14b8a6; --trip-border: #ccfbf1;
+}
+[data-theme="rose"] {
+  --trip-50: #fff1f2; --trip-100: #ffe4e6; --trip-200: #fecdd3; --trip-500: #f43f5e; --trip-border: #ffe4e6;
+}
+[data-theme="slate"] {
+  --trip-50: #f8fafc; --trip-100: #f1f5f9; --trip-200: #e2e8f0; --trip-500: #64748b; --trip-border: #f1f5f9;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+}
+
+@layer components {
+  /* The app's flat "sticker" card: white surface, thin border, hard offset shadow */
+  .sticker-card {
+    @apply rounded-dense border border-secondary bg-white shadow-sticker;
+  }
+  .sticker-card-trip {
+    @apply rounded-dense border border-trip-border bg-white shadow-sticker-trip;
+  }
+
+  /* trackedLabel(): small uppercase metadata ("NEXT UP", "DAY 2 OF 4") */
+  .tracked-label {
+    @apply text-[11px] font-bold uppercase tracking-[0.11em] text-zinc-500;
+  }
+
+  /* Condensed hero titles and stat values ("TOKYO", "SEP 30") */
+  .display-title {
+    @apply font-display font-bold uppercase leading-none text-maroon;
+  }
+
+  /* Forms and buttons */
+  .label {
+    @apply mb-1 block text-sm font-medium text-zinc-600;
+  }
+  .input {
+    @apply block w-full rounded-xl border border-secondary bg-white px-3 py-2.5 text-base text-ink outline-none transition placeholder:text-zinc-400 focus:border-trip-500 focus:ring-2 focus:ring-trip-200;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition select-none disabled:cursor-not-allowed disabled:opacity-50 bg-ink text-white hover:bg-zinc-800;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition select-none disabled:cursor-not-allowed disabled:opacity-50 border border-secondary bg-white text-ink shadow-sticker hover:bg-zinc-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition select-none disabled:cursor-not-allowed disabled:opacity-50 text-zinc-600 hover:bg-black/5;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition select-none disabled:cursor-not-allowed disabled:opacity-50 text-danger hover:bg-danger/10;
+  }
+  .icon-btn {
+    @apply inline-flex size-9 items-center justify-center rounded-full text-zinc-600 transition hover:bg-black/5;
+  }
+}
+
+@layer components {
+  .menu-item {
+    @apply flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-highlighted:bg-black/5;
+  }
+}
