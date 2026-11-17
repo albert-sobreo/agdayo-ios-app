@@ -17,6 +17,7 @@ import ConnectClaude from '@/components/ConnectClaude.vue'
 import TripBalances from '@/components/sections/TripBalances.vue'
 import TripBudget from '@/components/sections/TripBudget.vue'
 import TripIdeas from '@/components/sections/TripIdeas.vue'
+import TripMap from '@/components/sections/TripMap.vue'
 import TripPolls from '@/components/sections/TripPolls.vue'
 import TripPrep from '@/components/sections/TripPrep.vue'
 import { provideTripContext } from '@/composables/tripContext'
@@ -44,10 +45,11 @@ const route = useRoute()
 const router = useRouter()
 
 /** The trip's sections, like the app's row of section cards. */
-type Tab = 'itinerary' | 'budget' | 'balances' | 'prep' | 'polls' | 'ideas' | 'claude'
+type Tab = 'itinerary' | 'map' | 'budget' | 'balances' | 'prep' | 'polls' | 'ideas' | 'claude'
 const tabs = computed(() => {
   const list: { id: Tab; label: string; badge?: string }[] = [
     { id: 'itinerary', label: 'Itinerary' },
+    { id: 'map', label: 'Map' },
     { id: 'budget', label: 'Budget', badge: trip.value ? formatMoney(spentBreakdown({ activities: activities.value, stays: stays.value, transport: transport.value, expenses: content.expenses.value }, trip.value.currency).total, trip.value.currency) : undefined },
   ]
   if (members.value.length > 1) list.push({ id: 'balances', label: 'Balances' })
@@ -241,6 +243,12 @@ function openEntry(entry: Entry) {
     <div v-if="tab !== 'itinerary'" class="mt-5">
       <TripBudget
         v-if="tab === 'budget'"
+        @activity="(a) => (activityDialog = { open: true, activity: a })"
+        @stay="(st) => (stayDialog = { open: true, stay: st })"
+        @transport="(t) => (transportDialog = { open: true, segment: t })"
+      />
+      <TripMap
+        v-else-if="tab === 'map'"
         @activity="(a) => (activityDialog = { open: true, activity: a })"
         @stay="(st) => (stayDialog = { open: true, stay: st })"
         @transport="(t) => (transportDialog = { open: true, segment: t })"

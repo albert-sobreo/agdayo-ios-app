@@ -109,6 +109,10 @@ export interface Transport extends CostSplit {
   departureDate: Date
   departureTime: string
   arrivalLocation: string
+  departureLatitude: number | null
+  departureLongitude: number | null
+  arrivalLatitude: number | null
+  arrivalLongitude: number | null
   arrivalDate: Date | null
   arrivalTime: string | null
   bookingRef: string | null
@@ -324,6 +328,10 @@ export function toTransport(id: string, d: DocumentData): Transport | null {
     departureDate,
     departureTime: str(d.departureTime, '00:00'),
     arrivalLocation: str(d.arrivalLocation),
+    departureLatitude: optNum(d.departureLatitude),
+    departureLongitude: optNum(d.departureLongitude),
+    arrivalLatitude: optNum(d.arrivalLatitude),
+    arrivalLongitude: optNum(d.arrivalLongitude),
     arrivalDate: date(d.arrivalDate),
     arrivalTime: optStr(d.arrivalTime),
     bookingRef: optStr(d.bookingRef),

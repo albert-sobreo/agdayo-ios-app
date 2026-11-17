@@ -25,4 +25,9 @@ export interface Env {
   ALLOWED_REDIRECT_HOSTS?: string;
   /** Firebase service account key JSON, for trips and finding a Google user's Agdayo account. Secret. */
   FIREBASE_SERVICE_ACCOUNT?: string;
+
+  // MapKit JS, for the web app's map (see mapkit.ts). Secrets.
+  MAPKIT_TEAM_ID?: string;
+  MAPKIT_KEY_ID?: string;
+  MAPKIT_PRIVATE_KEY?: string;
 }
