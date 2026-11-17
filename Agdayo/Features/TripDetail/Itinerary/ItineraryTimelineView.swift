@@ -378,24 +378,12 @@ private struct DaySection: View {
         return group.entries.filter { $0.time <= now }.count
     }
 
-    /// A transport departure or hotel check-in/out: shown for context, not
-    /// opened or swiped, since it's generated from its own record.
+    /// A transport departure or arrival, or a hotel check-in/out. Tapping it
+    /// opens the transport leg or stay it comes from, the same edit sheet as
+    /// its own tab. Not swiped, since it's generated from that record.
     @ViewBuilder
     private func staticRow(for entry: ItineraryEntry, isFirst: Bool, isLast: Bool) -> some View {
-        let content = ActivityRowView(
-            title: entry.title,
-            location: entry.subtitle,
-            cost: entry.cost,
-            costCurrency: entry.costCurrency ?? trip.currency,
-            costNote: nil,
-            iconName: entry.iconName,
-            time: entry.time,
-            accentColor: trip.theme.accentColor,
-            isFirst: isFirst,
-            isLast: isLast,
-            showsChevron: false,
-            prominentCost: true
-        )
+        let content = StaticEntryRow(entry: entry, trip: trip, memberProfiles: memberProfiles, isFirst: isFirst, isLast: isLast)
         if isEmbedded {
             content.padding(.horizontal, 16)
         } else {
@@ -835,6 +823,13 @@ private enum ItineraryEntry: Identifiable {
         }
     }
 
+    var isStay: Bool {
+        switch self {
+        case .checkIn, .checkOut: return true
+        default: return false
+        }
+    }
+
     var orderKey: ItineraryOrder.Key {
         switch self {
         case .transport:
@@ -853,6 +848,56 @@ private enum ItineraryEntry: Identifiable {
         let parts = time.split(separator: ":").compactMap { Int($0) }
         guard parts.count == 2 else { return day }
         return Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day) ?? day
+    }
+}
+
+/// A transport or stay line in the itinerary that opens its own record.
+/// Each row holds its sheet itself, since a sheet on a whole `List` section
+/// doesn't present reliably.
+private struct StaticEntryRow: View {
+    let entry: ItineraryEntry
+    let trip: Trip
+    let memberProfiles: [AppUserProfile]
+    let isFirst: Bool
+    let isLast: Bool
+
+    @State private var editingSegment: TransportSegment?
+    @State private var editingStay: Accommodation?
+
+    var body: some View {
+        Button(action: open) {
+            ActivityRowView(
+                title: entry.title,
+                location: entry.subtitle,
+                cost: entry.cost,
+                costCurrency: entry.costCurrency ?? trip.currency,
+                costNote: nil,
+                iconName: entry.iconName,
+                time: entry.time,
+                accentColor: trip.theme.accentColor,
+                isFirst: isFirst,
+                isLast: isLast,
+                showsChevron: true,
+                prominentCost: true
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(entry.isStay ? "Opens this stay" : "Opens this transport")
+        .sheet(item: $editingSegment) { segment in
+            TransportSegmentEditSheet(trip: trip, editingSegment: segment, memberProfiles: memberProfiles)
+        }
+        .sheet(item: $editingStay) { stay in
+            AccommodationEditSheet(trip: trip, editingAccommodation: stay, memberProfiles: memberProfiles)
+        }
+    }
+
+    private func open() {
+        switch entry {
+        case .transport(let segment), .arrival(let segment): editingSegment = segment
+        case .checkIn(let stay), .checkOut(let stay): editingStay = stay
+        case .activity: break
+        }
     }
 }
 
