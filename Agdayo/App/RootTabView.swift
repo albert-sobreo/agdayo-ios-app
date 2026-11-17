@@ -26,6 +26,8 @@ struct RootTabView: View {
     /// sign-in task and the scene becoming active; without this each trip
     /// would be uploaded twice, with a new join code each time.
     @State private var uploadingTripIDs: Set<UUID> = []
+    /// Live updates for every current shared trip, app-wide.
+    @State private var liveTrips = MyTripsLiveSync()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -90,9 +92,18 @@ struct RootTabView: View {
             // per-trip poll on every single foreground would just be
             // redundant read volume that scales with trip count.
             backfillOwnershipIfNeeded()
-            if let uid = authService.firebaseUser?.uid {
-                await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
+            guard let uid = authService.firebaseUser?.uid else {
+                liveTrips.stop()
+                return
             }
+            liveTrips.start(uid: uid, modelContext: modelContext)
+            liveTrips.update(trips: trips, modelContext: modelContext)
+            await TripDiscoveryService.refreshMemberTrips(uid: uid, localTrips: trips, modelContext: modelContext)
+        }
+        // A trip added, removed, uploaded or re-dated changes which trips
+        // need live listeners.
+        .onChange(of: trips.map { "\($0.id)|\($0.ownerUID ?? "")|\($0.endDate.timeIntervalSince1970)" }) { _, _ in
+            liveTrips.update(trips: trips, modelContext: modelContext)
         }
         // Once what the person owns is known (and whenever it changes, e.g. right
         // after buying), tell each of their trips so joiners know its size limit.
