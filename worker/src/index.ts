@@ -4,6 +4,7 @@ import { connectCodeTtlSeconds, createConnectCode, formatConnectCode } from "./c
 import type { Env } from "./env";
 import { getGuide, listGuides, parseCountryCode } from "./guides";
 import { errorResponse, HttpError, json } from "./http";
+import { createMapkitToken } from "./mapkit";
 import { handleMcp } from "./mcp";
 import { authorize, authorizeWithCode, authorizeWithGoogle, callback, type ConnectorProps } from "./oauth";
 import { openPage } from "./open";
@@ -23,6 +24,7 @@ import { openPage } from "./open";
  *   GET  /v1/guides
  *   GET  /v1/guides/:countryCode
  *   POST /v1/connect-code          a one-time code for connecting Claude (connect.ts)
+ *   GET  /v1/mapkit-token          a MapKit JS token for the web app's map (mapkit.ts)
  *   POST /mcp                      MCP JSON-RPC (see mcp.ts)
  */
 export default {
@@ -119,6 +121,10 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === "/v1/connect-code" && method === "POST") {
     const code = await createConnectCode(env, uid);
     return json({ code: formatConnectCode(code), expiresInSeconds: connectCodeTtlSeconds });
+  }
+
+  if (path === "/v1/mapkit-token" && method === "GET") {
+    return json({ token: await createMapkitToken(env, request.headers.get("origin")) });
   }
 
   if (path === "/v1/guides" && method === "GET") {

@@ -348,6 +348,96 @@ struct BudgetOverviewView: View {
         return converted.formattedCurrency(code: trip.currency)
     }
 
+    /// Each person's share of every cost, by kind (see `MemberCostService`).
+    private var memberCosts: [String: MemberCosts] {
+        MemberCostService.breakdown(
+            activities: activities,
+            accommodations: accommodations,
+            transportSegments: transportSegments,
+            expenses: expenses,
+            currency: trip.currency,
+            memberUIDs: memberProfiles.map(\.uid)
+        )
+    }
+
+    /// A person's share of the trip against their individual budget, split by kind.
+    private func memberCard(_ profile: AppUserProfile) -> some View {
+        let costs = memberCosts[profile.uid] ?? MemberCosts()
+        let planned = trip.memberBudgets[profile.uid] ?? 0
+        let over = planned > 0 && costs.total > planned
+        let money = { (amount: Double) in amount.formattedCurrency(code: trip.currency) }
+        return MoneyCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    MoneyIconBadge(systemName: "person", accentColor: accent)
+                    Text(profile.displayName)
+                        .font(AppFont.outfit(16, weight: .semibold, relativeTo: .body))
+                        .lineLimit(1)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 0) {
+                        MoneyAmount(text: money(costs.total), size: 22, color: over ? BrandPalette.maroon : .primary)
+                        Text(planned > 0 ? "of \(money(planned))" : "No budget set")
+                            .font(AppFont.outfit(11, relativeTo: .caption2))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if planned > 0 {
+                    BrandProgressTrack(
+                        fraction: min(costs.total / planned, 1),
+                        fill: over ? BrandPalette.maroon : BrandPalette.rose,
+                        track: BrandPalette.roseTrack,
+                        height: 6
+                    )
+                }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 6) {
+                    memberKindRow(.activities, costs.activities)
+                    memberKindRow(.stays, costs.stays)
+                    memberKindRow(.transport, costs.transport)
+                    memberKindRow(.expenses, costs.expenses)
+                }
+                Text("Paid \(money(costs.paid))")
+                    .font(AppFont.outfit(12, relativeTo: .caption))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func memberKindRow(_ kind: CostKind, _ amount: Double) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: kind.iconName)
+                .font(.caption)
+                .foregroundStyle(accent)
+                .frame(width: 16)
+            Text(kind.title)
+                .font(AppFont.outfit(12, relativeTo: .caption))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Text(amount.formattedCurrency(code: trip.currency))
+                .font(AppFont.outfit(13, weight: .medium, relativeTo: .footnote))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private var contributionsCard: some View {
+        MoneyCard {
+            HStack(spacing: 12) {
+                MoneyIconBadge(systemName: "person.2.wave.2", accentColor: accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Who chips in for what")
+                        .font(AppFont.outfit(15, weight: .semibold, relativeTo: .body))
+                    Text("Each person's share of every activity, stay and ride")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
     private func header(_ title: String, _ icon: String) -> some View {
         MoneySectionHeader(title: title, iconName: icon, accentColor: accent)
     }
@@ -380,7 +470,36 @@ struct BudgetOverviewView: View {
                 header("Categories", "tag")
             }
 
-            if !memberProfiles.isEmpty {
+            if memberProfiles.count > 1 {
+                Section {
+                    ForEach(memberProfiles, id: \.uid) { profile in
+                        Button {
+                            memberBudgetTarget = MemberBudgetTarget(profile: profile)
+                        } label: {
+                            memberCard(profile)
+                        }
+                        .buttonStyle(.plain)
+                        .moneyRow()
+                    }
+                    // The card draws its own chevron, so the link is hidden behind it.
+                    ZStack {
+                        NavigationLink {
+                            MemberContributionsView(trip: trip, memberProfiles: memberProfiles)
+                        } label: {
+                            EmptyView()
+                        }
+                        .opacity(0)
+                        contributionsCard
+                    }
+                    .moneyRow()
+                } header: {
+                    header("Per Person", "person.2")
+                } footer: {
+                    Text("A person's share follows each cost's split. Costs with no split are shared evenly by everyone on the trip.")
+                        .font(AppFont.outfit(12, relativeTo: .caption))
+                        .foregroundStyle(.secondary)
+                }
+            } else if !memberProfiles.isEmpty {
                 Section {
                     ForEach(memberProfiles, id: \.uid) { profile in
                         Button {

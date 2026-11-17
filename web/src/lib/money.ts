@@ -131,3 +131,50 @@ export function parseAmount(text: string): number | null | undefined {
   const value = Number(text)
   return Number.isFinite(value) && value >= 0 ? value : undefined
 }
+
+/** One cost's share per person: its split, or evenly across everyone when it has none. */
+export function itemShares(split: CostSplit, converted: Converted, memberUIDs: string[]): Record<string, number> {
+  const members = new Set(memberUIDs)
+  return split.splitUIDs.length
+    ? shares(converted.cost, split.splitUIDs, split.splitAmounts, converted.rate, members)
+    : shares(converted.cost, memberUIDs, {}, 1, members)
+}
+
+export interface MemberCosts {
+  activities: number
+  stays: number
+  transport: number
+  expenses: number
+  /** Their share of everything. */
+  total: number
+  /** What they actually paid for (items with them as "Paid by"). */
+  paid: number
+}
+
+/**
+ * Each person's share of the trip's costs, by kind (web only for now). Split items
+ * use their split; an item with no split is a shared cost, divided evenly among
+ * everyone on the trip.
+ */
+export function memberBreakdown(costs: TripCosts, tripCurrency: string, memberUIDs: string[]): Record<string, MemberCosts> {
+  const result: Record<string, MemberCosts> = Object.fromEntries(
+    memberUIDs.map((uid) => [uid, { activities: 0, stays: 0, transport: 0, expenses: 0, total: 0, paid: 0 }]),
+  )
+  const add = (kind: 'activities' | 'stays' | 'transport' | 'expenses', split: CostSplit, converted: Converted | null) => {
+    if (!converted || converted.cost <= 0 || !memberUIDs.length) return
+    const owed = itemShares(split, converted, memberUIDs)
+    for (const [uid, amount] of Object.entries(owed)) {
+      const row = result[uid]
+      if (!row) continue
+      row[kind] += amount
+      row.total += amount
+    }
+    const payer = split.paidByUID ? result[split.paidByUID] : undefined
+    if (payer) payer.paid += converted.cost
+  }
+  costs.activities.forEach((a) => add('activities', a, activityCost(a, tripCurrency)))
+  costs.stays.forEach((s) => add('stays', s, stayCost(s)))
+  costs.transport.forEach((t) => add('transport', t, transportCost(t, tripCurrency)))
+  costs.expenses.forEach((e) => add('expenses', e, expenseCost(e, tripCurrency)))
+  return result
+}
