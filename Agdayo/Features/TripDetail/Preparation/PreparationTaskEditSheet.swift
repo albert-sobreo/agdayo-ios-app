@@ -18,8 +18,10 @@ private enum TaskCategoryOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Adds a new prep task, or edits `task` when one is passed in.
 struct PreparationTaskEditSheet: View {
     let trip: Trip
+    var task: PreparationTask?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -28,6 +30,20 @@ struct PreparationTaskEditSheet: View {
     @State private var selectedCategory: TaskCategoryOption = .essentials
     @State private var customCategory = ""
     @State private var notes = ""
+
+    init(trip: Trip, task: PreparationTask? = nil) {
+        self.trip = trip
+        self.task = task
+        guard let task else { return }
+        _name = State(initialValue: task.name)
+        _notes = State(initialValue: task.notes)
+        if let option = TaskCategoryOption(rawValue: task.category), option != .other {
+            _selectedCategory = State(initialValue: option)
+        } else {
+            _selectedCategory = State(initialValue: .other)
+            _customCategory = State(initialValue: task.category)
+        }
+    }
 
     private var resolvedCategory: String {
         selectedCategory == .other ? customCategory.trimmingCharacters(in: .whitespaces) : selectedCategory.rawValue
@@ -70,7 +86,7 @@ struct PreparationTaskEditSheet: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .brandForm(accent: trip.theme.accentColor)
-            .navigationTitle("Add Task")
+            .navigationTitle(task == nil ? "Add Task" : "Edit Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -85,13 +101,17 @@ struct PreparationTaskEditSheet: View {
     }
 
     private func save() {
-        let task = PreparationTask(
-            name: name.trimmingCharacters(in: .whitespaces),
-            category: resolvedCategory,
-            notes: notes,
-            trip: trip
-        )
-        modelContext.insert(task)
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let task: PreparationTask
+        if let existing = self.task {
+            existing.name = trimmedName
+            existing.category = resolvedCategory
+            existing.notes = notes
+            task = existing
+        } else {
+            task = PreparationTask(name: trimmedName, category: resolvedCategory, notes: notes, trip: trip)
+            modelContext.insert(task)
+        }
         if trip.ownerUID != nil {
             let tripID = trip.id
             let taskID = task.id

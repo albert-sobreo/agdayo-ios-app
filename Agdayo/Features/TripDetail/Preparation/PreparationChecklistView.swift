@@ -10,6 +10,7 @@ struct PreparationChecklistView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var isAdding = false
+    @State private var editingTask: PreparationTask?
     @State private var filter: PreparationFilter = .all
 
     init(trip: Trip) {
@@ -63,6 +64,21 @@ struct PreparationChecklistView: View {
                             ForEach(group.tasks) { task in
                                 PreparationTaskRow(task: task, trip: trip, accentColor: accent)
                                     .moneyRow()
+                                    .swipeActions(edge: .leading) {
+                                        Button {
+                                            editingTask = task
+                                        } label: {
+                                            Label("Edit", systemImage: "pencil")
+                                        }
+                                        .tint(accent)
+                                    }
+                                    .contextMenu {
+                                        Button {
+                                            editingTask = task
+                                        } label: {
+                                            Label("Edit", systemImage: "pencil")
+                                        }
+                                    }
                             }
                             .onDelete { offsets in delete(tasks: group.tasks, at: offsets) }
                         } header: {
@@ -91,6 +107,9 @@ struct PreparationChecklistView: View {
         }
         .sheet(isPresented: $isAdding) {
             PreparationTaskEditSheet(trip: trip)
+        }
+        .sheet(item: $editingTask) { task in
+            PreparationTaskEditSheet(trip: trip, task: task)
         }
     }
 

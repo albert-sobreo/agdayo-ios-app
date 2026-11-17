@@ -120,6 +120,76 @@ final class TripContentSyncCoordinator {
         currentJoinCode = nil
     }
 
+    /// Pull to refresh: fetches the trip and its content from the server
+    /// and brings the local copy in line, in case a realtime listener
+    /// missed something (or failed to attach). Changes that arrive here go
+    /// through the same `apply…` code the listeners use. Does nothing for
+    /// solo trips, which only live on this device.
+    func refresh(trip: Trip, modelContext: ModelContext) async {
+        guard trip.ownerUID != nil else { return }
+        let tripID = trip.id
+
+        // A missing trip document is left to the trip listener, which only
+        // deletes the local trip when the server confirms it.
+        if let fields = try? await TripMembershipService.fetchTripFields(tripID: tripID) {
+            applyTripFields(fields, trip: trip, modelContext: modelContext)
+        }
+
+        await reconcile("activities", as: ActivityDTO.self, tripID: tripID, localIDs: trip.activities.map(\.id)) { type, id, dto in
+            self.applyActivity(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("accommodations", as: AccommodationDTO.self, tripID: tripID, localIDs: trip.accommodations.map(\.id)) { type, id, dto in
+            self.applyAccommodation(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("budgetCategories", as: BudgetCategoryDTO.self, tripID: tripID, localIDs: trip.budgetCategories.map(\.id)) { type, id, dto in
+            self.applyBudgetCategory(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("preparationTasks", as: PreparationTaskDTO.self, tripID: tripID, localIDs: trip.preparationTasks.map(\.id)) { type, id, dto in
+            self.applyPreparationTask(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("transportSegments", as: TransportSegmentDTO.self, tripID: tripID, localIDs: trip.transportSegments.map(\.id)) { type, id, dto in
+            self.applyTransportSegment(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("dayNotes", as: DayNoteDTO.self, tripID: tripID, localIDs: trip.dayNotes.map(\.id)) { type, id, dto in
+            self.applyDayNote(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("settlements", as: SettlementDTO.self, tripID: tripID, localIDs: trip.settlements.map(\.id)) { type, id, dto in
+            self.applySettlement(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("expenses", as: ExpenseDTO.self, tripID: tripID, localIDs: trip.expenses.map(\.id)) { type, id, dto in
+            self.applyExpense(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("polls", as: TripPollDTO.self, tripID: tripID, localIDs: trip.polls.map(\.id)) { type, id, dto in
+            self.applyPoll(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+        await reconcile("ideas", as: TripIdeaDTO.self, tripID: tripID, localIDs: trip.ideas.map(\.id)) { type, id, dto in
+            self.applyIdea(type: type, docID: id, dto: dto, trip: trip, modelContext: modelContext)
+        }
+
+        // Re-attach the listeners if they never started (e.g. the first
+        // attempt failed before membership existed).
+        start(for: trip, modelContext: modelContext)
+    }
+
+    /// Upserts every document the server has, and removes local items the
+    /// server no longer has. Skipped entirely if the fetch fails (offline),
+    /// so nothing is ever removed on a guess.
+    private func reconcile<T: Decodable>(
+        _ collection: String,
+        as type: T.Type,
+        tripID: UUID,
+        localIDs: [UUID],
+        apply: (DocumentChangeType, String, T?) -> Void
+    ) async {
+        guard let result = try? await FirestoreCollectionSync.fetchFromServer(tripID: tripID, collection: collection, as: type) else { return }
+        for (id, dto) in result.documents {
+            apply(.modified, id, dto)
+        }
+        for id in localIDs where !result.allIDs.contains(id) {
+            apply(.removed, id.uuidString, nil)
+        }
+    }
+
     private func applyActivity(type: DocumentChangeType, docID: String, dto: ActivityDTO?, trip: Trip, modelContext: ModelContext) {
         guard let id = UUID(uuidString: docID) else { return }
         switch type {

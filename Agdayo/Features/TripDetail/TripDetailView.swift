@@ -115,6 +115,11 @@ struct TripDetailView: View {
             .padding(.bottom, 24)
         }
         .background(BrandPalette.canvas.ignoresSafeArea())
+        .refreshable {
+            // Pull to refresh re-syncs a shared trip from the server.
+            guard authService.isSignedIn else { return }
+            await syncCoordinator.refresh(trip: trip, modelContext: modelContext)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
