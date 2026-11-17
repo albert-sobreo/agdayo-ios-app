@@ -1,9 +1,9 @@
 import type { Env } from "./env";
 import { Firestore, type FsInput, parseServiceAccount } from "./firestore";
 import { computeMatrix, computeRoute, maxMatrixPoints, parseMode, placeDetails, searchPlaces } from "./google";
-import { getGuide, listGuides, parseCountryCode, parseGuide, putGuide } from "./guides";
-import { cached, HttpError, optionalTime, requireLatLng, requireString } from "./http";
+import { HttpError, optionalTime, requireLatLng, requireString } from "./http";
 import { appLink, localDay } from "./open";
+import { googleCached, matrixUnits } from "./usage";
 import {
   activityFields,
   addActivitiesWrites,
@@ -14,6 +14,7 @@ import {
   maxActivitiesPerCall,
   newId,
   requireTripAccess,
+  requireTripAllowance,
   stayFields,
   stayTypes,
   stayWrite,
@@ -33,7 +34,7 @@ export const serverInfo = { name: "agdayo", title: "Agdayo", version: "0.1.0" };
 const supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const instructions = `Agdayo is the user's travel app. Use these tools to plan trips and write them into Agdayo; the user then follows the plan in the app.
-- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note, save_guide).
+- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note).
 - Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
 - To change an existing plan, call get_trip first, then use the update_, delete_ and add_ tools. Show what will change and get the user's OK first.
 - When an activity's place came from search_places, pass its placeId so the app can warn when the place is closed at that time.
@@ -200,7 +201,9 @@ export const tools: Tool[] = [
     annotations: write,
     run: async (args, ctx) => {
       const id = newId();
-      await ctx.firestore().commit(createTripWrites(ctx.uid, args, id));
+      const db = ctx.firestore();
+      const { unlocked } = await requireTripAllowance(db, ctx.uid);
+      await db.commit(createTripWrites(ctx.uid, args, id, undefined, unlocked));
       return { tripId: id, created: true, appLink: appLink(ctx.origin, id, localDay(args.startDate)) };
     },
   },
@@ -440,7 +443,7 @@ export const tools: Tool[] = [
         departureTime: optionalTime(args.departureTime, "departureTime"),
         arrivalTime: optionalTime(args.arrivalTime, "arrivalTime"),
       };
-      return { route: await cached("route", request, 300, () => computeRoute(ctx.env, request)) };
+      return { route: await googleCached(ctx.env, ctx.uid, 1, "route", request, 300, () => computeRoute(ctx.env, request)) };
     },
   },
   {
@@ -459,7 +462,7 @@ export const tools: Tool[] = [
       }
       const points = args.points.map((point, index) => requireLatLng(point, `points[${index}]`));
       const mode = parseMode(args.mode);
-      return cached("matrix", { points, mode }, 300, () => computeMatrix(ctx.env, points, mode));
+      return googleCached(ctx.env, ctx.uid, matrixUnits(points.length), "matrix", { points, mode }, 300, () => computeMatrix(ctx.env, points, mode));
     },
   },
   {
@@ -484,7 +487,7 @@ export const tools: Tool[] = [
         radiusMeters: typeof args.radiusMeters === "number" ? args.radiusMeters : undefined,
         limit: typeof args.limit === "number" ? args.limit : undefined,
       };
-      return { places: await cached("places", search, 3600, () => searchPlaces(ctx.env, search)) };
+      return { places: await googleCached(ctx.env, ctx.uid, 1, "places", search, 3600, () => searchPlaces(ctx.env, search)) };
     },
   },
   {
@@ -495,63 +498,7 @@ export const tools: Tool[] = [
     annotations: read,
     run: async (args, ctx) => {
       const id = requireString(args.placeId, "placeId");
-      return { place: await cached("place", id, 3600, () => placeDetails(ctx.env, id)) };
-    },
-  },
-  {
-    name: "get_guide",
-    title: "Get country guide",
-    description: "Gets the saved 'Know before you go' guide for a country. Leave countryCode out to list saved guides.",
-    inputSchema: { type: "object", properties: { countryCode: { type: "string", description: "Two letters, e.g. SG." } } },
-    annotations: { readOnlyHint: true, openWorldHint: false },
-    run: async (args, ctx) => {
-      if (args.countryCode === undefined) return { guides: await listGuides(ctx.env.DB) };
-      const code = parseCountryCode(requireString(args.countryCode, "countryCode"));
-      return { guide: await getGuide(ctx.env.DB, code) };
-    },
-  },
-  {
-    name: "save_guide",
-    title: "Save country guide",
-    description:
-      "Saves (replaces) a country's 'Know before you go' guide shown in the app. Research with web search first, cite sources, and keep items short and practical (getting around, money, plugs, SIM, etiquette, safety, emergency numbers).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        countryCode: { type: "string" },
-        title: { type: "string", description: "e.g. Singapore" },
-        sections: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "string", description: "Stable key, e.g. getting-around, money, plugs." },
-              title: { type: "string" },
-              items: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: { text: { type: "string" }, source: { type: "string", description: "URL backing this item." } },
-                  required: ["text"],
-                },
-              },
-            },
-            required: ["id", "title", "items"],
-          },
-        },
-        sources: {
-          type: "array",
-          items: { type: "object", properties: { title: { type: "string" }, url: { type: "string" } }, required: ["title", "url"] },
-        },
-        checkedAt: { type: "string", description: "When the facts were checked, ISO 8601. Defaults to now." },
-      },
-      required: ["countryCode", "title", "sections"],
-    },
-    annotations: { ...write, idempotentHint: true },
-    run: async (args, ctx) => {
-      const guide = parseGuide(parseCountryCode(requireString(args.countryCode, "countryCode")), args);
-      await putGuide(ctx.env.DB, guide);
-      return { saved: true, countryCode: guide.countryCode, sections: guide.sections.length };
+      return { place: await googleCached(ctx.env, ctx.uid, 1, "place", id, 3600, () => placeDetails(ctx.env, id)) };
     },
   },
 ];

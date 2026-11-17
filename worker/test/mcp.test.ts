@@ -34,7 +34,6 @@ describe("MCP", () => {
       "delete_day_note",
       "delete_stay",
       "delete_transport",
-      "save_guide",
       "set_day_note",
       "update_activity",
       "update_stay",

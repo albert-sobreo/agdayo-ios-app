@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectorUid, isAllowedRedirect } from "../src/oauth";
+import { choicePage, isAllowedRedirect } from "../src/oauth";
 
 describe("isAllowedRedirect", () => {
   it("only lets Claude receive tokens", () => {
@@ -12,12 +12,14 @@ describe("isAllowedRedirect", () => {
   });
 });
 
-describe("connectorUid", () => {
-  it("uses CONNECTOR_UID, or the only allowed UID", () => {
-    expect(connectorUid({ ALLOWED_UIDS: "abc" })).toBe("abc");
-    expect(connectorUid({ ALLOWED_UIDS: "abc,def", CONNECTOR_UID: "def" })).toBe("def");
-    expect(() => connectorUid({ ALLOWED_UIDS: "abc,def" })).toThrow(/CONNECTOR_UID/);
-    expect(() => connectorUid({ ALLOWED_UIDS: "abc", CONNECTOR_UID: "zzz" })).toThrow(/ALLOWED_UIDS/);
-    expect(() => connectorUid({ ALLOWED_UIDS: "" })).toThrow();
+describe("choicePage", () => {
+  it("offers a code and Google, and escapes the state", async () => {
+    const response = choicePage('x"><script>', "Wrong code");
+    expect(response.status).toBe(400);
+    const body = await response.text();
+    expect(body).toContain('action="/authorize/code"');
+    expect(body).toContain("/authorize/google?state=x%22%3E%3Cscript%3E");
+    expect(body).not.toContain('x"><script>');
+    expect(choicePage("s").status).toBe(200);
   });
 });

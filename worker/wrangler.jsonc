@@ -13,14 +13,18 @@
 	"vars": {
 		// Firebase project whose sign-in tokens are accepted.
 		"FIREBASE_PROJECT_ID": "agdayo-app",
-		// Comma-separated Firebase user IDs allowed to call this server.
-		// Fill in your own UID before deploying (see README).
-		"ALLOWED_UIDS": "RHrejSAA53gFxFrcGqkeVOUWw6U2",
-		// Claude connector: Google accounts allowed to connect Claude (comma-separated).
-		"ALLOWED_EMAILS": "janalbertsobreo@gmail.com",
-		// Claude connector: Client ID of the Google OAuth "Web application" client.
+		// Who may use this server (the app and Claude): "*" for every signed-in
+		// Agdayo account, or comma-separated Firebase user IDs.
+		"ALLOWED_UIDS": "*",
+		// Accounts that are always refused (comma-separated), e.g. for abuse.
+		"BLOCKED_UIDS": "",
+		// Google calls each account may make per day (UTC); cached answers are free.
+		"GOOGLE_DAILY_LIMIT": "300",
+		// Accounts with no daily Google limit (comma-separated): your own.
+		"UNLIMITED_UIDS": "RHrejSAA53gFxFrcGqkeVOUWw6U2",
+		// Claude connector: Client ID of the Google OAuth "Web application" client,
+		// for "Continue with Google" on the sign-in page.
 		"GOOGLE_OAUTH_CLIENT_ID": "1015175012900-hing4re822ejq1b0fvstuglcohhec6j7.apps.googleusercontent.com"
-		// Optional: "CONNECTOR_UID" if ALLOWED_UIDS lists more than one UID.
 	},
 	"kv_namespaces": [
 		{
@@ -48,5 +52,5 @@
 	// Secrets, set with `npx wrangler secret put <NAME>`:
 	//   GOOGLE_MAPS_API_KEY         Google Cloud key with Routes API and Places API (New)
 	//   GOOGLE_OAUTH_CLIENT_SECRET  secret of the OAuth client above
-	//   FIREBASE_SERVICE_ACCOUNT    Firebase service account key JSON (lets Claude read and write trips)
+	//   FIREBASE_SERVICE_ACCOUNT    Firebase service account key JSON (trips, and finding Google users' accounts)
 }

@@ -6,11 +6,20 @@ export interface Env {
   GOOGLE_MAPS_API_KEY: string;
   /** Firebase project whose ID tokens are accepted, e.g. "agdayo-app". */
   FIREBASE_PROJECT_ID: string;
-  /** Comma-separated Firebase UIDs allowed to call the server. Empty allows nobody. */
+  /**
+   * Who may use the server (app and Claude): "*" for every signed-in Agdayo
+   * account, or comma-separated Firebase UIDs. Empty allows nobody.
+   */
   ALLOWED_UIDS: string;
+  /** Comma-separated Firebase UIDs that are always refused, e.g. for abuse. Optional. */
+  BLOCKED_UIDS?: string;
+  /** Google calls each account may make per day (UTC). A 10-place travel_times counts as 100. Default 300. */
+  GOOGLE_DAILY_LIMIT?: string;
+  /** Comma-separated Firebase UIDs with no daily Google limit. Optional. */
+  UNLIMITED_UIDS?: string;
 
   // Claude connector (see oauth.ts and mcp.ts)
-  /** Stores connector tokens and sign-ins in progress. */
+  /** Stores connector tokens, sign-ins in progress and connect codes. */
   OAUTH_KV: KVNamespace;
   /** Added by the OAuth provider library at runtime. */
   OAUTH_PROVIDER: OAuthHelpers;
@@ -18,12 +27,8 @@ export interface Env {
   GOOGLE_OAUTH_CLIENT_ID: string;
   /** Secret. */
   GOOGLE_OAUTH_CLIENT_SECRET: string;
-  /** Comma-separated Google accounts allowed to connect Claude. Empty allows nobody. */
-  ALLOWED_EMAILS: string;
-  /** Firebase UID the connector acts as. Optional when ALLOWED_UIDS has exactly one UID. */
-  CONNECTOR_UID?: string;
   /** Hosts allowed to receive connector tokens. Defaults to claude.ai and claude.com. */
   ALLOWED_REDIRECT_HOSTS?: string;
-  /** Firebase service account key JSON, for reading and writing trips. Secret. */
+  /** Firebase service account key JSON, for trips and finding a Google user's Agdayo account. Secret. */
   FIREBASE_SERVICE_ACCOUNT?: string;
 }

@@ -3,19 +3,35 @@ import FirebaseAuth
 import Foundation
 
 /// Agdayo's own server (the Cloudflare Worker in `worker/`). It holds the
-/// Google key and answers with Google routes. Only accounts on the server's
-/// allowlist get through, so the address is fine to keep in the repo.
+/// Google key and answers with Google routes. Every signed-in account can use
+/// it, within a daily allowance of Google calls, so the address is fine to
+/// keep in the repo.
 enum AgdayoServer {
     static let baseURL = URL(string: "https://agdayo.albertcorpmail.workers.dev")!
 
-    /// Accounts the server accepts (its `ALLOWED_UIDS`). Features that need the
-    /// server (the country guide, transit steps) are hidden for everyone else,
-    /// who would only get an error. Keep in step with `worker/wrangler.jsonc`.
-    static let allowedUIDs: Set<String> = ["RHrejSAA53gFxFrcGqkeVOUWw6U2"]
+    /// The address people paste into Claude to add Agdayo as a connector.
+    static let connectorURL = baseURL.appending(path: "mcp")
 
+    /// The country guide is switched off for now. Saved guides stay on the
+    /// server, so turning this back on brings it back.
+    static let showsGuide = false
+
+    /// Features that need the server (transit steps, connecting Claude) need
+    /// an account, since the server only answers signed-in requests.
     static func isAvailable(for uid: String?) -> Bool {
-        guard let uid else { return false }
-        return allowedUIDs.contains(uid)
+        uid != nil
+    }
+
+    /// A one-time code for connecting Claude to this account. The person types
+    /// it on the connector's sign-in page; it lasts `expiresInSeconds`.
+    static func connectCode() async throws -> ConnectCode {
+        let data = try await sendOnline("POST", "/v1/connect-code")
+        return try JSONDecoder().decode(ConnectCode.self, from: data)
+    }
+
+    struct ConnectCode: Decodable {
+        let code: String
+        let expiresInSeconds: Int
     }
 
     enum ServerError: LocalizedError {
