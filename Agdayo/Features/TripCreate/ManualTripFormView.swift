@@ -138,7 +138,9 @@ private struct DestinationStepView: View {
     @Binding var longitude: Double?
     var onSelect: () -> Void
 
+    @Environment(AuthService.self) private var authService
     @State private var model = LocationSearchModel()
+    @State private var isShowingClaude = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -172,6 +174,10 @@ private struct DestinationStepView: View {
             .padding(.horizontal)
 
             if model.results.isEmpty {
+                if authService.canUseServer {
+                    PlanWithClaudeCard { isShowingClaude = true }
+                        .padding(.horizontal)
+                }
                 Spacer()
             } else {
                 ScrollView {
@@ -207,6 +213,9 @@ private struct DestinationStepView: View {
             }
         }
         .onAppear { isFocused = true }
+        .sheet(isPresented: $isShowingClaude) {
+            ConnectClaudeSheet()
+        }
     }
 
     private func pick(_ completion: MKLocalSearchCompletion) {
