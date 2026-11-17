@@ -25,7 +25,7 @@ struct ConnectClaudeView: View {
             }
 
             Section("1. Add Agdayo to Claude") {
-                Text("On claude.ai or the Claude desktop app, open Settings › Connectors › Add custom connector. Name it Agdayo and paste this address:")
+                Text("In the Claude phone app, open Settings › Connectors. On claude.ai or the desktop app, open Settings › Plugins (just below Artifacts). Add a custom connector named Agdayo with this address:")
                     .font(AppFont.outfit(14, relativeTo: .body))
                 Button {
                     UIPasteboard.general.string = AgdayoServer.connectorURL.absoluteString
@@ -44,7 +44,7 @@ struct ConnectClaudeView: View {
             }
 
             Section {
-                Text("Click Connect in Claude. On the Agdayo page that opens, enter this code:")
+                Text("Tap Connect in Claude. On the Agdayo page that opens, enter this code:")
                     .font(AppFont.outfit(14, relativeTo: .body))
                 codeRow
             } header: {
@@ -54,7 +54,7 @@ struct ConnectClaudeView: View {
             }
 
             Section {
-                Text("Claude only sees and changes trips you own or have joined, and asks before each change. To disconnect, remove Agdayo in Claude's connector settings.")
+                Text("Claude only sees and changes trips you own or have joined, and asks before each change. To disconnect, remove Agdayo in Claude: Settings › Connectors on the phone, or Settings › Plugins on claude.ai and desktop.")
                     .font(AppFont.outfit(13, relativeTo: .footnote))
                     .foregroundStyle(.secondary)
             }

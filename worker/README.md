@@ -92,11 +92,12 @@ You need a Cloudflare account.
    ```
    Wrangler prints the address, like `https://agdayo.<you>.workers.dev`.
    Check `https://agdayo.<you>.workers.dev/health` returns `{"ok":true}`.
-7. **Add the connector.** On claude.ai (web or desktop): Settings ›
-   Connectors › Add custom connector, name it Agdayo, URL
-   `https://agdayo.<you>.workers.dev/mcp`. Click Connect, then on the Agdayo
-   page either enter a code from the app (Profile › Connect Claude) or choose
-   Continue with Google. It then works on the Claude phone app too.
+7. **Add the connector.** In the Claude phone app, open Settings ›
+   **Connectors**; on claude.ai or the desktop app, open Settings ›
+   **Plugins** (just below Artifacts). Add a custom connector named Agdayo
+   with the URL `https://agdayo.<you>.workers.dev/mcp`. Tap Connect, then on the
+   Agdayo page either enter a code from the app (Profile › Connect Claude) or
+   choose Continue with Google. It then works everywhere you use Claude.
 
 The connector acts as whichever Agdayo account signed in. A connect code ties
 it to the account that made the code in the app, so it works for Apple, Google
