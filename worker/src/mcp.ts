@@ -1,16 +1,20 @@
 import type { Env } from "./env";
-import { Firestore, type FsInput, parseServiceAccount } from "./firestore";
+import { Firestore, FsDouble, type FsInput, type FsWrite, parseServiceAccount } from "./firestore";
 import { HttpError, requireString } from "./http";
 import { appLink, localDay } from "./open";
 import {
   activityFields,
   addActivitiesWrites,
+  budgetCategoryFields,
+  type CategoryChange,
+  categoryChange,
   createTripWrites,
   dayNoteFields,
   getTrip,
   listTrips,
   maxActivitiesPerCall,
   newId,
+  requireCategories,
   requireTripAccess,
   requireTripAllowance,
   stayFields,
@@ -32,12 +36,13 @@ export const serverInfo = { name: "agdayo", title: "Agdayo", version: "0.1.0" };
 const supportedVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
 const instructions = `Agdayo is the user's travel app. Use these tools to plan trips and write them into Agdayo; the user then follows the plan in the app.
-- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note).
+- Always show the plan in chat and get the user's OK before calling a tool that changes their trips (create_trip, update_trip, add_activities, update_activity, delete_activity, add_stay, update_stay, delete_stay, add_transport, update_transport, delete_transport, set_day_note, delete_day_note, set_budget_category, delete_budget_category).
 - Show plans right in your reply as a short day-by-day list (time, place, one line why). Don't put a plan in a file, document or artifact.
 - To change an existing plan, call get_trip first, then use the update_, delete_ and add_ tools. Show what will change and get the user's OK first.
 - Give activities and stays their latitude and longitude (look them up if you aren't sure) so the app can show them on the map and estimate travel times between them.
 - When adding transport, pin both ends (fromLatitude/toLatitude and so on) so the app can show travel between the airport or station and the stay.
 - Times you write must be local times at the destination with their UTC offset, e.g. 2026-12-10T09:00:00+08:00 for Singapore.
+- To budget by category (Food, Transport, Shopping and so on), add categories with set_budget_category, then pass their categoryId as budgetCategoryId when adding or updating activities, stays and transport. get_trip lists the categories. Don't write category names into cost notes.
 - Agdayo works out travel times itself with Apple Maps. Don't invent transit lines, stops or timetables in activity notes.
 - Trip tools return an appLink. After writing to a trip, share it as a link (e.g. [Open in Agdayo](appLink)) so the user can jump to that trip and day in the app.`;
 
@@ -64,6 +69,10 @@ interface Tool {
 const zonedTime = { type: "string", description: "Local time with UTC offset, e.g. 2026-12-10T09:00:00+08:00." };
 const tripId = { type: "string", description: "Trip ID from list_trips." };
 const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+const budgetCategoryId = {
+  type: "string",
+  description: 'categoryId from get_trip: counts this cost under that budget category. Pass "" to take it out of its category.',
+};
 
 const activityProperties = {
   title: { type: "string" },
@@ -76,6 +85,7 @@ const activityProperties = {
   cost: { type: "number" },
   costCurrency: { type: "string", description: "Three-letter code, e.g. SGD." },
   costNote: { type: "string" },
+  budgetCategoryId,
 };
 
 const tripProperties = {
@@ -105,6 +115,7 @@ const stayProperties = {
   checkOutTime: { type: "string", description: "HH:mm, default 11:00." },
   totalCost: { type: "number" },
   rooms: { type: "number" },
+  budgetCategoryId,
 };
 
 const transportProperties = {
@@ -122,6 +133,7 @@ const transportProperties = {
   cost: { type: "number" },
   currency: { type: "string", description: "Three-letter code. Defaults to the trip's currency." },
   notes: { type: "string", description: "e.g. flight number, terminal, baggage." },
+  budgetCategoryId,
 };
 
 const recordId = (name: string) => ({ type: "string", description: `${name} from get_trip.` });
@@ -142,6 +154,7 @@ async function changeRecord(
   idField: string,
   collection: string,
   fields: Record<string, FsInput | undefined> | null,
+  category?: CategoryChange,
 ): Promise<{ tripId: string; recordId: string }> {
   const id = requireString(args.tripId, "tripId");
   const recordId = requireRecordId(args[idField], idField);
@@ -151,8 +164,9 @@ async function changeRecord(
   if (fields === null) {
     await db.commit([{ kind: "delete", path }]);
   } else {
-    if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass at least one field to change.");
-    await db.commit([{ kind: "update", path, fields }]);
+    if (Object.keys(fields).length === 0 && !category) throw new HttpError(400, "Pass at least one field to change.");
+    await requireCategories(db, id, [category?.fields.budgetCategoryID as string | undefined]);
+    await db.commit([{ kind: "update", path, fields: { ...fields, ...category?.fields }, remove: category?.remove }]);
   }
   return { tripId: id, recordId };
 }
@@ -209,6 +223,7 @@ export const tools: Tool[] = [
       const id = requireString(args.tripId, "tripId");
       const db = ctx.firestore();
       await requireTripAccess(db, ctx.uid, id);
+      await requireCategories(db, id, [categoryChange(args.budgetCategoryId)?.fields.budgetCategoryID as string | undefined]);
       const stayId = newId();
       await db.commit([stayWrite(id, args, stayId)]);
       return { stayId, added: true, appLink: appLink(ctx.origin, id, localDay(args.checkIn)) };
@@ -236,6 +251,8 @@ export const tools: Tool[] = [
       const db = ctx.firestore();
       await requireTripAccess(db, ctx.uid, id);
       const { writes, ids } = addActivitiesWrites(id, args.activities);
+      const categories = writes.map((w) => (w.kind === "set" ? (w.fields.budgetCategoryID as string | undefined) : undefined));
+      await requireCategories(db, id, categories);
       await db.commit(writes);
       const first = Array.isArray(args.activities) ? (args.activities[0] as Args | undefined) : undefined;
       return { activityIds: ids, added: ids.length, appLink: appLink(ctx.origin, id, localDay(first?.time)) };
@@ -257,9 +274,13 @@ export const tools: Tool[] = [
       const db = ctx.firestore();
       await requireTripAccess(db, ctx.uid, id);
       const fields = activityFields(args, true);
-      if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass at least one field to change.");
-      await db.commit([{ kind: "update", path: `trips/${id}/activities/${activityId}`, fields }]);
-      return { activityId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.time)) };
+      const category = categoryChange(args.budgetCategoryId);
+      if (Object.keys(fields).length === 0 && !category) throw new HttpError(400, "Pass at least one field to change.");
+      await requireCategories(db, id, [category?.fields.budgetCategoryID as string | undefined]);
+      await db.commit([
+        { kind: "update", path: `trips/${id}/activities/${activityId}`, fields: { ...fields, ...category?.fields }, remove: category?.remove },
+      ]);
+      return { activityId, updated: [...Object.keys(fields), ...(category ? ["budgetCategoryId"] : [])], appLink: appLink(ctx.origin, id, localDay(args.time)) };
     },
   },
   {
@@ -301,8 +322,9 @@ export const tools: Tool[] = [
     annotations: { ...write, idempotentHint: true },
     run: async (args, ctx) => {
       const fields = stayFields(args, true);
-      const { tripId: id, recordId: stayId } = await changeRecord(ctx, args, "stayId", "accommodations", fields);
-      return { stayId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.checkIn)) };
+      const category = categoryChange(args.budgetCategoryId);
+      const { tripId: id, recordId: stayId } = await changeRecord(ctx, args, "stayId", "accommodations", fields, category);
+      return { stayId, updated: [...Object.keys(fields), ...(category ? ["budgetCategoryId"] : [])], appLink: appLink(ctx.origin, id, localDay(args.checkIn)) };
     },
   },
   {
@@ -330,7 +352,8 @@ export const tools: Tool[] = [
       const id = requireString(args.tripId, "tripId");
       const db = ctx.firestore();
       const trip = await requireTripAccess(db, ctx.uid, id);
-      const fields = transportFields(args, false, String(trip.data.currency ?? "USD"));
+      const fields = { ...transportFields(args, false, String(trip.data.currency ?? "USD")), ...categoryChange(args.budgetCategoryId)?.fields };
+      await requireCategories(db, id, [fields.budgetCategoryID as string | undefined]);
       const transportId = newId();
       await db.commit([
         { kind: "set", path: `trips/${id}/transportSegments/${transportId}`, fields: { ...fields, createdBy: "claude" }, mustNotExist: true },
@@ -350,8 +373,9 @@ export const tools: Tool[] = [
     annotations: { ...write, idempotentHint: true },
     run: async (args, ctx) => {
       const fields = transportFields(args, true, "");
-      const { tripId: id, recordId: transportId } = await changeRecord(ctx, args, "transportId", "transportSegments", fields);
-      return { transportId, updated: Object.keys(fields), appLink: appLink(ctx.origin, id, localDay(args.departure)) };
+      const category = categoryChange(args.budgetCategoryId);
+      const { tripId: id, recordId: transportId } = await changeRecord(ctx, args, "transportId", "transportSegments", fields, category);
+      return { transportId, updated: [...Object.keys(fields), ...(category ? ["budgetCategoryId"] : [])], appLink: appLink(ctx.origin, id, localDay(args.departure)) };
     },
   },
   {
@@ -404,6 +428,80 @@ export const tools: Tool[] = [
     run: async (args, ctx) => {
       const { tripId: id, recordId: noteId } = await changeRecord(ctx, args, "noteId", "dayNotes", null);
       return { noteId, deleted: true, appLink: appLink(ctx.origin, id) };
+    },
+  },
+  {
+    name: "set_budget_category",
+    title: "Set budget category",
+    description:
+      "Adds a budget category (e.g. Food, Transport, Shopping) with its planned amount in the trip's currency, or changes one when you pass its categoryId. The trip's overall budget becomes the sum of its categories, as in the app. Put costs under it with budgetCategoryId on activities, stays and transport.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tripId,
+        categoryId: { type: "string", description: "categoryId from get_trip, to change a category. Leave out to add one." },
+        name: { type: "string" },
+        amount: { type: "number", description: "Planned amount in the trip's currency. 0 if the user hasn't set one." },
+      },
+      required: ["tripId"],
+    },
+    annotations: write,
+    run: async (args, ctx) => {
+      const id = requireString(args.tripId, "tripId");
+      const db = ctx.firestore();
+      await requireTripAccess(db, ctx.uid, id);
+      const existing = await db.list(`trips/${id}/budgetCategories`);
+      const isNew = args.categoryId === undefined;
+      const categoryId = isNew ? newId() : requireRecordId(args.categoryId, "categoryId");
+      const current = existing.find((doc) => doc.id === categoryId);
+      if (!isNew && !current) throw new HttpError(404, "No budget category with that categoryId.");
+      const fields = budgetCategoryFields(args, !isNew);
+      if (Object.keys(fields).length === 0) throw new HttpError(400, "Pass a name or an amount to change.");
+      const name = fields.name;
+      const twin = name && existing.find((doc) => doc.id !== categoryId && String(doc.data.name ?? "").toLowerCase() === name.toLowerCase());
+      if (twin) throw new HttpError(400, `This trip already has a ${String(twin.data.name)} category (categoryId ${twin.id}). Use that one.`);
+      const amountOf = (doc: { data: Record<string, unknown> }) => (typeof doc.data.amount === "number" ? doc.data.amount : 0);
+      const amount = fields.amount?.value ?? (current ? amountOf(current) : 0);
+      const total = existing.filter((doc) => doc.id !== categoryId).reduce((sum, doc) => sum + amountOf(doc), 0) + amount;
+      const path = `trips/${id}/budgetCategories/${categoryId}`;
+      await db.commit([
+        isNew ? { kind: "set", path, fields, mustNotExist: true } : { kind: "update", path, fields },
+        { kind: "update", path: `trips/${id}`, fields: { overallBudget: new FsDouble(total) }, serverTimestamps: ["updatedAt"] },
+      ]);
+      return { categoryId, [isNew ? "added" : "updated"]: true, overallBudget: total, appLink: appLink(ctx.origin, id) };
+    },
+  },
+  {
+    name: "delete_budget_category",
+    title: "Delete budget category",
+    description: "Deletes a budget category. Costs that were under it stay, with no category. Ask the user first.",
+    inputSchema: { type: "object", properties: { tripId, categoryId: recordId("categoryId") }, required: ["tripId", "categoryId"] },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (args, ctx) => {
+      const id = requireString(args.tripId, "tripId");
+      const categoryId = requireRecordId(args.categoryId, "categoryId");
+      const db = ctx.firestore();
+      await requireTripAccess(db, ctx.uid, id);
+      const collections = ["activities", "accommodations", "transportSegments", "expenses"];
+      const [categories, ...items] = await Promise.all([
+        db.list(`trips/${id}/budgetCategories`),
+        ...collections.map((name) => db.list(`trips/${id}/${name}`)),
+      ]);
+      if (!categories.some((doc) => doc.id === categoryId)) throw new HttpError(404, "No budget category with that categoryId.");
+      const total = categories
+        .filter((doc) => doc.id !== categoryId)
+        .reduce((sum, doc) => sum + (typeof doc.data.amount === "number" ? doc.data.amount : 0), 0);
+      const cleared: FsWrite[] = collections.flatMap((name, index) =>
+        items[index]!.filter((doc) => doc.data.budgetCategoryID === categoryId).map(
+          (doc): FsWrite => ({ kind: "update", path: `trips/${id}/${name}/${doc.id}`, fields: {}, remove: ["budgetCategoryID"] }),
+        ),
+      );
+      await db.commit([
+        { kind: "delete", path: `trips/${id}/budgetCategories/${categoryId}` },
+        ...cleared,
+        { kind: "update", path: `trips/${id}`, fields: { overallBudget: new FsDouble(total) }, serverTimestamps: ["updatedAt"] },
+      ]);
+      return { categoryId, deleted: true, uncategorized: cleared.length, overallBudget: total, appLink: appLink(ctx.origin, id) };
     },
   },
 ];

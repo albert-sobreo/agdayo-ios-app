@@ -157,20 +157,21 @@ export async function requireTripAllowance(db: Firestore, uid: string): Promise<
   return allowance;
 }
 
-/** Leaves out money-splitting fields Claude doesn't need. */
+/** Leaves out money-splitting fields Claude doesn't need. The budget category stays, as budgetCategoryId. */
 function trim(data: Record<string, unknown>): Record<string, unknown> {
   const { budgetCategoryID, budgetMemberUID, paidByUID, splitUIDs, splitAmounts, exchangeRateToTripCurrency, ...rest } = data;
-  void budgetCategoryID, budgetMemberUID, paidByUID, splitUIDs, splitAmounts, exchangeRateToTripCurrency;
-  return rest;
+  void budgetMemberUID, paidByUID, splitUIDs, splitAmounts, exchangeRateToTripCurrency;
+  return typeof budgetCategoryID === "string" ? { ...rest, budgetCategoryId: budgetCategoryID } : rest;
 }
 
 export async function getTrip(db: Firestore, uid: string, tripId: string): Promise<Record<string, unknown>> {
   const trip = await requireTripAccess(db, uid, tripId);
-  const [stays, transport, activities, dayNotes] = await Promise.all([
+  const [stays, transport, activities, dayNotes, categories] = await Promise.all([
     db.list(`trips/${tripId}/accommodations`),
     db.list(`trips/${tripId}/transportSegments`),
     db.list(`trips/${tripId}/activities`),
     db.list(`trips/${tripId}/dayNotes`),
+    db.list(`trips/${tripId}/budgetCategories`),
   ]);
   const byTime = (field: string) => (a: FsDocument, b: FsDocument) =>
     String(a.data[field] ?? "").localeCompare(String(b.data[field] ?? ""));
@@ -180,7 +181,48 @@ export async function getTrip(db: Firestore, uid: string, tripId: string): Promi
     transport: transport.sort(byTime("departureDate")).map((doc) => ({ transportId: doc.id, ...trim(doc.data) })),
     activities: activities.sort(byTime("date")).map((doc) => ({ activityId: doc.id, ...trim(doc.data) })),
     dayNotes: dayNotes.map((doc) => ({ noteId: doc.id, ...doc.data })),
+    budgetCategories: categories.map((doc) => ({ categoryId: doc.id, name: doc.data.name, amount: doc.data.amount })),
   };
+}
+
+const uuidPattern = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/;
+
+/** BudgetCategoryDTO fields: a name and the planned amount in the trip's currency. */
+export function budgetCategoryFields(input: Record<string, unknown>, partial = false): { name?: string; amount?: FsDouble } {
+  const fields: { name?: string; amount?: FsDouble } = {};
+  if (!partial || input.name !== undefined) fields.name = text(input.name, "name");
+  if (!partial || input.amount !== undefined) fields.amount = new FsDouble(optionalNumber(input.amount, "amount") ?? 0);
+  return fields;
+}
+
+export interface CategoryChange {
+  fields: Record<string, FsInput | undefined>;
+  /** Fields to remove on an update. */
+  remove: string[];
+}
+
+/**
+ * budgetCategoryId from Claude: a categoryId from get_trip puts the cost under
+ * that category (and out of any person's budget, as the app's picker does), ""
+ * takes it out, and leaving it out changes nothing.
+ */
+export function categoryChange(value: unknown, field = "budgetCategoryId"): CategoryChange | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return { fields: {}, remove: ["budgetCategoryID"] };
+  if (typeof value !== "string" || !uuidPattern.test(value.trim())) {
+    throw new HttpError(400, `${field} must be a categoryId from get_trip, or "" to take the cost out of its category.`);
+  }
+  return { fields: { budgetCategoryID: value.trim() }, remove: ["budgetMemberUID"] };
+}
+
+/** Throws unless every ID is a budget category of this trip. */
+export async function requireCategories(db: Firestore, tripId: string, ids: (string | undefined)[]): Promise<void> {
+  const unique = [...new Set(ids.filter((id): id is string => typeof id === "string"))];
+  if (unique.length === 0) return;
+  const found = await db.getAll(unique.map((id) => `trips/${tripId}/budgetCategories/${id}`));
+  if (found.length !== unique.length) {
+    throw new HttpError(400, "budgetCategoryId must be a categoryId from get_trip. Add the category with set_budget_category first.");
+  }
 }
 
 /**
@@ -248,7 +290,7 @@ export function addActivitiesWrites(tripId: string, items: unknown): { writes: F
     if (typeof raw !== "object" || raw === null) throw new HttpError(400, `activities[${index}] must be an object.`);
     let fields: Record<string, FsInput | undefined>;
     try {
-      fields = activityFields(raw as Record<string, unknown>);
+      fields = { ...activityFields(raw as Record<string, unknown>), ...categoryChange((raw as Record<string, unknown>).budgetCategoryId)?.fields };
     } catch (error) {
       if (error instanceof HttpError) throw new HttpError(400, `activities[${index}]: ${error.message}`);
       throw error;
@@ -292,7 +334,7 @@ export function stayWrite(tripId: string, input: Record<string, unknown>, stayId
     kind: "set",
     path: `trips/${tripId}/accommodations/${stayId}`,
     mustNotExist: true,
-    fields: { ...stayFields(input), createdBy: "claude" },
+    fields: { ...stayFields(input), ...categoryChange(input.budgetCategoryId)?.fields, createdBy: "claude" },
   };
 }
 

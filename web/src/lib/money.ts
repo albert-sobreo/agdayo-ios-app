@@ -125,9 +125,12 @@ export async function fetchRate(from: string, to: string): Promise<number | null
   }
 }
 
-/** Parses a typed amount; '' is null, anything else must be a number >= 0. */
-export function parseAmount(text: string): number | null | undefined {
-  if (text.trim() === '') return null
+/**
+ * Parses a typed amount; '' is null, anything else must be a number >= 0.
+ * Takes numbers too: v-model on a number input hands back a number.
+ */
+export function parseAmount(text: string | number): number | null | undefined {
+  if (String(text).trim() === '') return null
   const value = Number(text)
   return Number.isFinite(value) && value >= 0 ? value : undefined
 }

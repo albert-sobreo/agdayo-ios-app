@@ -34,6 +34,7 @@ Apple Maps.
 | `add_activities`, `update_activity`, `delete_activity` | Write the plan, up to 40 activities at a time |
 | `add_transport`, `update_transport`, `delete_transport` | Flights, buses, trains and ferries |
 | `set_day_note`, `delete_day_note` | Notes on a day |
+| `set_budget_category`, `delete_budget_category` | Budget categories (Food, Transport…); costs join one with `budgetCategoryId` |
 
 Everything Claude writes is marked `createdBy: "claude"`. Claude is told to
 show you the plan and get your OK before any change, and the Claude app also

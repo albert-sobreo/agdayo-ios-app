@@ -3,6 +3,8 @@ import { FsDouble, FsTimestamp } from "../src/firestore";
 import {
   activityFields,
   addActivitiesWrites,
+  budgetCategoryFields,
+  categoryChange,
   createTripWrites,
   dayNoteFields,
   joinCode,
@@ -201,5 +203,31 @@ describe("tripAllowance", () => {
     const [unlocked] = createTripWrites("me", input, "TRIP", "ABC234", true);
     expect((locked as { fields: Record<string, unknown> }).fields.ownerUnlocked).toBe(false);
     expect((unlocked as { fields: Record<string, unknown> }).fields.ownerUnlocked).toBe(true);
+  });
+});
+
+describe("budget categories", () => {
+  const categoryId = "6F1C2A3B-4D5E-4F60-8A7B-9C0D1E2F3A4B";
+
+  it("puts a cost under a category and out of any person's budget", () => {
+    expect(categoryChange(categoryId)).toEqual({ fields: { budgetCategoryID: categoryId }, remove: ["budgetMemberUID"] });
+  });
+
+  it("takes a cost out of its category with an empty string, and leaves it alone when not passed", () => {
+    expect(categoryChange("")).toEqual({ fields: {}, remove: ["budgetCategoryID"] });
+    expect(categoryChange(undefined)).toBeUndefined();
+    expect(() => categoryChange("Food")).toThrow(/categoryId from get_trip/);
+  });
+
+  it("sets the category on activities added in one go", () => {
+    const { writes } = addActivitiesWrites("TRIP", [
+      { title: "Lunch", location: "Maxwell", time: "2026-12-10T12:00:00+08:00", cost: 10, budgetCategoryId: categoryId },
+    ]);
+    expect(writes[0]).toMatchObject({ kind: "set", fields: { budgetCategoryID: categoryId } });
+  });
+
+  it("stores the planned amount as a double", () => {
+    expect(budgetCategoryFields({ name: " Food ", amount: 200 })).toEqual({ name: "Food", amount: new FsDouble(200) });
+    expect(budgetCategoryFields({ amount: 50 }, true)).toEqual({ amount: new FsDouble(50) });
   });
 });

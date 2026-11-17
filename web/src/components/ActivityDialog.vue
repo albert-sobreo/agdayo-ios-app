@@ -47,7 +47,8 @@ watch(open, (isOpen) => {
 })
 
 const allCurrencies = computed(() => (currencies.includes(costCurrency.value) ? currencies : [costCurrency.value, ...currencies]))
-const parsedCost = computed(() => (cost.value.trim() === '' ? null : Number(cost.value)))
+// v-model on a number input hands back a number, or '' when empty.
+const parsedCost = computed(() => (String(cost.value).trim() === '' ? null : Number(cost.value)))
 const valid = computed(
   () => title.value.trim() && dayInput.value && time.value && (parsedCost.value === null || (Number.isFinite(parsedCost.value) && parsedCost.value >= 0)),
 )
