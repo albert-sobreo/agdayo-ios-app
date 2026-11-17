@@ -34,7 +34,6 @@ describe("MCP", () => {
       "delete_day_note",
       "delete_stay",
       "delete_transport",
-      "save_guide",
       "set_day_note",
       "update_activity",
       "update_stay",
@@ -53,8 +52,8 @@ describe("MCP", () => {
   });
 
   it("returns tool input errors as results Claude can read", async () => {
-    const response = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "plan_route", arguments: { origin: {} } } }, ctx);
-    expect(response).toMatchObject({ result: { isError: true, content: [{ type: "text", text: expect.stringContaining("origin") }] } });
+    const response = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_trip", arguments: {} } }, ctx);
+    expect(response).toMatchObject({ result: { isError: true, content: [{ type: "text", text: expect.stringContaining("tripId") }] } });
   });
 
   it("answers unknown methods and tools with JSON-RPC errors", async () => {

@@ -115,6 +115,18 @@ private struct ProfileForm: View {
                 Text("Get a local reminder shortly before an activity starts or a flight/transport departs.")
             }
 
+            if authService.canUseServer {
+                Section {
+                    NavigationLink {
+                        ConnectClaudeView()
+                    } label: {
+                        Label("Connect Claude", systemImage: "sparkles")
+                    }
+                } footer: {
+                    Text("Plan trips by chatting with Claude, and it writes them into Agdayo.")
+                }
+            }
+
             Section {
                 NavigationLink {
                     VisitedPlacesMapView()

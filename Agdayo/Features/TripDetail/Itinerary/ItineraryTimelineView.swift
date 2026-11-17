@@ -481,13 +481,12 @@ private struct DaySection: View {
 /// way of getting around, and a menu that opens the leg in Apple Maps or Google Maps.
 private struct TravelConnectorView: View {
     @Environment(\.openURL) private var openURL
-    @Environment(AuthService.self) private var authService
     var isEmbedded = false
     let fromCoordinate: CLLocationCoordinate2D
     let toCoordinate: CLLocationCoordinate2D
-    /// Name of the stop you're leaving, for the steps sheet and Apple Maps.
+    /// Name of the stop you're leaving, for Apple Maps.
     var originName: String = ""
-    /// Start of the stop you're heading to, for the transit steps' arrive-by time.
+    /// Start of the stop you're heading to.
     let nextStart: Date
     var destinationName: String = ""
     let accentColor: Color
@@ -505,7 +504,6 @@ private struct TravelConnectorView: View {
     /// The last figure shown. It stays on screen while another mode loads, so
     /// switching modes never swaps the text for a spinner and shifts the row.
     @State private var shownEstimate: TravelEstimate?
-    @State private var showingSteps = false
 
     private static let modes: [MKDirectionsTransportType] = [.walking, .transit, .automobile, .cycling]
 
@@ -527,11 +525,8 @@ private struct TravelConnectorView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: ItineraryRail.timeWidth)
             ItineraryRailLine(accentColor: accentColor)
-            VStack(alignment: .leading, spacing: 4) {
-                controls
-                details
-            }
-            .padding(.vertical, 6)
+            controls
+                .padding(.vertical, 6)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, isEmbedded ? 16 : 0)
@@ -542,17 +537,6 @@ private struct TravelConnectorView: View {
             onEstimate(currentEstimate)
         }
         .onDisappear { onEstimate(nil) }
-        .sheet(isPresented: $showingSteps) {
-            TransitStepsSheet(
-                fromName: originName.isEmpty ? "Previous stop" : originName,
-                toName: destinationName.isEmpty ? "Next stop" : destinationName,
-                fromCoordinate: fromCoordinate,
-                toCoordinate: toCoordinate,
-                arriveBy: nextStart,
-                accentColor: accentColor
-            )
-            .presentationDetents([.medium, .large])
-        }
     }
 
     private var controls: some View {
@@ -609,29 +593,6 @@ private struct TravelConnectorView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Directions")
             .accessibilityHint("Opens this leg in Apple Maps or Google Maps")
-        }
-    }
-
-    /// The transit "Steps" button; nothing for other modes.
-    @ViewBuilder
-    private var details: some View {
-        // MapKit only has transit ETAs; Google has the lines and stops,
-        // and often covers cities MapKit doesn't, so offer it even when
-        // MapKit found no transit.
-        if selectedMode == .transit, authService.canUseServer {
-            Button {
-                showingSteps = true
-            } label: {
-                Label("Steps", systemImage: "list.bullet")
-                    .font(AppFont.outfit(12, weight: .semibold, relativeTo: .caption))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(accentColor.opacity(0.15), in: Capsule())
-                    .foregroundStyle(accentColor)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Transit steps")
-            .accessibilityHint("Shows which lines and stops to take, from Google")
         }
     }
 
@@ -941,8 +902,7 @@ private struct CardRow<Background: View>: ViewModifier {
     }
 }
 
-/// An activity's itinerary row that also checks Google's opening hours for
-/// its time, when the activity has a place ID, and says so if it's closed then.
+/// An activity's itinerary row.
 private struct ActivityHoursRow: View {
     let activity: Activity
     /// Used when the activity's cost has no currency of its own (Claude can
@@ -952,8 +912,6 @@ private struct ActivityHoursRow: View {
     let accentColor: Color
     let isFirst: Bool
     let isLast: Bool
-
-    @State private var isClosed = false
 
     var body: some View {
         ActivityRowView(
@@ -968,16 +926,8 @@ private struct ActivityHoursRow: View {
             accentColor: accentColor,
             isFirst: isFirst,
             isLast: isLast,
-            notice: isClosed ? "Closed at this time" : nil,
+            notice: nil,
             addedByClaude: activity.isFromClaude
         )
-        .task(id: "\(activity.placeID ?? "")|\(activity.date.timeIntervalSince1970)") {
-            guard let placeID = activity.placeID, !placeID.isEmpty else {
-                isClosed = false
-                return
-            }
-            let hours = await PlaceHoursStore.hours(for: placeID)
-            isClosed = hours?.isOpen(at: activity.date) == false
-        }
     }
 }

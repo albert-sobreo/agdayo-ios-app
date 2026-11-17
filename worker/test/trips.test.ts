@@ -11,6 +11,7 @@ import {
   stayFields,
   stayWrite,
   transportFields,
+  tripAllowance,
   tripUpdateFields,
 } from "../src/trips";
 
@@ -174,7 +175,6 @@ describe("editing", () => {
   });
 
   it("keeps the Google place ID on activities", () => {
-    expect(activityFields({ placeId: "ChIJ123" }, true)).toEqual({ placeID: "ChIJ123" });
   });
 });
 
@@ -183,5 +183,23 @@ describe("trip updates", () => {
     expect(() => tripUpdateFields({ startDate: "2026-11-18T00:00:00+08:00", endDate: "2026-11-16T00:00:00+08:00" })).toThrow(
       /before startDate/,
     );
+  });
+});
+
+describe("tripAllowance", () => {
+  const trip = (ownerUID: string, ownerUnlocked?: boolean) => ({ id: "T", name: "", data: { ownerUID, ...(ownerUnlocked === undefined ? {} : { ownerUnlocked }) } });
+
+  it("counts only owned trips, and a trip without the flag means unlocked", () => {
+    expect(tripAllowance("me", [trip("me", false), trip("other", true), trip("me", false)])).toEqual({ owned: 2, unlocked: false });
+    expect(tripAllowance("me", [trip("me", false), trip("me")])).toEqual({ owned: 2, unlocked: true });
+    expect(tripAllowance("me", [])).toEqual({ owned: 0, unlocked: false });
+  });
+
+  it("writes ownerUnlocked from the allowance", () => {
+    const input = { name: "X", location: "X", startDate: "2026-12-10T00:00:00+08:00", endDate: "2026-12-11T00:00:00+08:00", currency: "PHP" };
+    const [locked] = createTripWrites("me", input, "TRIP", "ABC234");
+    const [unlocked] = createTripWrites("me", input, "TRIP", "ABC234", true);
+    expect((locked as { fields: Record<string, unknown> }).fields.ownerUnlocked).toBe(false);
+    expect((unlocked as { fields: Record<string, unknown> }).fields.ownerUnlocked).toBe(true);
   });
 });

@@ -14,6 +14,8 @@ export const stayTypes = ["hotel", "airbnb", "transient", "other"] as const;
 /** TransportMode raw values in the app. */
 export const transportModes = ["flight", "bus", "jeepney", "van", "train", "ferry", "bangka", "car", "rideshare", "tricycle", "motorcycle", "pedicab", "other"] as const;
 export const maxActivitiesPerCall = 40;
+/** Matches StoreService.freeTripLimit: trips a person may own without the unlock. */
+export const freeTripLimit = 2;
 
 /** Matches TripMembershipService.generateRandomCode. */
 export function joinCode(random: () => number = Math.random, length = 6): string {
@@ -130,6 +132,31 @@ export async function listTrips(db: Firestore, uid: string): Promise<TripSummary
   return trips.map(summarize).sort((a, b) => String(b.startDate).localeCompare(String(a.startDate)));
 }
 
+/**
+ * What the person may create, worked out from trips they own. The app writes
+ * `ownerUnlocked` on each trip from the App Store's answer, and a trip with no
+ * flag was made while the app was paid, so its owner counts as unlocked
+ * (same rule as TripMembershipService).
+ */
+export function tripAllowance(uid: string, trips: FsDocument[]): { owned: number; unlocked: boolean } {
+  const owned = trips.filter((trip) => trip.data.ownerUID === uid);
+  return { owned: owned.length, unlocked: owned.some((trip) => trip.data.ownerUnlocked !== false) };
+}
+
+/** Throws when a free account already owns its limit of trips. The app enforces the same limit. */
+export async function requireTripAllowance(db: Firestore, uid: string): Promise<{ owned: number; unlocked: boolean }> {
+  const user = await db.get(`users/${uid}`);
+  const ids = Array.isArray(user?.data.memberOfTripIDs) ? (user.data.memberOfTripIDs as string[]) : [];
+  const allowance = tripAllowance(uid, await db.getAll(ids.map((id) => `trips/${id}`)));
+  if (!allowance.unlocked && allowance.owned >= freeTripLimit) {
+    throw new HttpError(
+      403,
+      `Free Agdayo includes ${freeTripLimit} trips, and this account already has ${allowance.owned}. Unlock Agdayo in the app for unlimited trips (if you already have, open the app once so it can catch up), or add to an existing trip instead.`,
+    );
+  }
+  return allowance;
+}
+
 /** Leaves out money-splitting fields Claude doesn't need. */
 function trim(data: Record<string, unknown>): Record<string, unknown> {
   const { budgetCategoryID, budgetMemberUID, paidByUID, splitUIDs, splitAmounts, exchangeRateToTripCurrency, ...rest } = data;
@@ -156,7 +183,11 @@ export async function getTrip(db: Firestore, uid: string, tripId: string): Promi
   };
 }
 
-export function createTripWrites(uid: string, input: Record<string, unknown>, tripId = newId(), code = joinCode()): FsWrite[] {
+/**
+ * `ownerUnlocked` decides how many people can join (see the app). Pass what
+ * requireTripAllowance found; the app corrects it on its next launch anyway.
+ */
+export function createTripWrites(uid: string, input: Record<string, unknown>, tripId = newId(), code = joinCode(), ownerUnlocked = false): FsWrite[] {
   const theme = text(input.theme, "theme", "teal");
   if (!(tripThemes as readonly string[]).includes(theme)) {
     throw new HttpError(400, `theme must be one of ${tripThemes.join(", ")}.`);
@@ -175,7 +206,7 @@ export function createTripWrites(uid: string, input: Record<string, unknown>, tr
     currency: currency(input.currency, "currency"),
     tripDescription: text(input.description, "description", ""),
     memberBudgets: {},
-    ownerUnlocked: true,
+    ownerUnlocked,
     joinCode: code,
     createdBy: "claude",
     ...optionalCoordinate(input.latitude, input.longitude, "the trip's location"),
@@ -206,7 +237,6 @@ export function activityFields(input: Record<string, unknown>, partial = false):
   }
   if (has("costCurrency")) fields.costCurrency = currency(input.costCurrency, "costCurrency");
   if (has("costNote")) fields.costNote = text(input.costNote, "costNote", "");
-  if (has("placeId")) fields.placeID = text(input.placeId, "placeId", "");
   return fields;
 }
 

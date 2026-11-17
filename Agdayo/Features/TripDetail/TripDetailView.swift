@@ -107,7 +107,7 @@ struct TripDetailView: View {
                     ideaCount: ideas.count,
                     hasPhotoAlbum: trip.albumURL != nil,
                     showsBalances: syncCoordinator.memberProfiles.count > 1,
-                    showsGuide: authService.canUseServer
+                    showsGuide: AgdayoServer.showsGuide && authService.canUseServer
                 )
                 ItineraryTimelineView(trip: trip, memberProfiles: syncCoordinator.memberProfiles, isEmbedded: true)
             }

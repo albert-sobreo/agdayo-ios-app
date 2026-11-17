@@ -33,7 +33,7 @@ struct TripSectionsRow: View {
     var ideaCount: Int = 0
     var hasPhotoAlbum: Bool = false
     var showsBalances: Bool = false
-    /// Only for accounts the Agdayo server accepts (see `AgdayoServer.allowedUIDs`).
+    /// Off while the guide is switched off (see `AgdayoServer.showsGuide`).
     var showsGuide: Bool = false
 
     var body: some View {

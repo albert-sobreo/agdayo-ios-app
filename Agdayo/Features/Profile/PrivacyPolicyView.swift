@@ -45,6 +45,10 @@ struct PrivacyPolicyView: View {
                     Text("When place names in Plan My Day are in a foreign language, Agdayo shows an English translation. This uses Apple's Translation framework, which translates on your device. The place names are not sent to Agdayo's servers.")
                 }
 
+                PolicySection(title: "Connecting Claude") {
+                    Text("If you choose to connect Claude (Profile › Connect Claude), Claude can read and change the trips you own or have joined, through Agdayo's own server, when you ask it to in a chat. What you share in that chat is handled by Anthropic under its own privacy policy. You can disconnect Agdayo in Claude's settings at any time.")
+                }
+
                 PolicySection(title: "Third-Party Services") {
                     Text("Agdayo relies on a small number of services to function:\n\n• Firebase (Google): authentication and the cloud database used for shared trips.\n• Apple MapKit: place search, maps, and directions. Search terms and the area being searched are sent to Apple to return results, under Apple's privacy policy.\n• A currency-exchange-rate API: receives only currency codes (e.g. \"USD\", \"PHP\"), never any personal or trip data.\n\nNone of these are used for advertising.")
                 }
@@ -75,7 +79,7 @@ struct PrivacyPolicyView: View {
     private static let lastUpdated: String = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM d, yyyy"
-        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 10, day: 21)) ?? .now)
+        return formatter.string(from: Calendar(identifier: .gregorian).date(from: DateComponents(year: 2026, month: 11, day: 17)) ?? .now)
     }()
 }
 

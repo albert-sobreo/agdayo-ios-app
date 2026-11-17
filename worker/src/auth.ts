@@ -7,19 +7,29 @@ const firebaseKeys = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
 );
 
-/** The UIDs in `ALLOWED_UIDS`, trimmed. An empty list allows nobody. */
-export function allowedUids(env: Pick<Env, "ALLOWED_UIDS">): Set<string> {
+/** A comma-separated list from a var, trimmed, without empty items. */
+export function uidList(value: string | undefined): Set<string> {
   return new Set(
-    env.ALLOWED_UIDS.split(",")
+    (value ?? "")
+      .split(",")
       .map((uid) => uid.trim())
       .filter(Boolean),
   );
 }
 
 /**
+ * Whether this Firebase account may use the server. `ALLOWED_UIDS` is "*" for
+ * every signed-in account or a list of UIDs; `BLOCKED_UIDS` always wins.
+ */
+export function isAllowedUid(env: Pick<Env, "ALLOWED_UIDS" | "BLOCKED_UIDS">, uid: string): boolean {
+  if (!uid || uidList(env.BLOCKED_UIDS).has(uid)) return false;
+  const allowed = uidList(env.ALLOWED_UIDS);
+  return allowed.has("*") || allowed.has(uid);
+}
+
+/**
  * Checks the `Authorization: Bearer <Firebase ID token>` header the app sends
- * and returns the signed-in user's UID. Only UIDs listed in `ALLOWED_UIDS`
- * get through, since this server spends your Google quota.
+ * and returns the signed-in user's UID, if that account may use the server.
  */
 export async function requireUser(request: Request, env: Env): Promise<string> {
   const header = request.headers.get("authorization") ?? "";
@@ -36,7 +46,7 @@ export async function requireUser(request: Request, env: Env): Promise<string> {
   } catch {
     throw new HttpError(401, "Your sign-in has expired or is invalid. Sign in again.");
   }
-  if (!uid || !allowedUids(env).has(uid)) {
+  if (!uid || !isAllowedUid(env, uid)) {
     throw new HttpError(403, "This account isn't allowed to use this server.");
   }
   return uid;
