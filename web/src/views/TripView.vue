@@ -3,7 +3,7 @@ import { computed, ref, toRef } from 'vue'
 import {
   DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger,
 } from 'reka-ui'
-import { PhArrowRight, PhBed, PhCheck, PhCaretLeft, PhCopy, PhMapPin, PhPencilSimple, PhPlus, PhNote, PhUsers } from '@phosphor-icons/vue'
+import { PhArrowRight, PhBed, PhCheck, PhCaretLeft, PhCopy, PhPencilSimple, PhPlus, PhNote, PhUsers } from '@phosphor-icons/vue'
 import ActivityDialog from '@/components/ActivityDialog.vue'
 import DayNoteDialog from '@/components/DayNoteDialog.vue'
 import StayDialog from '@/components/StayDialog.vue'
@@ -140,18 +140,18 @@ function openEntry(entry: Entry) {
               <PhPencilSimple class="size-4.5" />
             </button>
           </div>
-          <h1 class="display-title mt-3 text-5xl text-trip-700! break-words sm:text-7xl 2xl:text-8xl">{{ trip.name }}</h1>
-          <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-600">
-            <span class="flex items-center gap-1.5"><PhMapPin class="size-4 shrink-0 text-trip-500" /> {{ trip.location || 'No location yet' }}</span>
-            <span>{{ formatRange(trip.startDate, trip.endDate) }}</span>
-          </p>
+          <!-- Same type as iOS TripHeaderView: destination in Barlow Condensed 72pt (Regular, what the iPhone renders),
+               trip name below in SemiBold 20pt with 1pt tracking -->
+          <h1 class="mt-3 font-display text-6xl leading-[0.95] font-normal break-words text-trip-700 uppercase sm:text-7xl 2xl:text-8xl">{{ trip.location || trip.name }}</h1>
+          <p v-if="trip.location" class="mt-1 font-display text-xl font-semibold tracking-[0.05em] break-words text-trip-700 uppercase">{{ trip.name }}</p>
+          <p class="mt-2 text-zinc-600">{{ formatRange(trip.startDate, trip.endDate) }}</p>
           <p v-if="trip.tripDescription" class="mt-3 max-w-2xl text-sm whitespace-pre-line text-zinc-700">{{ trip.tripDescription }}</p>
         </div>
         <!-- At a glance -->
         <dl class="grid shrink-0 grid-cols-4 gap-2 sm:gap-3 lg:max-w-lg 2xl:max-w-none">
           <div v-for="stat in stats" :key="stat.label" class="rounded-dense border border-trip-border bg-white/70 px-3 py-2.5 text-center xl:min-w-24 xl:px-4">
             <dt class="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">{{ stat.label }}</dt>
-            <dd class="font-display text-3xl leading-tight font-bold text-ink xl:text-4xl">{{ stat.value }}</dd>
+            <dd class="font-display text-3xl leading-tight font-light text-trip-700 uppercase xl:text-4xl">{{ stat.value }}</dd>
           </div>
         </dl>
       </div>
@@ -179,7 +179,7 @@ function openEntry(entry: Entry) {
           <div class="mb-3 flex items-center justify-between gap-2">
             <div>
               <p class="tracked-label">Day {{ index + 1 }}</p>
-              <h2 class="font-display text-3xl font-bold uppercase">{{ formatDay(day) }}</h2>
+              <h2 class="font-display text-3xl font-semibold uppercase">{{ formatDay(day) }}</h2>
             </div>
             <DropdownMenuRoot>
               <DropdownMenuTrigger class="btn-secondary px-3" :aria-label="`Add to day ${index + 1}`"><PhPlus class="size-4" /> Add</DropdownMenuTrigger>
@@ -207,7 +207,7 @@ function openEntry(entry: Entry) {
             </span>
           </button>
 
-          <ol v-if="entriesOn(day).length" class="relative space-y-2 before:absolute before:top-3 before:bottom-3 before:left-[4.6rem] before:w-px before:bg-trip-200">
+          <ol v-if="entriesOn(day).length" class="relative space-y-2 before:absolute before:top-3 before:bottom-3 before:left-[calc(5.25rem-0.5px)] before:w-px before:bg-trip-200">
             <li v-for="entry in entriesOn(day)" :key="entry.key">
               <button class="group flex w-full items-start gap-3 text-left" @click="openEntry(entry)">
                 <span class="w-14 shrink-0 pt-3 text-right text-xs font-semibold text-zinc-500 tabular-nums">{{ formatTime(entry.time) }}</span>

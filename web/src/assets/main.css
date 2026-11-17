@@ -3,6 +3,8 @@
    DesignSystem.swift, AppFont.swift). Keep the two in sync. */
 
 @import "@fontsource-variable/outfit";
+@import "@fontsource/barlow-condensed/200.css";
+@import "@fontsource/barlow-condensed/300.css";
 @import "@fontsource/barlow-condensed/400.css";
 @import "@fontsource/barlow-condensed/500.css";
 @import "@fontsource/barlow-condensed/600.css";
