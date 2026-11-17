@@ -2,9 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import { PhTrash } from '@phosphor-icons/vue'
 import AppDialog from './AppDialog.vue'
+import CostSplitFields from './CostSplitFields.vue'
+import ExchangeRateField from './ExchangeRateField.vue'
 import { transportModeNames, transportModes, type Transport, type TransportMode, type Trip } from '@/lib/model'
 import { combine, fromDateInput, toDateInput } from '@/lib/dates'
-import { addTransport, deleteItem, updateTransport } from '@/lib/writes'
+import { addTransport, deleteItem, splitOf, updateTransport, type SplitInput } from '@/lib/writes'
+import { currencies } from '@/lib/money'
+import { useTripContext } from '@/composables/tripContext'
 
 const props = defineProps<{ trip: Trip; segment?: Transport; day?: Date }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -21,6 +25,10 @@ const bookingRef = ref('')
 const seat = ref('')
 const notes = ref('')
 const cost = ref('')
+const currency = ref('PHP')
+const rate = ref<number | null>(null)
+const split = ref<SplitInput>(splitOf(undefined))
+const { content, people } = useTripContext()
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -39,10 +47,13 @@ watch(open, (isOpen) => {
   seat.value = s?.seatNumber ?? ''
   notes.value = s?.notes ?? ''
   cost.value = s?.cost ? String(s.cost) : ''
+  currency.value = s?.currency ?? props.trip.currency
+  rate.value = s?.exchangeRateToTripCurrency ?? null
+  split.value = splitOf(s)
   error.value = null
 })
 
-const currency = computed(() => props.segment?.currency ?? props.trip.currency)
+const allCurrencies = computed(() => (currencies.includes(currency.value) ? currencies : [currency.value, ...currencies]))
 const arrivalBeforeDeparture = computed(
   () =>
     hasArrival.value &&
@@ -69,6 +80,8 @@ async function save() {
     notes: notes.value.trim(),
     cost: Number(cost.value || 0),
     currency: currency.value,
+    exchangeRateToTripCurrency: currency.value !== props.trip.currency && Number(cost.value || 0) > 0 ? rate.value : null,
+    split: Number(cost.value || 0) > 0 && split.value.paidByUID ? split.value : { ...split.value, paidByUID: null, splitUIDs: [], splitAmounts: {} },
   }
   try {
     if (props.segment) {
@@ -156,10 +169,22 @@ async function remove() {
           <input id="transport-seat" v-model="seat" class="input" placeholder="Optional" />
         </div>
       </div>
-      <div>
-        <label class="label" for="transport-cost">Cost ({{ currency }})</label>
-        <input id="transport-cost" v-model="cost" type="number" min="0" step="any" inputmode="decimal" class="input" placeholder="0" />
+      <div class="grid grid-cols-[1fr_7rem] gap-3">
+        <div>
+          <label class="label" for="transport-cost">Cost</label>
+          <input id="transport-cost" v-model="cost" type="number" min="0" step="any" inputmode="decimal" class="input" placeholder="0" />
+        </div>
+        <div>
+          <label class="label" for="transport-currency">Currency</label>
+          <select id="transport-currency" v-model="currency" class="input" @change="rate = null">
+            <option v-for="code in allCurrencies" :key="code" :value="code">{{ code }}</option>
+          </select>
+        </div>
       </div>
+      <template v-if="Number(cost || 0) > 0">
+        <ExchangeRateField v-model="rate" :from="currency" :to="trip.currency" :amount="Number(cost || 0)" />
+        <CostSplitFields v-model="split" :people="people" :categories="content.budgetCategories.value" :total="Number(cost || 0)" :currency="currency" />
+      </template>
       <div>
         <label class="label" for="transport-notes">Notes</label>
         <textarea id="transport-notes" v-model="notes" rows="2" class="input" placeholder="Optional" />

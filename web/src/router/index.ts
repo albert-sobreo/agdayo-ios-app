@@ -6,6 +6,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'trips', component: () => import('@/views/TripsView.vue') },
     { path: '/trip/:id', name: 'trip', component: () => import('@/views/TripView.vue'), props: true },
+    { path: '/claude', name: 'claude', component: () => import('@/views/ConnectClaudeView.vue') },
     { path: '/sign-in', name: 'sign-in', component: () => import('@/views/SignInView.vue'), meta: { public: true } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { public: true } },
   ],

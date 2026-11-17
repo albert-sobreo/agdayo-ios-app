@@ -2,8 +2,10 @@ import { onScopeDispose, ref, watch, type Ref } from 'vue'
 import { collection, doc, getDoc, onSnapshot, type DocumentData, type Unsubscribe } from 'firebase/firestore'
 import { db } from '@/firebase'
 import {
-  toActivity, toDayNote, toMember, toStay, toTransport, toUserProfile,
-  type Activity, type DayNote, type Member, type Stay, type Transport, type UserProfile,
+  toActivity, toBudgetCategory, toDayNote, toExpense, toIdea, toMember, toPoll, toPrepTask, toSettlement, toStay,
+  toTransport, toUserProfile,
+  type Activity, type BudgetCategory, type DayNote, type Expense, type Idea, type Member, type Poll, type PrepTask,
+  type Settlement, type Stay, type Transport, type UserProfile,
 } from '@/lib/model'
 import { ensureMembership } from '@/lib/writes'
 import { useAuthStore } from '@/stores/auth'
@@ -22,6 +24,12 @@ export function useTripContent(tripId: Ref<string>) {
   const transport = ref<Transport[]>([])
   const dayNotes = ref<DayNote[]>([])
   const members = ref<Member[]>([])
+  const budgetCategories = ref<BudgetCategory[]>([])
+  const expenses = ref<Expense[]>([])
+  const settlements = ref<Settlement[]>([])
+  const prepTasks = ref<PrepTask[]>([])
+  const polls = ref<Poll[]>([])
+  const ideas = ref<Idea[]>([])
   const profiles = ref<Record<string, UserProfile>>({})
   const error = ref<string | null>(null)
 
@@ -68,6 +76,12 @@ export function useTripContent(tripId: Ref<string>) {
       transport.value = []
       dayNotes.value = []
       members.value = []
+      budgetCategories.value = []
+      expenses.value = []
+      settlements.value = []
+      prepTasks.value = []
+      polls.value = []
+      ideas.value = []
       if (!id || !uid || ownerUID === undefined) return
       try {
         // Same order as the app: listeners fail for good if they start before the membership doc exists.
@@ -80,6 +94,12 @@ export function useTripContent(tripId: Ref<string>) {
       listen('accommodations', toStay, stays)
       listen('transportSegments', toTransport, transport)
       listen('dayNotes', toDayNote, dayNotes)
+      listen('budgetCategories', toBudgetCategory, budgetCategories)
+      listen('expenses', toExpense, expenses)
+      listen('settlements', toSettlement, settlements)
+      listen('preparationTasks', toPrepTask, prepTasks)
+      listen('polls', toPoll, polls)
+      listen('ideas', toIdea, ideas)
       unsubs.push(
         onSnapshot(collection(db, 'trips', id, 'members'), (snapshot) => {
           members.value = snapshot.docs.map((d) => toMember(d.id, d.data()))
@@ -92,5 +112,8 @@ export function useTripContent(tripId: Ref<string>) {
 
   onScopeDispose(stop)
 
-  return { activities, stays, transport, dayNotes, members, profiles, error }
+  return {
+    activities, stays, transport, dayNotes, members, profiles, error,
+    budgetCategories, expenses, settlements, prepTasks, polls, ideas,
+  }
 }

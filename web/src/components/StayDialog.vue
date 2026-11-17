@@ -2,9 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { PhTrash } from '@phosphor-icons/vue'
 import AppDialog from './AppDialog.vue'
+import CostSplitFields from './CostSplitFields.vue'
 import { stayTypeNames, stayTypes, type Stay, type StayType, type Trip } from '@/lib/model'
 import { fromDateInput, toDateInput } from '@/lib/dates'
-import { addStay, deleteItem, updateStay } from '@/lib/writes'
+import { addStay, deleteItem, splitOf, updateStay, type SplitInput } from '@/lib/writes'
+import { useTripContext } from '@/composables/tripContext'
 
 const props = defineProps<{ trip: Trip; stay?: Stay }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -18,6 +20,8 @@ const checkOut = ref('')
 const checkOutTime = ref('11:00')
 const rooms = ref('1')
 const totalCost = ref('')
+const split = ref<SplitInput>(splitOf(undefined))
+const { content, people } = useTripContext()
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -33,6 +37,7 @@ watch(open, (isOpen) => {
   checkOutTime.value = s?.checkOutTime ?? '11:00'
   rooms.value = String(s?.numberOfRooms ?? 1)
   totalCost.value = s?.totalCost ? String(s.totalCost) : ''
+  split.value = splitOf(s)
   error.value = null
 })
 
@@ -61,6 +66,7 @@ async function save() {
     checkOutTime: checkOutTime.value,
     startDate: fromDateInput(checkIn.value),
     endDate: fromDateInput(checkOut.value),
+    split: Number(totalCost.value || 0) > 0 && split.value.paidByUID ? split.value : { ...split.value, paidByUID: null, splitUIDs: [], splitAmounts: {} },
   }
   try {
     if (props.stay) await updateStay(props.trip.id, props.stay.id, input, input.location !== props.stay.location)
@@ -135,6 +141,9 @@ async function remove() {
       <div>
         <label class="label" for="stay-cost">Total cost ({{ trip.currency }})</label>
         <input id="stay-cost" v-model="totalCost" type="number" min="0" step="any" inputmode="decimal" class="input" placeholder="0" />
+      </div>
+      <div v-if="Number(totalCost || 0) > 0">
+        <CostSplitFields v-model="split" :people="people" :categories="content.budgetCategories.value" :total="Number(totalCost || 0)" :currency="trip.currency" />
       </div>
       <p v-if="error" class="text-sm text-danger">{{ error }}</p>
     </form>

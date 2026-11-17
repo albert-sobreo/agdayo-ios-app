@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { computed, ref, toRef } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger,
 } from 'reka-ui'
-import { PhArrowRight, PhBed, PhCheck, PhCaretLeft, PhCopy, PhPencilSimple, PhPlus, PhNote, PhUsers } from '@phosphor-icons/vue'
+import {
+  PhArrowRight, PhBed, PhCheck, PhCaretLeft, PhCopy, PhPencilSimple, PhPlus, PhNote, PhSignOut, PhUserMinus, PhUsers,
+} from '@phosphor-icons/vue'
 import ActivityDialog from '@/components/ActivityDialog.vue'
 import DayNoteDialog from '@/components/DayNoteDialog.vue'
 import StayDialog from '@/components/StayDialog.vue'
 import TransportDialog from '@/components/TransportDialog.vue'
 import TripFormDialog from '@/components/TripFormDialog.vue'
 import UnlockNote from '@/components/UnlockNote.vue'
+import ConnectClaude from '@/components/ConnectClaude.vue'
+import TripBalances from '@/components/sections/TripBalances.vue'
+import TripBudget from '@/components/sections/TripBudget.vue'
+import TripIdeas from '@/components/sections/TripIdeas.vue'
+import TripPolls from '@/components/sections/TripPolls.vue'
+import TripPrep from '@/components/sections/TripPrep.vue'
+import { provideTripContext } from '@/composables/tripContext'
 import { useTripContent } from '@/composables/useTripContent'
 import type { Activity, DayNote, Stay, Transport } from '@/lib/model'
 import { stayTypeNames, transportModeNames } from '@/lib/model'
@@ -17,7 +27,8 @@ import {
   combine, formatDay, formatHHmm, formatMoney, formatRange, formatShort, formatTime, isSameDay, tripDays, tripStatus,
 } from '@/lib/dates'
 import { iconFor, transportIcons } from '@/lib/icons'
-import { freeMemberLimit } from '@/lib/writes'
+import { freeMemberLimit, removeFromSplits, removeMember } from '@/lib/writes'
+import { spentBreakdown } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useTripsStore } from '@/stores/trips'
 
@@ -28,6 +39,33 @@ const tripsStore = useTripsStore()
 const trip = computed(() => tripsStore.trip(props.id))
 const content = useTripContent(toRef(props, 'id'))
 const { activities, stays, transport, dayNotes, members, profiles } = content
+provideTripContext(trip, content)
+const route = useRoute()
+const router = useRouter()
+
+/** The trip's sections, like the app's row of section cards. */
+type Tab = 'itinerary' | 'budget' | 'balances' | 'prep' | 'polls' | 'ideas' | 'claude'
+const tabs = computed(() => {
+  const list: { id: Tab; label: string; badge?: string }[] = [
+    { id: 'itinerary', label: 'Itinerary' },
+    { id: 'budget', label: 'Budget', badge: trip.value ? formatMoney(spentBreakdown({ activities: activities.value, stays: stays.value, transport: transport.value, expenses: content.expenses.value }, trip.value.currency).total, trip.value.currency) : undefined },
+  ]
+  if (members.value.length > 1) list.push({ id: 'balances', label: 'Balances' })
+  const done = content.prepTasks.value.filter((t) => t.completed).length
+  list.push({ id: 'prep', label: 'Preparation', badge: content.prepTasks.value.length ? `${done}/${content.prepTasks.value.length}` : undefined })
+  const openPolls = content.polls.value.filter((p) => !p.isClosed).length
+  list.push({ id: 'polls', label: 'Polls', badge: openPolls ? String(openPolls) : undefined })
+  list.push({ id: 'ideas', label: 'Ideas', badge: content.ideas.value.length ? String(content.ideas.value.length) : undefined })
+  list.push({ id: 'claude', label: 'Plan with Claude' })
+  return list
+})
+const tab = computed<Tab>(() => {
+  const wanted = route.query.tab
+  return tabs.value.some((t) => t.id === wanted) ? (wanted as Tab) : 'itinerary'
+})
+function selectTab(id: Tab) {
+  void router.replace({ query: id === 'itinerary' ? {} : { tab: id } })
+}
 
 const isOwner = computed(() => trip.value?.ownerUID === authStore.user?.uid)
 const status = computed(() => (trip.value ? tripStatus(trip.value.startDate, trip.value.endDate) : null))
@@ -85,6 +123,32 @@ async function copyCode() {
   await navigator.clipboard.writeText(trip.value.joinCode)
   copied.value = true
   setTimeout(() => (copied.value = false), 1500)
+}
+
+// People: the owner removes members, everyone else can leave.
+const memberError = ref<string | null>(null)
+async function kick(uid: string) {
+  if (!trip.value || !window.confirm(`Remove ${memberName(uid)} from this trip? Their share of split costs goes to the others.`)) return
+  memberError.value = null
+  try {
+    await removeFromSplits(trip.value.id, uid, { activities: activities.value, stays: stays.value, transport: transport.value, expenses: content.expenses.value })
+    await removeMember(trip.value.id, uid)
+  } catch (err) {
+    console.error(err)
+    memberError.value = 'Couldn’t remove them. Check your connection and try again.'
+  }
+}
+async function leave() {
+  const uid = authStore.user?.uid
+  if (!trip.value || !uid || !window.confirm(`Leave “${trip.value.name}”? You’ll need a new invite to come back.`)) return
+  memberError.value = null
+  try {
+    await removeMember(trip.value.id, uid)
+    await router.replace({ name: 'trips' })
+  } catch (err) {
+    console.error(err)
+    memberError.value = 'Couldn’t leave the trip. Check your connection and try again.'
+  }
 }
 
 function scrollToDay(index: number) {
@@ -157,6 +221,38 @@ function openEntry(entry: Entry) {
       </div>
     </section>
 
+    <!-- Sections -->
+    <nav class="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10" aria-label="Trip sections">
+      <button
+        v-for="t in tabs"
+        :key="t.id"
+        class="flex shrink-0 items-center gap-2 rounded-dense border px-3.5 py-2 text-sm font-semibold transition"
+        :class="tab === t.id ? 'border-trip-500 bg-trip-500 text-white shadow-sticker-trip' : 'border-trip-border bg-white text-ink hover:bg-trip-50'"
+        :aria-current="tab === t.id ? 'page' : undefined"
+        @click="selectTab(t.id)"
+      >
+        {{ t.label }}
+        <span v-if="t.badge" class="rounded-full px-1.5 text-xs font-medium" :class="tab === t.id ? 'bg-white/25' : 'bg-trip-100 text-zinc-600'">{{ t.badge }}</span>
+      </button>
+    </nav>
+
+    <p v-if="content.error.value" class="mt-4 rounded-dense bg-danger/10 p-3 text-sm text-danger">{{ content.error.value }}</p>
+
+    <div v-if="tab !== 'itinerary'" class="mt-5">
+      <TripBudget
+        v-if="tab === 'budget'"
+        @activity="(a) => (activityDialog = { open: true, activity: a })"
+        @stay="(st) => (stayDialog = { open: true, stay: st })"
+        @transport="(t) => (transportDialog = { open: true, segment: t })"
+      />
+      <TripBalances v-else-if="tab === 'balances'" />
+      <TripPrep v-else-if="tab === 'prep'" />
+      <TripPolls v-else-if="tab === 'polls'" />
+      <TripIdeas v-else-if="tab === 'ideas'" />
+      <ConnectClaude v-else-if="tab === 'claude'" />
+    </div>
+
+    <template v-else>
     <!-- Day jump bar: stays in view while scrolling -->
     <nav class="sticky top-14 z-20 -mx-4 mt-4 flex gap-2 overflow-x-auto bg-canvas/90 px-4 py-2.5 backdrop-blur lg:top-0 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10" aria-label="Days">
       <button
@@ -169,8 +265,6 @@ function openEntry(entry: Entry) {
         Day {{ index + 1 }} <span class="opacity-70">· {{ formatShort(day) }}</span>
       </button>
     </nav>
-
-    <p v-if="content.error.value" class="mt-4 rounded-dense bg-danger/10 p-3 text-sm text-danger">{{ content.error.value }}</p>
 
     <div class="mt-4 grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
       <!-- Itinerary -->
@@ -320,8 +414,15 @@ function openEntry(entry: Entry) {
               <span v-else class="flex size-7 items-center justify-center rounded-full bg-trip-100 text-xs font-bold">{{ memberName(member.uid).charAt(0) }}</span>
               <span class="truncate font-medium">{{ memberName(member.uid) }}</span>
               <span v-if="member.role === 'owner'" class="ml-auto text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">Owner</span>
+              <button
+                v-else-if="isOwner && member.uid !== authStore.user?.uid"
+                class="icon-btn ml-auto size-7"
+                :aria-label="`Remove ${memberName(member.uid)}`"
+                @click="kick(member.uid)"
+              ><PhUserMinus class="size-4" /></button>
             </li>
           </ul>
+          <p v-if="memberError" class="mt-2 text-xs text-danger">{{ memberError }}</p>
           <div v-if="trip.joinCode" class="mt-4 rounded-xl bg-trip-50 p-3">
             <p class="text-xs text-zinc-600">Invite people with this code</p>
             <div class="mt-1 flex items-center justify-between">
@@ -335,9 +436,12 @@ function openEntry(entry: Entry) {
             <UnlockNote v-if="isOwner" :reason="`Free trips hold up to ${freeMemberLimit} people. Unlock for bigger groups.`" />
             <p v-else class="text-xs text-zinc-500">This trip is full. The owner can unlock Agdayo for bigger groups.</p>
           </div>
+          <button v-if="!isOwner" class="btn-ghost mt-3 -ml-2 px-2 py-1 text-sm text-danger" @click="leave"><PhSignOut class="size-4" /> Leave trip</button>
         </section>
       </aside>
     </div>
+
+    </template>
 
     <TripFormDialog v-model:open="editingTrip" :trip="trip" />
     <ActivityDialog v-model:open="activityDialog.open" :trip="trip" :activity="activityDialog.activity" :day="activityDialog.day" />

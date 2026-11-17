@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
-import { PhCaretUpDown, PhSignOut } from '@phosphor-icons/vue'
+import { PhCaretUpDown, PhSignOut, PhSparkle } from '@phosphor-icons/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTripsStore } from '@/stores/trips'
 
@@ -47,6 +47,7 @@ async function signOut() {
           <p class="truncate text-sm font-semibold">{{ name }}</p>
           <p class="truncate text-xs text-zinc-500">{{ authStore.user.email }}</p>
         </div>
+        <DropdownMenuItem class="menu-item" @select="router.push({ name: 'claude' })"><PhSparkle class="size-4" /> Connect Claude</DropdownMenuItem>
         <DropdownMenuItem class="menu-item" @select="signOut"><PhSignOut class="size-4" /> Sign out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenuPortal>

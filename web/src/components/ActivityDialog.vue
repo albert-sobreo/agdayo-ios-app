@@ -2,10 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { PhTrash } from '@phosphor-icons/vue'
 import AppDialog from './AppDialog.vue'
+import CostSplitFields from './CostSplitFields.vue'
+import ExchangeRateField from './ExchangeRateField.vue'
 import type { Activity, Trip } from '@/lib/model'
 import { activityIcons } from '@/lib/icons'
 import { combine, fromDateInput, toDateInput, toTimeInput } from '@/lib/dates'
-import { addActivity, deleteItem, updateActivity } from '@/lib/writes'
+import { addActivity, deleteItem, splitOf, updateActivity, type SplitInput } from '@/lib/writes'
+import { currencies } from '@/lib/money'
+import { useTripContext } from '@/composables/tripContext'
 
 const props = defineProps<{ trip: Trip; activity?: Activity; day?: Date }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -18,6 +22,10 @@ const iconName = ref('mappin.and.ellipse')
 const description = ref('')
 const cost = ref('')
 const costNote = ref('')
+const costCurrency = ref('PHP')
+const rate = ref<number | null>(null)
+const split = ref<SplitInput>(splitOf(undefined))
+const { content, people, uid } = useTripContext()
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -32,11 +40,13 @@ watch(open, (isOpen) => {
   description.value = a?.activityDescription ?? ''
   cost.value = a?.cost != null ? String(a.cost) : ''
   costNote.value = a?.costNote ?? ''
+  costCurrency.value = a?.costCurrency ?? props.trip.currency
+  rate.value = a?.exchangeRateToTripCurrency ?? null
+  split.value = splitOf(a)
   error.value = null
 })
 
-/** An activity priced in another currency keeps it, so its exchange rate stays right. */
-const costCurrency = computed(() => props.activity?.costCurrency ?? props.trip.currency)
+const allCurrencies = computed(() => (currencies.includes(costCurrency.value) ? currencies : [costCurrency.value, ...currencies]))
 const parsedCost = computed(() => (cost.value.trim() === '' ? null : Number(cost.value)))
 const valid = computed(
   () => title.value.trim() && dayInput.value && time.value && (parsedCost.value === null || (Number.isFinite(parsedCost.value) && parsedCost.value >= 0)),
@@ -55,10 +65,12 @@ async function save() {
     cost: parsedCost.value,
     costCurrency: costCurrency.value,
     costNote: costNote.value.trim(),
+    exchangeRateToTripCurrency: parsedCost.value !== null && costCurrency.value !== props.trip.currency ? rate.value : null,
+    split: parsedCost.value !== null && split.value.paidByUID ? split.value : { ...split.value, paidByUID: null, splitUIDs: [], splitAmounts: {} },
   }
   try {
     if (props.activity) await updateActivity(props.trip.id, props.activity.id, input, input.location !== props.activity.location)
-    else await addActivity(props.trip.id, input)
+    else await addActivity(props.trip.id, input, uid.value)
     open.value = false
   } catch (err) {
     console.error(err)
@@ -127,16 +139,26 @@ async function remove() {
         <label class="label" for="activity-notes">Notes</label>
         <textarea id="activity-notes" v-model="description" rows="3" class="input" placeholder="Optional" />
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-[1fr_7rem] gap-3">
         <div>
-          <label class="label" for="activity-cost">Cost ({{ costCurrency }})</label>
-          <input id="activity-cost" v-model="cost" type="number" min="0" step="any" inputmode="decimal" class="input" placeholder="0" />
+          <label class="label" for="activity-cost">Cost</label>
+          <input id="activity-cost" v-model="cost" type="number" min="0" step="any" inputmode="decimal" class="input" placeholder="Optional" />
         </div>
+        <div>
+          <label class="label" for="activity-currency">Currency</label>
+          <select id="activity-currency" v-model="costCurrency" class="input" @change="rate = null">
+            <option v-for="code in allCurrencies" :key="code" :value="code">{{ code }}</option>
+          </select>
+        </div>
+      </div>
+      <template v-if="parsedCost !== null">
+        <ExchangeRateField v-model="rate" :from="costCurrency" :to="trip.currency" :amount="parsedCost || 0" />
         <div>
           <label class="label" for="activity-cost-note">Cost note</label>
           <input id="activity-cost-note" v-model="costNote" class="input" placeholder="per person" />
         </div>
-      </div>
+        <CostSplitFields v-model="split" :people="people" :categories="content.budgetCategories.value" :total="parsedCost || 0" :currency="costCurrency" />
+      </template>
       <p v-if="error" class="text-sm text-danger">{{ error }}</p>
     </form>
     <template #footer>

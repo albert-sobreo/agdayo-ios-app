@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { PhCheck } from '@phosphor-icons/vue'
+import { PhCheck, PhTrash } from '@phosphor-icons/vue'
 import AppDialog from './AppDialog.vue'
 import UnlockNote from './UnlockNote.vue'
 import { tripThemes, type Trip, type TripTheme } from '@/lib/model'
 import { fromDateInput, toDateInput } from '@/lib/dates'
-import { createTrip, freeTripLimit, updateTrip } from '@/lib/writes'
+import { createTrip, deleteTrip, freeTripLimit, updateTrip } from '@/lib/writes'
 import { useAuthStore } from '@/stores/auth'
 import { useTripsStore } from '@/stores/trips'
 
@@ -27,6 +27,27 @@ const currency = ref('PHP')
 const description = ref('')
 const saving = ref(false)
 const error = ref<string | null>(null)
+
+/** Only the account that created a trip can delete it (TripSettingsView). */
+const canDelete = computed(() => !!props.trip && props.trip.ownerUID === authStore.user?.uid)
+async function remove() {
+  const trip = props.trip
+  const uid = authStore.user?.uid
+  if (!trip || !uid) return
+  if (!window.confirm(`Delete “${trip.name}”? This deletes it for everyone on the trip and can’t be undone.`)) return
+  saving.value = true
+  error.value = null
+  try {
+    await deleteTrip(trip.id, uid)
+    open.value = false
+    await router.replace({ name: 'trips' })
+  } catch (err) {
+    console.error(err)
+    error.value = 'Couldn’t delete the trip. Check your connection and try again.'
+  } finally {
+    saving.value = false
+  }
+}
 
 const currencies = ['PHP', 'USD', 'SGD', 'JPY', 'KRW', 'THB', 'VND', 'MYR', 'IDR', 'HKD', 'TWD', 'CNY', 'EUR', 'GBP', 'AUD', 'CAD']
 
@@ -134,7 +155,8 @@ async function save() {
       <p v-if="error" class="text-sm text-danger">{{ error }}</p>
     </form>
     <template v-if="!blocked" #footer>
-      <button type="button" class="btn-ghost" @click="open = false">Cancel</button>
+      <button v-if="canDelete" type="button" class="btn-danger" :disabled="saving" @click="remove"><PhTrash class="size-4" /> Delete trip</button>
+      <button v-else type="button" class="btn-ghost" @click="open = false">Cancel</button>
       <button type="submit" form="trip-form" class="btn-primary ml-auto" :disabled="!valid || saving">
         {{ saving ? 'Saving…' : isNew ? 'Create trip' : 'Save' }}
       </button>
