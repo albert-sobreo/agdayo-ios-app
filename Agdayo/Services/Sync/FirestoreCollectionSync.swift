@@ -59,6 +59,20 @@ enum FirestoreCollectionSync {
         }
     }
 
+    /// Fresh fetch of a subcollection straight from the server (never the
+    /// local cache), for pull to refresh. Returns every document ID, even
+    /// ones that failed to decode, so the caller only removes local items
+    /// that are really gone. IDs are compared as UUIDs, since the server may
+    /// write them in lowercase. Throws when offline.
+    static func fetchFromServer<T: Decodable>(tripID: UUID, collection name: String, as type: T.Type) async throws -> (allIDs: Set<UUID>, documents: [(id: String, data: T)]) {
+        let snapshot = try await collection(tripID: tripID, name: name).getDocuments(source: .server)
+        let documents: [(id: String, data: T)] = snapshot.documents.compactMap { doc in
+            guard let data = try? doc.data(as: T.self) else { return nil }
+            return (doc.documentID, data)
+        }
+        return (Set(snapshot.documents.compactMap { UUID(uuidString: $0.documentID) }), documents)
+    }
+
     /// Listens to the `trips/{tripID}` document itself (not a subcollection).
     /// Calls back with `nil` only when the document itself is confirmed gone
     /// (e.g. the owner deleted the trip from another device) — a `nil`
