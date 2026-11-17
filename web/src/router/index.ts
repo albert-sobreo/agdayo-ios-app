@@ -19,4 +19,9 @@ router.beforeEach(async (to) => {
   if (!to.meta.public && !authStore.user) return { name: 'sign-in', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
 })
 
+// On desktop the page scrolls inside the main pane, not the window.
+router.afterEach((to, from) => {
+  if (to.fullPath !== from.fullPath) document.getElementById('main-scroll')?.scrollTo({ top: 0 })
+})
+
 export default router

@@ -70,6 +70,12 @@ function memberName(uid: string) {
   if (uid === authStore.user?.uid) return 'You'
   return profiles.value[uid]?.displayName || 'Traveler'
 }
+const stats = computed(() => [
+  { label: 'Days', value: days.value.length },
+  { label: 'Plans', value: activities.value.length },
+  { label: 'Stays', value: stays.value.length },
+  { label: 'People', value: members.value.length || 1 },
+])
 const sortedMembers = computed(() => [...members.value].sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0)))
 const isFreeTrip = computed(() => trip.value?.ownerUnlocked === false)
 
@@ -117,49 +123,59 @@ function openEntry(entry: Entry) {
     <RouterLink to="/" class="btn-primary mt-6">Back to my trips</RouterLink>
   </main>
 
-  <main v-else :data-theme="trip.theme" class="mx-auto max-w-5xl overflow-x-clip px-4 pt-4 pb-24">
-    <RouterLink to="/" class="btn-ghost -ml-3 mb-2"><PhCaretLeft class="size-4" /> My trips</RouterLink>
+  <main v-else :data-theme="trip.theme" class="overflow-x-clip px-4 pt-4 pb-24 lg:px-8 lg:pt-6 xl:px-10">
+    <RouterLink to="/" class="btn-ghost -ml-3 mb-2 lg:hidden"><PhCaretLeft class="size-4" /> My trips</RouterLink>
 
     <!-- Header -->
     <section class="sticker-card-trip overflow-hidden rounded-card">
-      <div class="bg-trip-50 px-5 pt-5 pb-6 sm:px-8 sm:pt-7">
-        <div class="flex items-start justify-between gap-3">
-          <span
-            v-if="status"
-            class="rounded-pill px-2 py-0.5 text-[11px] font-bold tracking-wider uppercase"
-            :class="status.kind === 'active' ? 'bg-mint text-mint-text' : status.kind === 'past' ? 'bg-zinc-100 text-zinc-500' : 'bg-trip-100 text-ink/70'"
-          >{{ status.label }}</span>
-          <button v-if="isOwner" class="icon-btn -mt-1 -mr-2" aria-label="Edit trip details" @click="editingTrip = true">
-            <PhPencilSimple class="size-4.5" />
-          </button>
+      <div class="flex flex-col gap-6 bg-trip-50 px-5 pt-5 pb-6 sm:px-8 sm:pt-7 xl:px-10 xl:pt-8 xl:pb-8 2xl:flex-row 2xl:items-end 2xl:justify-between">
+        <div class="min-w-0">
+          <div class="flex items-center gap-3">
+            <span
+              v-if="status"
+              class="rounded-pill px-2 py-0.5 text-[11px] font-bold tracking-wider uppercase"
+              :class="status.kind === 'active' ? 'bg-mint text-mint-text' : status.kind === 'past' ? 'bg-zinc-100 text-zinc-500' : 'bg-trip-100 text-ink/70'"
+            >{{ status.label }}</span>
+            <button v-if="isOwner" class="icon-btn -my-2 ml-auto lg:ml-0" aria-label="Edit trip details" @click="editingTrip = true">
+              <PhPencilSimple class="size-4.5" />
+            </button>
+          </div>
+          <h1 class="display-title mt-3 text-5xl text-trip-700! break-words sm:text-7xl 2xl:text-8xl">{{ trip.name }}</h1>
+          <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-600">
+            <span class="flex items-center gap-1.5"><PhMapPin class="size-4 shrink-0 text-trip-500" /> {{ trip.location || 'No location yet' }}</span>
+            <span>{{ formatRange(trip.startDate, trip.endDate) }}</span>
+          </p>
+          <p v-if="trip.tripDescription" class="mt-3 max-w-2xl text-sm whitespace-pre-line text-zinc-700">{{ trip.tripDescription }}</p>
         </div>
-        <h1 class="display-title mt-3 text-5xl break-words sm:text-7xl">{{ trip.name }}</h1>
-        <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-600">
-          <span class="flex items-center gap-1.5"><PhMapPin class="size-4 shrink-0 text-trip-500" /> {{ trip.location || 'No location yet' }}</span>
-          <span>{{ formatRange(trip.startDate, trip.endDate) }}</span>
-        </p>
-        <p v-if="trip.tripDescription" class="mt-3 max-w-2xl text-sm whitespace-pre-line text-zinc-700">{{ trip.tripDescription }}</p>
+        <!-- At a glance -->
+        <dl class="grid shrink-0 grid-cols-4 gap-2 sm:gap-3 lg:max-w-lg 2xl:max-w-none">
+          <div v-for="stat in stats" :key="stat.label" class="rounded-dense border border-trip-border bg-white/70 px-3 py-2.5 text-center xl:min-w-24 xl:px-4">
+            <dt class="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">{{ stat.label }}</dt>
+            <dd class="font-display text-3xl leading-tight font-bold text-ink xl:text-4xl">{{ stat.value }}</dd>
+          </div>
+        </dl>
       </div>
-      <!-- Day jump bar -->
-      <nav class="flex gap-2 overflow-x-auto bg-white px-5 py-3 sm:px-8" aria-label="Days">
-        <button
-          v-for="(day, index) in days"
-          :key="day.getTime()"
-          class="shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition"
-          :class="index === todayIndex ? 'border-trip-500 bg-trip-500 text-white' : 'border-trip-border bg-trip-50 text-ink hover:bg-trip-100'"
-          @click="scrollToDay(index)"
-        >
-          Day {{ index + 1 }} <span class="opacity-70">· {{ formatShort(day) }}</span>
-        </button>
-      </nav>
     </section>
+
+    <!-- Day jump bar: stays in view while scrolling -->
+    <nav class="sticky top-14 z-20 -mx-4 mt-4 flex gap-2 overflow-x-auto bg-canvas/90 px-4 py-2.5 backdrop-blur lg:top-0 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10" aria-label="Days">
+      <button
+        v-for="(day, index) in days"
+        :key="day.getTime()"
+        class="shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition"
+        :class="index === todayIndex ? 'border-trip-500 bg-trip-500 text-white' : 'border-trip-border bg-white text-ink hover:bg-trip-50'"
+        @click="scrollToDay(index)"
+      >
+        Day {{ index + 1 }} <span class="opacity-70">· {{ formatShort(day) }}</span>
+      </button>
+    </nav>
 
     <p v-if="content.error.value" class="mt-4 rounded-dense bg-danger/10 p-3 text-sm text-danger">{{ content.error.value }}</p>
 
-    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div class="mt-4 grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
       <!-- Itinerary -->
-      <div class="min-w-0 space-y-8">
-        <section v-for="(day, index) in days" :id="`day-${index}`" :key="day.getTime()" class="scroll-mt-20">
+      <div class="grid min-w-0 content-start gap-8 min-[1800px]:grid-cols-2 min-[1800px]:gap-x-10">
+        <section v-for="(day, index) in days" :id="`day-${index}`" :key="day.getTime()" class="min-w-0 scroll-mt-32 lg:scroll-mt-20">
           <div class="mb-3 flex items-center justify-between gap-2">
             <div>
               <p class="tracked-label">Day {{ index + 1 }}</p>
@@ -243,7 +259,7 @@ function openEntry(entry: Entry) {
           </button>
         </section>
 
-        <section v-if="outside.length">
+        <section v-if="outside.length" class="min-[1800px]:col-span-2">
           <p class="tracked-label">Outside the trip dates</p>
           <ul class="mt-2 space-y-2">
             <li v-for="entry in outside" :key="entry.key">
@@ -257,7 +273,7 @@ function openEntry(entry: Entry) {
       </div>
 
       <!-- Side column -->
-      <aside class="min-w-0 space-y-6">
+      <aside class="min-w-0 space-y-6 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-2">
         <section class="sticker-card-trip p-4">
           <div class="flex items-center justify-between">
             <h2 class="tracked-label flex items-center gap-1.5"><PhBed class="size-3.5" /> Stays</h2>

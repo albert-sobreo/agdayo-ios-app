@@ -72,32 +72,33 @@
   --color-trip-200: var(--trip-200);       /* progress track */
   --color-trip-500: var(--trip-500);       /* accent */
   --color-trip-border: var(--trip-border); /* card border and sticker shadow */
+  --color-trip-700: var(--trip-700);       /* dark shade, readable as text: trip titles */
 }
 
 :root,
 [data-theme="peach"] {
-  --trip-50: #fff6f3; --trip-100: #ffeae5; --trip-200: #fdd3c7; --trip-500: #f0a693; --trip-border: #f1e3e0;
+  --trip-50: #fff6f3; --trip-100: #ffeae5; --trip-200: #fdd3c7; --trip-500: #f0a693; --trip-border: #f1e3e0; --trip-700: #c2654d;
 }
 [data-theme="blue"] {
-  --trip-50: #f0f9ff; --trip-100: #e0f2fe; --trip-200: #bae6fd; --trip-500: #0ea5e9; --trip-border: #e0f2fe;
+  --trip-50: #f0f9ff; --trip-100: #e0f2fe; --trip-200: #bae6fd; --trip-500: #0ea5e9; --trip-border: #e0f2fe; --trip-700: #0369a1;
 }
 [data-theme="amber"] {
-  --trip-50: #fffbeb; --trip-100: #fef3c7; --trip-200: #fde68a; --trip-500: #f59e0b; --trip-border: #fef3c7;
+  --trip-50: #fffbeb; --trip-100: #fef3c7; --trip-200: #fde68a; --trip-500: #f59e0b; --trip-border: #fef3c7; --trip-700: #b45309;
 }
 [data-theme="emerald"] {
-  --trip-50: #ecfdf5; --trip-100: #d1fae5; --trip-200: #a7f3d0; --trip-500: #10b981; --trip-border: #e6faf2;
+  --trip-50: #ecfdf5; --trip-100: #d1fae5; --trip-200: #a7f3d0; --trip-500: #10b981; --trip-border: #e6faf2; --trip-700: #047857;
 }
 [data-theme="violet"] {
-  --trip-50: #f5f3ff; --trip-100: #ede9fe; --trip-200: #ddd6fe; --trip-500: #8b5cf6; --trip-border: #ede9fe;
+  --trip-50: #f5f3ff; --trip-100: #ede9fe; --trip-200: #ddd6fe; --trip-500: #8b5cf6; --trip-border: #ede9fe; --trip-700: #6d28d9;
 }
 [data-theme="teal"] {
-  --trip-50: #f0fdfa; --trip-100: #ccfbf1; --trip-200: #99f6e4; --trip-500: #14b8a6; --trip-border: #ccfbf1;
+  --trip-50: #f0fdfa; --trip-100: #ccfbf1; --trip-200: #99f6e4; --trip-500: #14b8a6; --trip-border: #ccfbf1; --trip-700: #0f766e;
 }
 [data-theme="rose"] {
-  --trip-50: #fff1f2; --trip-100: #ffe4e6; --trip-200: #fecdd3; --trip-500: #f43f5e; --trip-border: #ffe4e6;
+  --trip-50: #fff1f2; --trip-100: #ffe4e6; --trip-200: #fecdd3; --trip-500: #f43f5e; --trip-border: #ffe4e6; --trip-700: #be123c;
 }
 [data-theme="slate"] {
-  --trip-50: #f8fafc; --trip-100: #f1f5f9; --trip-200: #e2e8f0; --trip-500: #64748b; --trip-border: #f1f5f9;
+  --trip-50: #f8fafc; --trip-100: #f1f5f9; --trip-200: #e2e8f0; --trip-500: #64748b; --trip-border: #f1f5f9; --trip-700: #334155;
 }
 
 @layer base {
