@@ -35,14 +35,14 @@ async function signOut() {
         <span class="min-w-0 flex-1">
           <span class="block truncate text-sm font-semibold">{{ name }}</span>
           <span class="block truncate text-xs" :class="tripsStore.isUnlocked ? 'text-mint-text' : 'text-zinc-500'">
-            {{ tripsStore.isUnlocked ? 'Full version' : 'Free version' }}
+            {{ tripsStore.isUnlocked ? 'Full Version' : 'Free Version' }}
           </span>
         </span>
         <PhCaretUpDown class="size-4 shrink-0 text-zinc-400" />
       </template>
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
-      <DropdownMenuContent :align="full ? 'start' : 'end'" :side="full ? 'top' : 'bottom'" :side-offset="6" class="z-50 min-w-56 rounded-dense border border-secondary bg-white p-1 shadow-sticker">
+      <DropdownMenuContent :align="full ? 'start' : 'end'" :side="full ? 'top' : 'bottom'" :side-offset="6" class="menu-content z-50 min-w-56 rounded-dense border border-secondary bg-white p-1 shadow-sticker">
         <div class="px-3 py-2">
           <p class="truncate text-sm font-semibold">{{ name }}</p>
           <p class="truncate text-xs text-zinc-500">{{ authStore.user.email }}</p>

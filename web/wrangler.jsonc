@@ -4,6 +4,13 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "agdayo-web",
   "compatibility_date": "2026-11-01",
+  // https://agdayo.app (and www). Cloudflare creates the DNS records and
+  // certificates on deploy; the agdayo.app zone must be in this account.
+  "routes": [
+    { "pattern": "agdayo.app", "custom_domain": true },
+    { "pattern": "www.agdayo.app", "custom_domain": true }
+  ],
+  "workers_dev": true,
   "assets": {
     "directory": "./dist",
     // Any path that isn't a file (like /trip/123) serves index.html, so Vue Router handles it.

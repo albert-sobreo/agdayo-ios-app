@@ -11,12 +11,19 @@ import { useTripContext } from '@/composables/tripContext'
  * ride. Pick a day to see just that day, numbered in order, with a line joining
  * its activities (travel legs only ever join two activities, like the itinerary).
  */
-const emit = defineEmits<{ activity: [Activity]; stay: [Stay]; transport: [Transport] }>()
+const props = withDefaults(defineProps<{
+  /** full: day chips above a tall map. fill: just the map, filling its box. preview: a small map you can't move. */
+  variant?: 'full' | 'fill' | 'preview'
+  /** fill: the pin to zoom in on and select (an "a-…", "s-…", "tf-…" or "tt-…" key). */
+  focus?: string | null
+}>(), { variant: 'full', focus: null })
+const emit = defineEmits<{ activity: [Activity]; stay: [Stay]; transport: [Transport]; select: [string | null] }>()
+/** The day shown, as an index into the trip's days; null is every day. */
+const dayIndex = defineModel<number | null>('day', { default: null })
 const { trip, content } = useTripContext()
 const { activities, stays, transport } = content
 
 const days = computed(() => tripDays(trip.value.startDate, trip.value.endDate))
-const dayIndex = ref<number | null>(null)
 const day = computed(() => (dayIndex.value === null ? null : days.value[dayIndex.value] ?? null))
 
 type Pin = {
@@ -88,6 +95,7 @@ function draw() {
   const m = map.value
   if (!mk || !m) return
   m.removeAnnotations(m.annotations)
+  byKey.clear()
   m.removeOverlays(m.overlays)
 
   const accent = themeColor('--trip-500', '#f0a693')
@@ -110,7 +118,13 @@ function draw() {
       opacity: pin.coordinate ? 1 : 0.75,
       data: { key: pin.key },
     })
-    annotation.addEventListener('select', () => pin.open())
+    if (props.variant === 'fill') {
+      // In the map view a pin selects its stop in the list; editing has its own button there.
+      annotation.addEventListener('select', () => emit('select', pin.key))
+    } else if (props.variant !== 'preview') {
+      annotation.addEventListener('select', () => pin.open())
+    }
+    byKey.set(pin.key, annotation)
     annotations.push(annotation)
   }
   m.addAnnotations(annotations)
@@ -124,7 +138,9 @@ function draw() {
     )
     m.addOverlays(overlays)
   }
-  if (annotations.length) {
+  if (props.focus && byKey.has(props.focus)) {
+    byKey.get(props.focus)!.selected = true
+  } else if (annotations.length) {
     m.showItems([...annotations, ...overlays], {
       animate: true,
       padding: new mk.Padding(60, 40, 40, 40),
@@ -135,6 +151,22 @@ function draw() {
   }
 }
 
+const byKey = new Map<string, MKAnnotation>()
+
+/** Zoom in on one pin and select it. */
+function zoomTo(key: string | null) {
+  const mk = mapkit.value
+  const m = map.value
+  if (!mk || !m || !key) return
+  const annotation = byKey.get(key)
+  if (!annotation) return
+  const c = annotation.coordinate
+  m.setRegionAnimated(new mk.CoordinateRegion(new mk.Coordinate(c.latitude, c.longitude), new mk.CoordinateSpan(0.006, 0.006)), true)
+  annotation.selected = true
+}
+
+watch(() => props.focus, (key) => zoomTo(key))
+
 onMounted(async () => {
   try {
     const mk = await loadMapKit()
@@ -143,7 +175,12 @@ onMounted(async () => {
     mk.addEventListener('error', (event) => {
       error.value = event.status === 'Unauthorized' ? 'The map isn’t set up on the server yet.' : 'The map couldn’t load.'
     })
-    map.value = new mk.Map(el.value, { showsPointsOfInterest: true, isRotationEnabled: false })
+    const still = props.variant === 'preview'
+    map.value = new mk.Map(el.value, {
+      showsPointsOfInterest: !still,
+      isRotationEnabled: false,
+      ...(still ? { isScrollEnabled: false, isZoomEnabled: false, showsCompass: 'hidden', showsZoomControl: false, showsMapTypeControl: false } : {}),
+    })
     draw()
     void findMissing()
   } catch (err) {
@@ -160,8 +197,8 @@ onBeforeUnmount(() => map.value?.destroy())
 </script>
 
 <template>
-  <div class="space-y-3">
-    <nav class="-mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0" aria-label="Map days">
+  <div :class="variant === 'full' ? 'space-y-3' : 'relative h-full'">
+    <nav v-if="variant === 'full'" class="-mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0" aria-label="Map days">
       <button
         class="shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition"
         :class="dayIndex === null ? 'border-trip-500 bg-trip-500 text-white' : 'border-trip-border bg-white hover:bg-trip-50'"
@@ -176,8 +213,12 @@ onBeforeUnmount(() => map.value?.destroy())
       >Day {{ i + 1 }} <span class="opacity-70">· {{ formatShort(d) }}</span></button>
     </nav>
 
-    <div class="sticker-card-trip relative overflow-hidden rounded-card-sm">
-      <div ref="el" class="h-[60dvh] min-h-80 w-full bg-card-surface lg:h-[calc(100dvh-22rem)]" />
+    <div :class="variant === 'full' ? 'sticker-card-trip relative overflow-hidden rounded-card-sm' : 'relative h-full'">
+      <div
+        ref="el"
+        class="w-full bg-card-surface"
+        :class="variant === 'full' ? 'h-[60dvh] min-h-80 lg:h-[calc(100dvh-22rem)]' : 'h-full min-h-48'"
+      />
       <div v-if="error" class="absolute inset-0 flex items-center justify-center bg-card-surface p-6 text-center">
         <p class="text-sm text-zinc-600">{{ error }}</p>
       </div>
@@ -186,8 +227,12 @@ onBeforeUnmount(() => map.value?.destroy())
       </p>
     </div>
 
-    <p v-if="searching" class="text-xs text-zinc-500">Finding places without a pin…</p>
-    <div v-if="unpinned.length" class="rounded-dense bg-card-surface p-3 text-sm">
+    <p v-if="searching && variant !== 'preview'" class="text-xs text-zinc-500" :class="variant === 'fill' ? 'absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5' : ''">Finding places without a pin…</p>
+    <div
+      v-if="unpinned.length && variant !== 'preview'"
+      class="rounded-dense p-3 text-sm"
+      :class="variant === 'fill' ? 'absolute top-3 left-3 max-w-80 border border-secondary bg-white/90 backdrop-blur' : 'bg-card-surface'"
+    >
       <p class="flex items-center gap-1.5 font-medium"><PhMapPinLine class="size-4" /> Not on the map</p>
       <p class="mt-1 text-zinc-600">
         Couldn’t find {{ unpinned.map((p) => p.title).join(', ') }}. Pick the place in the iPhone app to pin it.

@@ -6,9 +6,11 @@ import Foundation
 /// connector, plus connect codes for it. It only answers signed-in accounts,
 /// so the address is fine to keep in the repo.
 enum AgdayoServer {
-    static let baseURL = URL(string: "https://agdayo.albertcorpmail.workers.dev")!
+    static let baseURL = URL(string: "https://api.agdayo.app")!
 
     /// The address people paste into Claude to add Agdayo as a connector.
+    /// Connectors added earlier at https://agdayo.albertcorpmail.workers.dev/mcp
+    /// keep working: the Worker answers on both addresses.
     static let connectorURL = baseURL.appending(path: "mcp")
 
     /// The country guide is switched off for now. Saved guides stay on the

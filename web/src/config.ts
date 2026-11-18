@@ -17,8 +17,8 @@ export const config = {
     messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1015175012900',
     appId: env.VITE_FIREBASE_APP_ID || undefined,
   },
-  /** The Agdayo Worker (API + MCP connector). */
-  workerUrl: env.VITE_WORKER_URL || 'https://agdayo.albertcorpmail.workers.dev',
+  /** The Agdayo Worker (API + MCP connector). The old https://agdayo.albertcorpmail.workers.dev still works too. */
+  workerUrl: env.VITE_WORKER_URL || 'https://api.agdayo.app',
   /** Where "Get the app" links go. TODO: the app's App Store link. */
   appStoreUrl: env.VITE_APP_STORE_URL || '',
 }

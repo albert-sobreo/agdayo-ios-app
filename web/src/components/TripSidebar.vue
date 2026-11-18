@@ -37,8 +37,8 @@ const current = computed(() =>
 const past = computed(() => tripsStore.trips.filter((t) => startOfDay(t.endDate) < today && matches(t)))
 const sections = computed(() =>
   [
-    { title: 'Upcoming and current', trips: current.value },
-    { title: 'Past trips', trips: past.value },
+    { title: 'Upcoming', trips: current.value },
+    { title: 'Past Trips', trips: past.value },
   ].filter((s) => s.trips.length),
 )
 const selectedId = computed(() => (route.name === 'trip' ? String(route.params.id) : null))
@@ -56,12 +56,11 @@ const selectedId = computed(() => (route.name === 'trip' ? String(route.params.i
 
     <div class="space-y-3 px-4" :class="page ? 'pt-5' : ''">
       <div v-if="page">
-        <p class="tracked-label">My trips</p>
-        <h1 class="display-title mt-1 text-5xl">Your trips</h1>
+        <h1 class="display-title text-5xl">My Trips</h1>
       </div>
       <div class="flex gap-2">
-        <button class="btn-primary flex-1" @click="creating = true"><PhPlus class="size-4" /> New trip</button>
-        <button class="btn-secondary" @click="joining = true"><PhTicket class="size-4" /> Join</button>
+        <button class="btn-primary flex-1" @click="creating = true"><PhPlus class="size-4" /> Create Trip</button>
+        <button class="btn-secondary" @click="joining = true"><PhTicket class="size-4" /> Join with Code</button>
       </div>
       <div v-if="tripsStore.trips.length > 4" class="relative">
         <label class="sr-only" for="trip-search">Search trips</label>
@@ -69,7 +68,7 @@ const selectedId = computed(() => (route.name === 'trip' ? String(route.params.i
         <input id="trip-search" v-model="query" type="search" class="input py-2 pl-9 text-sm" placeholder="Search trips" />
       </div>
       <p v-if="!tripsStore.isUnlocked && !tripsStore.loading" class="text-xs text-zinc-500">
-        Free version: {{ Math.min(tripsStore.ownedTrips.length, freeTripLimit) }} of {{ freeTripLimit }} trips used. Trips you join don’t count.
+        Free Version: {{ Math.min(tripsStore.ownedTrips.length, freeTripLimit) }} of {{ freeTripLimit }} trips used. Trips you join don’t count.
       </p>
     </div>
 
@@ -88,15 +87,18 @@ const selectedId = computed(() => (route.name === 'trip' ? String(route.params.i
       <section v-for="section in sections" :key="section.title" class="mt-2 first:mt-0">
         <h2 class="tracked-label px-2 pt-2 pb-1.5">{{ section.title }}</h2>
         <ul class="space-y-1">
-          <li v-for="trip in section.trips" :key="trip.id">
+          <li v-for="(trip, n) in section.trips" :key="trip.id" class="rise" :style="{ '--i': n }">
             <RouterLink
               :to="{ name: 'trip', params: { id: trip.id } }"
               :data-theme="trip.theme"
-              class="group flex items-center gap-3 rounded-dense border px-3 py-2.5 transition"
-              :class="selectedId === trip.id ? 'border-trip-border bg-white shadow-sticker-trip' : 'border-transparent hover:bg-black/[0.04]'"
+              class="press group flex items-center gap-3 rounded-dense border px-3 py-2.5 transition"
+              :class="selectedId === trip.id ? 'border-trip-200 bg-white shadow-[2px_2px_0_0_var(--trip-200)]' : 'border-transparent hover:bg-black/[0.04]'"
               :aria-current="selectedId === trip.id ? 'page' : undefined"
             >
-              <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-trip-100 font-display text-lg font-bold text-trip-500 uppercase">
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-xl font-display text-xl font-bold uppercase"
+                :class="tripStatus(trip.startDate, trip.endDate).kind === 'active' ? 'bg-trip-700 text-white' : 'bg-trip-100 text-trip-700'"
+              >
                 {{ trip.name.trim().charAt(0) || '?' }}
               </span>
               <span class="min-w-0 flex-1">
@@ -104,7 +106,10 @@ const selectedId = computed(() => (route.name === 'trip' ? String(route.params.i
                   <span class="truncate font-semibold">{{ trip.name }}</span>
                   <span v-if="tripStatus(trip.startDate, trip.endDate).kind === 'active'" class="size-2 shrink-0 rounded-full bg-success" title="Happening now" />
                 </span>
-                <span class="block truncate text-xs text-zinc-500">
+                <span v-if="tripStatus(trip.startDate, trip.endDate).kind === 'active'" class="block truncate text-xs font-semibold text-mint-text">
+                  {{ tripStatus(trip.startDate, trip.endDate).label.replace('Active · ', '') }}<template v-if="trip.location"> · {{ trip.location }}</template>
+                </span>
+                <span v-else class="block truncate text-xs text-zinc-500">
                   {{ formatRange(trip.startDate, trip.endDate) }}<template v-if="trip.location"> · {{ trip.location }}</template>
                 </span>
                 <span v-if="trip.ownerUID !== authStore.user?.uid" class="mt-0.5 block text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">Shared with you</span>

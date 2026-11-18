@@ -4,6 +4,13 @@
 	"name": "agdayo",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-11-01",
+	// https://api.agdayo.app is the main address (API + Claude connector at /mcp).
+	// Keep workers.dev on: connectors people already added point at
+	// https://agdayo.albertcorpmail.workers.dev/mcp and must keep working.
+	"routes": [
+		{ "pattern": "api.agdayo.app", "custom_domain": true }
+	],
+	"workers_dev": true,
 	"compatibility_flags": [
 		"nodejs_compat"
 	],

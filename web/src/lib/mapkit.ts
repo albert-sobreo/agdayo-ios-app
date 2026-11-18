@@ -17,6 +17,7 @@ export type MKCoordinate = Coordinate
 export interface MKAnnotation {
   coordinate: MKCoordinate
   data: Record<string, unknown>
+  selected: boolean
   addEventListener(type: 'select' | 'deselect', listener: () => void): void
 }
 export interface MKOverlay {
@@ -33,6 +34,7 @@ export interface MKMap {
   removeOverlays(list: MKOverlay[]): void
   showItems(items: (MKAnnotation | MKOverlay)[], options?: { animate?: boolean; padding?: unknown; minimumSpan?: unknown }): void
   setCenterAnimated(coordinate: MKCoordinate, animate?: boolean): void
+  setRegionAnimated(region: unknown, animate?: boolean): void
   destroy(): void
 }
 interface MKSearchPlace {
@@ -43,6 +45,7 @@ export interface MapKit {
   Map: new (element: HTMLElement, options?: Record<string, unknown>) => MKMap
   Coordinate: new (latitude: number, longitude: number) => MKCoordinate
   CoordinateSpan: new (latitudeDelta: number, longitudeDelta: number) => unknown
+  CoordinateRegion: new (center: MKCoordinate, span: unknown) => unknown
   Padding: new (top: number, right: number, bottom: number, left: number) => unknown
   MarkerAnnotation: new (coordinate: MKCoordinate, options?: Record<string, unknown>) => MKAnnotation
   PolylineOverlay: new (points: MKCoordinate[], options?: Record<string, unknown>) => MKOverlay

@@ -160,3 +160,111 @@
     @apply flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-highlighted:bg-black/5;
   }
 }
+
+/* ───────── Motion ─────────
+   Springy, quick and small, like the iPhone app. Everything here switches off
+   for people who ask their device for reduced motion. */
+@theme {
+  --ease-spring: cubic-bezier(0.22, 1.25, 0.36, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes live-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+@layer components {
+  /* Content that eases up into place. Give siblings style="--i: n" to stagger them. */
+  .rise {
+    animation: rise 480ms var(--ease-out-soft) both;
+    animation-delay: calc(min(var(--i, 0), 12) * 40ms);
+  }
+  .fade-in { animation: fade-in 300ms ease-out both; }
+  /* Progress bars fill from the left the first time they show. */
+  .grow-x {
+    transform-origin: left;
+    animation: grow-x 700ms var(--ease-out-soft) 150ms both;
+  }
+  /* A small "live" dot, e.g. next to Next Up. */
+  .live-dot {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: currentColor;
+  }
+  .live-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    animation: live-ping 1.8s ease-out infinite;
+  }
+
+  /* Dialogs: a sheet sliding up on phones, a soft pop on wider screens. */
+  .app-overlay[data-state='open'] { animation: fade-in 200ms ease-out; }
+  .app-overlay[data-state='closed'] { animation: fade-out 160ms ease-in; }
+  .app-dialog[data-state='open'] { animation: sheet-up 380ms var(--ease-out-soft); }
+  .app-dialog[data-state='closed'] { animation: sheet-down 220ms ease-in; }
+  @media (min-width: 640px) {
+    .app-dialog[data-state='open'] { animation: pop-in 260ms var(--ease-spring); }
+    .app-dialog[data-state='closed'] { animation: pop-out 150ms ease-in; }
+  }
+
+  /* Dropdown menus grow out of the button that opened them. */
+  .menu-content {
+    transform-origin: var(--reka-dropdown-menu-content-transform-origin);
+  }
+  .menu-content[data-state='open'] { animation: menu-in 180ms var(--ease-spring); }
+  .menu-content[data-state='closed'] { animation: fade-out 120ms ease-in; }
+
+  /* Press feedback on every button, like the app's scale-down on tap. */
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn, .press {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform, translate;
+    transition-duration: 180ms;
+    transition-timing-function: var(--ease-spring);
+  }
+  .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active, .icon-btn:active, .press:active {
+    transform: scale(0.96);
+  }
+}
+
+/* Switching trip sections: the new one eases in. */
+.tab-enter-active { transition: opacity 260ms var(--ease-out-soft), transform 260ms var(--ease-out-soft); }
+.tab-leave-active { transition: opacity 120ms ease-in; }
+.tab-enter-from { opacity: 0; transform: translateY(8px); }
+.tab-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

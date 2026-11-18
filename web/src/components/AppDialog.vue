@@ -10,10 +10,10 @@ const open = defineModel<boolean>('open', { required: true })
 <template>
   <DialogRoot v-model:open="open">
     <DialogPortal>
-      <DialogOverlay class="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" />
+      <DialogOverlay class="app-overlay fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" />
       <DialogContent
         :data-theme="theme"
-        class="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-card-sm bg-canvas shadow-xl outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card-sm"
+        class="app-dialog fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-card-sm bg-canvas shadow-xl outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card-sm"
       >
         <div class="flex items-center justify-between gap-3 border-b border-black/5 px-5 pt-4 pb-3">
           <div class="min-w-0">

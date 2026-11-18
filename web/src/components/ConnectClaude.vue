@@ -56,7 +56,7 @@ async function copy(text: string, which: 'url' | 'code') {
   <div class="mx-auto max-w-2xl space-y-4">
     <section class="rounded-card bg-blush p-5 sm:p-6">
       <PhSparkle class="size-7 text-maroon" weight="fill" />
-      <h2 class="mt-2 font-display text-4xl font-semibold text-maroon uppercase">Plan with Claude</h2>
+      <h2 class="mt-2 font-display text-4xl font-semibold text-maroon uppercase">Connect Claude</h2>
       <p class="mt-1 text-maroon/85">
         Plan a trip by chatting with Claude, then have it write the plan straight into Agdayo: activities, stays, transport and notes.
         Works on Claude’s free plan.
